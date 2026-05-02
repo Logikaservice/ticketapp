@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Calendar, Building, Mail, User, Clock, Activity, Filter, RefreshCw } from 'lucide-react';
+import { Search, Calendar, Building, Mail, User, Clock, Activity, Filter, RefreshCw } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
-import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
+import { HUB_MODAL_FIELD_CLS, HUB_MODAL_LABEL_CLS } from '../../utils/techHubAccent';
+import {
+  HubModalInnerCard,
+  HubModalChromeHeader,
+  HubModalChromeFooter,
+  HubModalSecondaryButton
+} from './HubModalChrome';
 
 const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
   const [logs, setLogs] = useState([]);
@@ -143,96 +149,78 @@ const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div
-          className="flex items-center justify-between rounded-t-2xl border-b border-black/10 px-6 py-4"
-          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
+    <HubModalInnerCard maxWidthClass="max-w-7xl" className="flex max-h-[90vh] w-full flex-col overflow-hidden">
+      <HubModalChromeHeader
+        icon={Activity}
+        title="Log Accessi"
+        subtitle="Monitoraggio accessi al portale"
+        onClose={onClose}
+      />
+      <div className="flex shrink-0 justify-end border-b border-white/10 bg-black/20 px-4 py-2">
+        <button
+          type="button"
+          onClick={fetchLogs}
+          disabled={loading}
+          className="rounded-lg bg-white/10 p-2 text-white ring-1 ring-white/15 transition hover:bg-white/16 disabled:cursor-not-allowed disabled:opacity-50"
+          title="Aggiorna"
+          aria-label="Aggiorna"
         >
+          <RefreshCw size={18} className={loading ? 'animate-spin' : ''} aria-hidden />
+        </button>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-3 gap-4 border-b border-white/10 bg-black/20 px-6 py-4">
+        <div className="rounded-xl border border-white/10 bg-black/20 p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-black/20 ring-1 ring-black/10">
-              <Activity size={24} aria-hidden />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-500/20 ring-1 ring-sky-500/30">
+              <Activity size={20} className="text-sky-300" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold">Log Accessi</h2>
-              <p className="text-sm opacity-90">Monitoraggio accessi al portale</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={fetchLogs}
-              disabled={loading}
-              className="rounded-lg p-2 transition hover:bg-black/20 disabled:cursor-not-allowed disabled:opacity-50"
-              title="Aggiorna"
-              aria-label="Aggiorna"
-            >
-              <RefreshCw size={20} className={loading ? 'animate-spin' : ''} aria-hidden />
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg p-2 transition hover:bg-black/20"
-              aria-label="Chiudi"
-            >
-              <X size={24} aria-hidden />
-            </button>
-          </div>
-        </div>
-
-        {/* Summary Cards */}
-        <div className="px-6 py-4 bg-gray-50 border-b grid grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Activity size={20} className="text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Totale Accessi</p>
-                <p className="text-2xl font-bold text-gray-900">{summary.total}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <Clock size={20} className="text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Sessioni Attive</p>
-                <p className="text-2xl font-bold text-green-600">{summary.activeSessions}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                <User size={20} className="text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Utenti Unici</p>
-                <p className="text-2xl font-bold text-purple-600">{summary.uniqueUsers}</p>
-              </div>
+              <p className="text-sm text-white/55">Totale Accessi</p>
+              <p className="text-2xl font-bold text-white">{summary.total}</p>
             </div>
           </div>
         </div>
+        <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/20 ring-1 ring-emerald-500/30">
+              <Clock size={20} className="text-emerald-300" />
+            </div>
+            <div>
+              <p className="text-sm text-white/55">Sessioni Attive</p>
+              <p className="text-2xl font-bold text-emerald-300">{summary.activeSessions}</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/20 ring-1 ring-violet-500/30">
+              <User size={20} className="text-violet-300" />
+            </div>
+            <div>
+              <p className="text-sm text-white/55">Utenti Unici</p>
+              <p className="text-2xl font-bold text-violet-300">{summary.uniqueUsers}</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-        {/* Filters */}
-        <div className="px-6 py-4 bg-white border-b">
-          <div className="flex items-center gap-2 mb-4">
-            <Filter size={18} className="text-gray-500" />
-            <h3 className="font-semibold text-gray-700">Filtri</h3>
+      {/* Filters */}
+      <div className="border-b border-white/10 px-6 py-4">
+          <div className="mb-4 flex items-center gap-2">
+            <Filter size={18} className="text-white/45" />
+            <h3 className="font-semibold text-white/85">Filtri</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
             {/* Campo ricerca unificato con selezione tipo */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Ricerca</label>
+              <label className={HUB_MODAL_LABEL_CLS}>Ricerca</label>
               <div className="flex gap-2">
                 <select
                   value={filters.searchType}
                   onChange={(e) => handleFilterChange('searchType', e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm bg-white min-w-[100px]"
+                  className={`min-w-[100px] shrink-0 ${HUB_MODAL_FIELD_CLS}`}
                 >
                   <option value="all">Tutto</option>
                   <option value="company">Azienda</option>
@@ -240,11 +228,11 @@ const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
                 </select>
                 <div className="relative flex-1">
                   {filters.searchType === 'company' ? (
-                    <Building size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <Building size={18} className="absolute left-3 top-1/2 -translate-y-1/2 transform text-white/38" />
                   ) : filters.searchType === 'email' ? (
-                    <Mail size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 transform text-white/38" />
                   ) : (
-                    <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 transform text-white/38" />
                   )}
                   <input
                     type={filters.searchType === 'email' ? 'email' : 'text'}
@@ -257,113 +245,110 @@ const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
                         ? 'Email utente...' 
                         : 'Email, nome, azienda...'
                     }
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className={`${HUB_MODAL_FIELD_CLS} pl-10`}
                   />
                 </div>
               </div>
             </div>
             {/* Data Inizio */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Data Inizio</label>
+              <label className={HUB_MODAL_LABEL_CLS}>Data Inizio</label>
               <div className="relative">
-                <Calendar size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <Calendar size={18} className="absolute left-3 top-1/2 -translate-y-1/2 transform text-white/38" />
                 <input
                   type="date"
                   value={filters.startDate}
                   onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  className={`${HUB_MODAL_FIELD_CLS} pl-10`}
                 />
               </div>
             </div>
             {/* Data Fine */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Data Fine</label>
+              <label className={HUB_MODAL_LABEL_CLS}>Data Fine</label>
               <div className="relative">
-                <Calendar size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <Calendar size={18} className="absolute left-3 top-1/2 -translate-y-1/2 transform text-white/38" />
                 <input
                   type="date"
                   value={filters.endDate}
                   onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  className={`${HUB_MODAL_FIELD_CLS} pl-10`}
                 />
               </div>
             </div>
             {/* Checkbox solo sessioni attive e pulsante pulisci */}
             <div className="flex flex-col gap-2">
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
                   checked={filters.onlyActive}
                   onChange={(e) => handleFilterChange('onlyActive', e.target.checked)}
-                  className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                  className="h-4 w-4 rounded border-white/20 bg-black/30 text-[color:var(--hub-accent)] focus:ring-[color:var(--hub-accent)]"
                 />
-                <span className="text-sm text-gray-700">Solo sessioni attive</span>
+                <span className="text-sm text-white/78">Solo sessioni attive</span>
               </label>
-              <button
-                onClick={clearFilters}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-              >
+              <HubModalSecondaryButton type="button" onClick={clearFilters}>
                 Pulisci Filtri
-              </button>
+              </HubModalSecondaryButton>
             </div>
           </div>
         </div>
 
         {/* Logs Table */}
-        <div className="flex-1 overflow-auto px-6 py-4">
+        <div className="min-h-0 flex-1 overflow-auto px-6 py-4">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+              <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-[color:var(--hub-accent)]"></div>
             </div>
           ) : error ? (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+            <div className="rounded-lg border border-red-500/40 bg-red-500/15 p-4 text-red-50">
               {error}
             </div>
           ) : logs.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
+            <div className="py-12 text-center text-white/55">
               Nessun log trovato
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 sticky top-0">
+                <thead className="sticky top-0 bg-black/35">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Utente</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Azienda</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Login</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Logout</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Durata</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">IP</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Stato</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-white/70">Utente</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-white/70">Azienda</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-white/70">Login</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-white/70">Logout</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-white/70">Durata</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-white/70">IP</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-white/70">Stato</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-white/10 bg-black/10">
                   {logs.map((log) => (
-                    <tr key={log.session_id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 whitespace-nowrap">
+                    <tr key={log.session_id} className="hover:bg-white/[0.04]">
+                      <td className="whitespace-nowrap px-4 py-3">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{log.user_name || '-'}</div>
-                          <div className="text-xs text-gray-500">{log.user_email || '-'}</div>
+                          <div className="text-sm font-medium text-white">{log.user_name || '-'}</div>
+                          <div className="text-xs text-white/45">{log.user_email || '-'}</div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                      <td className="whitespace-nowrap px-4 py-3 text-sm text-white/78">
                         {log.user_company || '-'}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                      <td className="whitespace-nowrap px-4 py-3 text-sm text-white/78">
                         {formatDate(log.login_at)}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                      <td className="whitespace-nowrap px-4 py-3 text-sm text-white/78">
                         {formatDate(log.logout_at)}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                      <td className="whitespace-nowrap px-4 py-3 text-sm text-white/78">
                         {formatDuration(log.duration_seconds)}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                      <td className="whitespace-nowrap px-4 py-3 text-sm text-white/45">
                         {log.login_ip || '-'}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="whitespace-nowrap px-4 py-3">
                         {log.logout_at ? (
-                          <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">
+                          <span className="rounded-full bg-white/10 px-2 py-1 text-xs font-medium text-white/78 ring-1 ring-white/15">
                             Chiusa
                           </span>
                         ) : (() => {
@@ -381,11 +366,11 @@ const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
                           const isActive = lastActivity && (Date.now() - lastActivity.getTime()) < timeoutMs;
                           
                           return isActive ? (
-                            <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                            <span className="rounded-full bg-emerald-500/20 px-2 py-1 text-xs font-medium text-emerald-200 ring-1 ring-emerald-500/35">
                               Attiva
                             </span>
                           ) : (
-                            <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-700 rounded-full">
+                            <span className="rounded-full bg-amber-500/15 px-2 py-1 text-xs font-medium text-amber-100 ring-1 ring-amber-500/35">
                               Inattiva
                             </span>
                           );
@@ -395,24 +380,24 @@ const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
                   ))}
                 </tbody>
                 {/* Footer con totale */}
-                <tfoot className="bg-gray-100 border-t-2 border-gray-300">
+                <tfoot className="border-t-2 border-white/10 bg-black/30">
                   <tr>
                     <td colSpan="7" className="px-4 py-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Activity size={18} className="text-gray-600" />
-                          <span className="text-sm font-semibold text-gray-700">
+                          <Activity size={18} className="text-white/55" />
+                          <span className="text-sm font-semibold text-white/78">
                             Totale accessi visualizzati:
                           </span>
-                          <span className="text-sm font-bold text-gray-900">
+                          <span className="text-sm font-bold text-white">
                             {logs.length}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-gray-700">
+                          <span className="text-sm font-semibold text-white/78">
                             Totale accessi (tutti i filtri):
                           </span>
-                          <span className="text-sm font-bold text-orange-600">
+                          <span className="text-sm font-bold text-[color:var(--hub-accent)]">
                             {summary.total.toLocaleString('it-IT')}
                           </span>
                         </div>
@@ -427,30 +412,31 @@ const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
 
         {/* Pagination */}
         {!loading && logs.length > 0 && (
-          <div className="px-6 py-4 border-t bg-gray-50 flex items-center justify-between">
-            <div className="text-sm text-gray-600">
+          <HubModalChromeFooter className="flex items-center justify-between">
+            <div className="text-sm text-white/65">
               Pagina {currentPage} • {logs.length} risultati
             </div>
             <div className="flex gap-2">
-              <button
+              <HubModalSecondaryButton
+                type="button"
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
-                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Precedente
-              </button>
-              <button
+              </HubModalSecondaryButton>
+              <HubModalSecondaryButton
+                type="button"
                 onClick={() => setCurrentPage(prev => prev + 1)}
                 disabled={logs.length < pageSize}
-                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Successiva
-              </button>
+              </HubModalSecondaryButton>
             </div>
-          </div>
+          </HubModalChromeFooter>
         )}
-      </div>
-    </div>
+    </HubModalInnerCard>
   );
 };
 

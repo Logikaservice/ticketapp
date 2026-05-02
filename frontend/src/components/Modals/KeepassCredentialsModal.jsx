@@ -1,9 +1,14 @@
 // frontend/src/components/Modals/KeepassCredentialsModal.jsx
 
 import React, { useState, useEffect } from 'react';
-import { X, Key, Eye, EyeOff, Copy, Check, ChevronDown, ChevronRight, Lock, Globe, User, FileText } from 'lucide-react';
+import { Key, Eye, EyeOff, Copy, Check, ChevronDown, ChevronRight, Lock, Globe, User, FileText } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
-import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
+import {
+  HubModalInnerCard,
+  HubModalChromeHeader,
+  HubModalChromeFooter,
+  HubModalPrimaryButton
+} from './HubModalChrome';
 
 const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, highlightEntryId = null }) => {
   const [credentials, setCredentials] = useState([]);
@@ -377,25 +382,26 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
 
     return (
       <div key={group.id} className="mb-2">
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="overflow-hidden rounded-lg border border-white/10">
           {/* Header Gruppo */}
           <button
+            type="button"
             onClick={() => toggleGroup(group.id)}
-            className="w-full px-4 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 transition flex items-center justify-between text-left"
+            className="flex w-full items-center justify-between bg-black/25 px-4 py-3 text-left transition hover:bg-black/35"
             style={{ paddingLeft: `${1 + level * 1.5}rem` }}
           >
             <div className="flex items-center gap-2">
               {hasCredentials && (
                 isExpanded ? (
-                  <ChevronDown size={16} className="text-indigo-600" />
+                  <ChevronDown size={16} className="text-[color:var(--hub-accent)]" aria-hidden />
                 ) : (
-                  <ChevronRight size={16} className="text-indigo-600" />
+                  <ChevronRight size={16} className="text-[color:var(--hub-accent)]" aria-hidden />
                 )
               )}
-              <Key size={16} className="text-indigo-600" />
-              <span className="font-semibold text-gray-800">{extractString(group.name)}</span>
+              <Key size={16} className="text-[color:var(--hub-accent)]" aria-hidden />
+              <span className="font-semibold text-white">{extractString(group.name)}</span>
               {hasEntries && (
-                <span className="text-xs text-gray-500 bg-white px-2 py-0.5 rounded">
+                <span className="rounded bg-black/30 px-2 py-0.5 text-xs text-white/65 ring-1 ring-white/10">
                   {group.entries.length} {group.entries.length === 1 ? 'credenziale' : 'credenziali'}
                 </span>
               )}
@@ -404,13 +410,13 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
 
           {/* Entry del Gruppo */}
           {isExpanded && hasEntries && (
-            <div className="bg-gray-50 border-t border-gray-200" style={{ paddingLeft: `${1 + level * 1.5}rem` }}>
+            <div className="border-t border-white/10 bg-black/15" style={{ paddingLeft: `${1 + level * 1.5}rem` }}>
               {group.entries.map(entry => {
                 const isHighlighted = highlightedEntryId === entry.id;
                 return (
                 <div 
                   key={entry.id} 
-                  className={`p-4 border-b border-gray-200 last:border-b-0 ${isHighlighted ? 'bg-yellow-50 border-l-4 border-l-yellow-400' : ''}`}
+                  className={`border-b border-white/10 p-4 last:border-b-0 ${isHighlighted ? 'border-l-4 border-l-[color:var(--hub-accent)] bg-[color:var(--hub-accent)]/12' : ''}`}
                   ref={isHighlighted ? highlightedEntryRef : null}
                 >
                   <div className="space-y-3">
@@ -420,8 +426,8 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
                       const hasValidTitle = title && title.trim() !== '' && title.trim().toLowerCase() !== 'senza titolo';
                       return hasValidTitle ? (
                         <div className="flex items-center gap-2">
-                          <FileText size={14} className="text-gray-400" />
-                          <span className="font-medium text-gray-900">{title}</span>
+                          <FileText size={14} className="text-white/45" aria-hidden />
+                          <span className="font-medium text-white">{title}</span>
                         </div>
                       ) : null;
                     })()}
@@ -432,53 +438,56 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
                       const hasValidUsername = username && username.trim() !== '';
                       return hasValidUsername ? (
                         <div className="flex items-center gap-2">
-                          <User size={14} className="text-gray-400" />
-                          <span className="text-sm text-gray-700">{username}</span>
+                          <User size={14} className="text-white/45" aria-hidden />
+                          <span className="text-sm text-white/78">{username}</span>
                           <button
+                            type="button"
                             onClick={() => {
                               navigator.clipboard.writeText(username);
                               alert('Username copiato!');
                             }}
-                            className="ml-auto p-1 text-gray-400 hover:text-gray-600"
+                            className="ml-auto p-1 text-white/45 hover:text-white/75"
                             title="Copia username"
                           >
-                            <Copy size={14} />
+                            <Copy size={14} aria-hidden />
                           </button>
                         </div>
                       ) : null;
                     })()}
 
                     {/* Password */}
-                    <div className="flex items-center gap-2 bg-white p-2 rounded border border-gray-200">
-                      <Lock size={14} className="text-gray-400" />
-                      <span className="text-sm font-mono flex-1">
+                    <div className="flex items-center gap-2 rounded border border-white/10 bg-black/25 p-2">
+                      <Lock size={14} className="text-white/45" aria-hidden />
+                      <span className="flex-1 font-mono text-sm">
                         {visiblePasswords[entry.id] ? (
-                          <span className="text-gray-900">{visiblePasswords[entry.id]}</span>
+                          <span className="text-white">{visiblePasswords[entry.id]}</span>
                         ) : (
-                          <span className="text-gray-400">••••••••</span>
+                          <span className="text-white/38">••••••••</span>
                         )}
                       </span>
                       <div className="flex items-center gap-1">
                         <button
+                          type="button"
                           onClick={() => togglePasswordVisibility(entry.id)}
-                          className="p-1 text-gray-400 hover:text-gray-600"
+                          className="p-1 text-white/45 hover:text-white/75"
                           title={visiblePasswords[entry.id] ? 'Nascondi password' : 'Mostra password'}
                         >
                           {visiblePasswords[entry.id] ? (
-                            <EyeOff size={16} />
+                            <EyeOff size={16} aria-hidden />
                           ) : (
-                            <Eye size={16} />
+                            <Eye size={16} aria-hidden />
                           )}
                         </button>
                         <button
+                          type="button"
                           onClick={() => copyPassword(entry.id)}
-                          className="p-1 text-gray-400 hover:text-gray-600"
+                          className="p-1 text-white/45 hover:text-white/75"
                           title="Copia password"
                         >
                           {copiedPasswords[entry.id] ? (
-                            <Check size={16} className="text-green-600" />
+                            <Check size={16} className="text-emerald-400" aria-hidden />
                           ) : (
-                            <Copy size={16} />
+                            <Copy size={16} aria-hidden />
                           )}
                         </button>
                       </div>
@@ -487,12 +496,12 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
                     {/* URL */}
                     {entry.url && (
                       <div className="flex items-center gap-2">
-                        <Globe size={14} className="text-gray-400" />
+                        <Globe size={14} className="text-white/45" aria-hidden />
                         <a
                           href={extractString(entry.url).startsWith('http') ? extractString(entry.url) : `http://${extractString(entry.url)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-blue-600 hover:underline"
+                          className="text-sm text-sky-300 hover:underline"
                         >
                           {extractString(entry.url)}
                         </a>
@@ -501,7 +510,7 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
 
                     {/* Notes */}
                     {entry.notes && (
-                      <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                      <div className="rounded bg-black/20 p-2 text-xs text-white/65">
                         {extractString(entry.notes)}
                       </div>
                     )}
@@ -514,7 +523,7 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
 
           {/* Sottogruppi (children) - SEMPRE VISIBILI nella struttura gerarchica */}
           {hasChildren && (
-            <div className="bg-gray-50 border-t border-gray-200">
+            <div className="border-t border-white/10 bg-black/15">
               <div className="space-y-2 p-2">
                 {group.children.map(childGroup => renderGroup(childGroup, level + 1))}
               </div>
@@ -522,7 +531,7 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
           )}
 
           {isExpanded && !hasEntries && !hasChildren && (
-            <div className="p-4 bg-gray-50 text-center text-sm text-gray-500">
+            <div className="bg-black/15 p-4 text-center text-sm text-white/45">
               Nessuna credenziale in questo gruppo
             </div>
           )}
@@ -534,52 +543,32 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div
-          className="rounded-t-2xl border-b border-black/10 p-6"
-          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="flex items-center gap-2 text-2xl font-bold">
-                <Key size={28} className="shrink-0 opacity-95" aria-hidden />
-                Credenziali KeePass
-              </h2>
-              <p className="mt-1 text-sm opacity-90">
-                Gestisci e visualizza le tue credenziali salvate
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              type="button"
-              className="rounded-lg bg-black/20 p-2 ring-1 ring-black/10 transition hover:bg-black/30"
-              aria-label="Chiudi"
-            >
-              <X size={24} aria-hidden />
-            </button>
-          </div>
-        </div>
+    <HubModalInnerCard maxWidthClass="max-w-4xl" className="flex max-h-[90vh] flex-col overflow-hidden">
+        <HubModalChromeHeader
+          icon={Key}
+          title="Credenziali KeePass"
+          subtitle="Gestisci e visualizza le tue credenziali salvate"
+          onClose={onClose}
+        />
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-              <span className="ml-3 text-gray-600">Caricamento credenziali...</span>
+              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[color:var(--hub-accent)]" aria-hidden />
+              <span className="ml-3 text-white/65">Caricamento credenziali...</span>
             </div>
           ) : error ? (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-              <div className="flex items-center gap-2 text-red-600">
-                <Key size={20} />
+            <div className="rounded-lg border border-red-500/40 bg-red-500/15 p-6">
+              <div className="flex items-center gap-2 text-red-50">
+                <Key size={20} aria-hidden />
                 <span>{error}</span>
               </div>
             </div>
           ) : credentials.length === 0 ? (
-            <div className="text-center py-8">
-              <Key size={48} className="mx-auto text-gray-300 mb-4" />
-              <p className="text-gray-500">Nessuna credenziale disponibile</p>
+            <div className="py-8 text-center">
+              <Key size={48} className="mx-auto mb-4 text-white/25" aria-hidden />
+              <p className="text-white/55">Nessuna credenziale disponibile</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -590,19 +579,12 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t bg-gray-50 rounded-b-2xl">
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-            >
-              Chiudi
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+        <HubModalChromeFooter className="justify-end">
+          <HubModalPrimaryButton type="button" onClick={onClose}>
+            Chiudi
+          </HubModalPrimaryButton>
+        </HubModalChromeFooter>
+    </HubModalInnerCard>
   );
 };
 

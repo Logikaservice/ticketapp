@@ -1,9 +1,16 @@
 // frontend/src/components/Modals/ImportKeepassModal.jsx
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw, Building, Crown, ChevronRight, ChevronDown, Mail, Trash2 } from 'lucide-react';
+import { Upload, FileText, AlertCircle, CheckCircle, RefreshCw, Building, Crown, ChevronRight, ChevronDown, Mail, Trash2 } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
-import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
+import {
+  HubModalScaffold,
+  HubModalChromeHeader,
+  HubModalChromeFooter,
+  HubModalPrimaryButton,
+  HubModalSecondaryButton
+} from './HubModalChrome';
+import { HUB_MODAL_LABEL_CLS, HUB_MODAL_FIELD_CLS } from '../../utils/techHubAccent';
 
 const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }) => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -288,44 +295,24 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div
-          className="rounded-t-2xl border-b border-black/10 p-6"
-          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="flex items-center gap-2 text-2xl font-bold">
-                <FileText size={28} className="shrink-0 opacity-95" aria-hidden />
-                Importa KeePass
-              </h2>
-              <p className="mt-1 text-sm opacity-90">
-                Importa credenziali da un file XML di KeePass
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              type="button"
-              className="rounded-lg bg-black/20 p-2 ring-1 ring-black/10 transition hover:bg-black/30"
-              aria-label="Chiudi"
-            >
-              <X size={24} aria-hidden />
-            </button>
-          </div>
-        </div>
+    <HubModalScaffold onBackdropClick={isUploading ? undefined : onClose} maxWidthClass="max-w-2xl" zClass="z-[118]">
+        <HubModalChromeHeader
+          icon={FileText}
+          title="Importa KeePass"
+          subtitle="Importa credenziali da un file XML di KeePass"
+          onClose={isUploading ? undefined : onClose}
+        />
 
         {/* Form */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
           {/* Selezione Cliente */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Cliente <span className="text-red-500">*</span>
+            <label className={HUB_MODAL_LABEL_CLS}>
+              Cliente <span className="text-red-400">*</span>
             </label>
-            <div className="border border-gray-300 rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+            <div className="max-h-64 overflow-hidden overflow-y-auto rounded-lg border border-white/10">
               {Object.keys(clientiPerAzienda).length === 0 ? (
-                <div className="p-4 text-center text-gray-500 text-sm">
+                <div className="p-4 text-center text-sm text-white/55">
                   Nessun cliente disponibile
                 </div>
               ) : (
@@ -334,37 +321,37 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
                   const isNoCompany = azienda === 'Senza azienda';
                   
                   return (
-                    <div key={azienda} className="border-b border-gray-200 last:border-b-0">
+                    <div key={azienda} className="border-b border-white/10 last:border-b-0">
                       {/* Header Azienda - Espandibile */}
                       <button
                         type="button"
                         onClick={() => toggleCompany(azienda)}
-                        className="w-full px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-all flex items-center justify-between text-left"
+                        className="flex w-full items-center justify-between bg-black/25 px-3 py-2 text-left transition hover:bg-black/35 disabled:opacity-50"
                         disabled={isUploading}
                       >
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                            {isNoCompany ? <Building size={12} /> : azienda.charAt(0).toUpperCase()}
+                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[color:var(--hub-accent)] text-xs font-bold text-[#121212]">
+                            {isNoCompany ? <Building size={12} aria-hidden /> : azienda.charAt(0).toUpperCase()}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-sm font-bold text-gray-800 truncate">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="truncate text-sm font-bold text-white">
                               {isNoCompany ? 'Senza azienda' : azienda}
                             </h3>
-                            <p className="text-xs text-gray-600">
+                            <p className="text-xs text-white/55">
                               {clientiAzienda.length} {clientiAzienda.length === 1 ? 'cliente' : 'clienti'}
                             </p>
                           </div>
                         </div>
                         {isExpanded ? (
-                          <ChevronDown size={16} className="text-gray-500 flex-shrink-0" />
+                          <ChevronDown size={16} className="shrink-0 text-white/45" aria-hidden />
                         ) : (
-                          <ChevronRight size={16} className="text-gray-500 flex-shrink-0" />
+                          <ChevronRight size={16} className="shrink-0 text-white/45" aria-hidden />
                         )}
                       </button>
                       
                       {/* Clienti dell'azienda - Espansi/Collassati */}
                       {isExpanded && (
-                        <div className="bg-gray-50">
+                        <div className="bg-black/15">
                           {clientiAzienda.map((cliente) => {
                             const isAdmin = isAdminOfCompany(cliente);
                             const isSelected = selectedClientId === String(cliente.id);
@@ -375,11 +362,11 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
                                 type="button"
                                 onClick={() => setSelectedClientId(String(cliente.id))}
                                 disabled={isUploading}
-                                className={`w-full px-4 py-2.5 text-left hover:bg-blue-50 transition flex items-center gap-3 border-l-2 ${
+                                className={`flex w-full cursor-pointer items-center gap-3 border-l-2 px-4 py-2.5 text-left transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50 ${
                                   isSelected 
-                                    ? 'bg-blue-50 border-blue-500' 
+                                    ? 'border-[color:var(--hub-accent)] bg-[color:var(--hub-accent)]/12' 
                                     : 'border-transparent'
-                                } ${isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                }`}
                               >
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
                                   {/* Spazio fisso per la corona */}
@@ -390,14 +377,14 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
-                                      <span className={`text-sm font-medium ${isSelected ? 'text-blue-700' : 'text-gray-900'}`}>
+                                      <span className={`text-sm font-medium ${isSelected ? 'text-[color:var(--hub-accent)]' : 'text-white'}`}>
                                         {cliente.nome} {cliente.cognome}
                                       </span>
                                     </div>
                                     {cliente.email && (
                                       <div className="flex items-center gap-1 mt-0.5">
-                                        <Mail size={12} className="text-gray-400" />
-                                        <span className="text-xs text-gray-600 truncate">
+                                        <Mail size={12} className="text-white/38" aria-hidden />
+                                        <span className="truncate text-xs text-white/55">
                                           {cliente.email}
                                         </span>
                                       </div>
@@ -405,7 +392,7 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
                                   </div>
                                 </div>
                                 {isSelected && (
-                                  <CheckCircle size={18} className="text-blue-600 flex-shrink-0" />
+                                  <CheckCircle size={18} className="shrink-0 text-[color:var(--hub-accent)]" aria-hidden />
                                 )}
                               </button>
                             );
@@ -420,23 +407,23 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
             
             {/* Pulsante Cancella Credenziali */}
             {selectedClientId && hasExistingCredentials && (
-              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <div className="flex items-center justify-between">
+              <div className="mt-3 rounded-lg border border-red-500/35 bg-red-500/12 p-3">
+                <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <AlertCircle size={18} className="text-red-600" />
-                    <span className="text-sm text-red-700 font-medium">
+                    <AlertCircle size={18} className="text-red-300" aria-hidden />
+                    <span className="text-sm font-medium text-red-100">
                       Questo cliente ha già credenziali KeePass importate
                     </span>
                   </div>
-                  <button
+                  <HubModalPrimaryButton
                     type="button"
                     onClick={handleDeleteCredentials}
                     disabled={isDeleting || isUploading}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 bg-red-600 hover:brightness-110 disabled:opacity-50"
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={16} aria-hidden />
                     {isDeleting ? 'Cancellazione...' : 'Cancella Credenziali'}
-                  </button>
+                  </HubModalPrimaryButton>
                 </div>
               </div>
             )}
@@ -444,10 +431,10 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
 
           {/* Upload File */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              File XML KeePass <span className="text-red-500">*</span>
+            <label className={HUB_MODAL_LABEL_CLS}>
+              File XML KeePass <span className="text-red-400">*</span>
             </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition">
+            <div className="rounded-lg border-2 border-dashed border-white/15 p-4 text-center transition hover:border-[color:var(--hub-accent-border)]">
               <input
                 type="file"
                 id="xmlFileInput"
@@ -456,21 +443,21 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
                 className="hidden"
                 disabled={isUploading}
               />
-              <label htmlFor="xmlFileInput" className="cursor-pointer flex flex-col items-center gap-2">
-                <Upload className="w-8 h-8 text-gray-400" />
-                <span className="text-sm text-gray-600">
+              <label htmlFor="xmlFileInput" className="flex cursor-pointer flex-col items-center gap-2">
+                <Upload className="h-8 w-8 text-white/38" aria-hidden />
+                <span className="text-sm text-white/78">
                   {selectedFile ? selectedFile.name : 'Clicca per selezionare file XML'}
                 </span>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-white/45">
                   Formato: XML - Max 10MB
                 </span>
               </label>
             </div>
             {selectedFile && (
-              <div className="mt-2 p-2 bg-blue-50 rounded flex items-center gap-2">
-                <FileText size={16} className="text-blue-600" />
-                <span className="text-sm text-blue-700">{selectedFile.name}</span>
-                <span className="text-xs text-blue-500">
+              <div className="mt-2 flex items-center gap-2 rounded border border-sky-500/35 bg-sky-500/10 p-2">
+                <FileText size={16} className="text-sky-300" aria-hidden />
+                <span className="text-sm text-sky-100">{selectedFile.name}</span>
+                <span className="text-xs text-sky-200/80">
                   ({(selectedFile.size / 1024).toFixed(2)} KB)
                 </span>
               </div>
@@ -479,49 +466,49 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
 
           {/* Messaggi */}
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-              <AlertCircle size={20} className="text-red-600" />
-              <span className="text-sm text-red-700">{error}</span>
+            <div className="flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/15 p-3">
+              <AlertCircle size={20} className="text-red-300" aria-hidden />
+              <span className="text-sm text-red-50">{error}</span>
             </div>
           )}
 
           {success && (
-            <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
-              <CheckCircle size={20} className="text-green-600" />
-              <span className="text-sm text-green-700">{success}</span>
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-500/35 bg-emerald-500/12 p-3">
+              <CheckCircle size={20} className="text-emerald-300" aria-hidden />
+              <span className="text-sm text-emerald-50">{success}</span>
             </div>
           )}
 
           {/* Migrazione */}
-          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <div className="flex items-start gap-3">
-              <RefreshCw size={20} className="text-yellow-600 mt-0.5" />
-              <div className="flex-1">
-                <h3 className="text-sm font-semibold text-yellow-900 mb-1">
+          <div className="rounded-lg border border-amber-500/38 bg-amber-500/10 p-4">
+            <div className="flex gap-3">
+              <RefreshCw size={20} className="mt-0.5 shrink-0 text-amber-200" aria-hidden />
+              <div className="min-w-0 flex-1">
+                <h3 className="mb-1 text-sm font-semibold text-amber-50">
                   Aggiorna Credenziali Esistenti
                 </h3>
-                <p className="text-xs text-yellow-700 mb-3">
+                <p className="mb-3 text-xs text-amber-100/85">
                   Aggiorna automaticamente tutte le credenziali già importate applicando le ultime correzioni:
                   corregge titoli e nomi salvati come oggetti JSON, aggiorna tutti i clienti. Le entry con password vuote vengono mantenute.
                 </p>
-                <button
+                <HubModalSecondaryButton
                   type="button"
                   onClick={handleMigrate}
                   disabled={isMigrating || isUploading}
-                  className="flex items-center gap-2 px-3 py-2 bg-yellow-600 text-white text-sm rounded-lg hover:bg-yellow-700 transition disabled:opacity-50"
+                  className="border-amber-500/40 bg-amber-600/90 text-[#121212] hover:bg-amber-500 disabled:opacity-50"
                 >
-                  <RefreshCw size={16} className={isMigrating ? 'animate-spin' : ''} />
+                  <RefreshCw size={16} className={isMigrating ? 'animate-spin' : ''} aria-hidden />
                   {isMigrating ? 'Migrazione in corso...' : 'Aggiorna Tutte le Credenziali'}
-                </button>
+                </HubModalSecondaryButton>
                 {migrationResult && (
-                  <div className="mt-3 p-2 bg-white rounded text-xs">
-                    <p className="font-semibold text-gray-700 mb-1">Risultati:</p>
-                    <ul className="space-y-1 text-gray-600">
+                  <div className="mt-3 rounded border border-white/10 bg-black/25 p-2 text-xs text-white/78">
+                    <p className="mb-1 font-semibold text-white">Risultati:</p>
+                    <ul className="space-y-1">
                       <li>✅ Entry aggiornate: {migrationResult.entriesUpdated}</li>
                       <li>📁 Gruppi aggiornati: {migrationResult.groupsUpdated}</li>
                       <li>📊 Totale processate: {migrationResult.totalProcessed}</li>
                       {migrationResult.errors > 0 && (
-                        <li className="text-red-600">❌ Errori: {migrationResult.errors}</li>
+                        <li className="text-red-300">Errori: {migrationResult.errors}</li>
                       )}
                     </ul>
                   </div>
@@ -531,30 +518,21 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t bg-gray-50 rounded-b-2xl">
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isUploading}
-              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition disabled:opacity-50"
-            >
-              Annulla
-            </button>
-            <button
-              type="button"
-              onClick={handleImport}
-              disabled={isUploading || !selectedFile || !selectedClientId}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-            >
-              <Upload size={18} />
-              {isUploading ? 'Importazione...' : 'Importa'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+        <HubModalChromeFooter className="justify-end gap-2">
+          <HubModalSecondaryButton type="button" onClick={onClose} disabled={isUploading}>
+            Annulla
+          </HubModalSecondaryButton>
+          <HubModalPrimaryButton
+            type="button"
+            onClick={handleImport}
+            disabled={isUploading || !selectedFile || !selectedClientId}
+            className="flex items-center gap-2 disabled:opacity-50"
+          >
+            <Upload size={18} aria-hidden />
+            {isUploading ? 'Importazione...' : 'Importa'}
+          </HubModalPrimaryButton>
+        </HubModalChromeFooter>
+    </HubModalScaffold>
   );
 };
 

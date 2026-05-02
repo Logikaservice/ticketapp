@@ -2,9 +2,17 @@
 // Modal per modifica agent Network Monitoring esistente
 
 import React, { useState, useEffect } from 'react';
-import { X, Save, AlertCircle, Wifi, CheckCircle, Clock } from 'lucide-react';
+import { Save, AlertCircle, Wifi, CheckCircle, Clock } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
-import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
+import {
+  HubModalScaffold,
+  HubModalChromeHeader,
+  HubModalBody,
+  HubModalChromeFooter,
+  HubModalPrimaryButton,
+  HubModalSecondaryButton
+} from './HubModalChrome';
+import { HUB_MODAL_LABEL_CLS, HUB_MODAL_FIELD_CLS } from '../../utils/techHubAccent';
 
 const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated }) => {
     const [loading, setLoading] = useState(false);
@@ -228,46 +236,26 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-                {/* Header */}
-                <div
-                  className="rounded-t-2xl border-b border-black/10 p-6"
-                  style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
-                >
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h2 className="flex items-center gap-2 text-2xl font-bold">
-                                <Wifi size={28} className="shrink-0 opacity-95" aria-hidden />
-                                Modifica Agent
-                            </h2>
-                            <p className="mt-1 text-sm opacity-90">
-                                Modifica configurazione agent "{agent?.agent_name}"
-                            </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={onClose}
-                          className="rounded-lg bg-black/20 p-2 ring-1 ring-black/10 transition hover:bg-black/30"
-                          aria-label="Chiudi"
-                        >
-                          <X size={24} aria-hidden />
-                        </button>
-                    </div>
-                </div>
+        <HubModalScaffold onBackdropClick={onClose} maxWidthClass="max-w-2xl" zClass="z-[118]">
+            <HubModalChromeHeader
+              icon={Wifi}
+              title="Modifica Agent"
+              subtitle={`Modifica configurazione agent "${agent?.agent_name}"`}
+              onClose={onClose}
+            />
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                <HubModalBody className="space-y-4">
                     {error && (
-                        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 flex items-center gap-2">
-                            <AlertCircle size={20} />
+                        <div className="flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/15 p-4 text-sm text-red-50">
+                            <AlertCircle size={20} aria-hidden />
                             {error}
                         </div>
                     )}
 
                     {/* Nome Agent */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className={HUB_MODAL_LABEL_CLS}>
                             Nome Agent *
                         </label>
                         <input
@@ -275,23 +263,23 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
                             value={formData.agent_name}
                             onChange={(e) => handleInputChange('agent_name', e.target.value)}
                             placeholder="Es: Agent PC Casa, Agent Server Ufficio"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className={HUB_MODAL_FIELD_CLS}
                         />
                     </div>
 
                     {/* Range di Rete */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className={HUB_MODAL_LABEL_CLS}>
                             Range di Rete da Monitorare *
                         </label>
-                        <p className="text-sm text-gray-500 mb-3">
+                        <p className="mb-3 text-sm text-white/55">
                             Inserisci i range IP da scansionare e assegna un nome descrittivo a ciascuna rete
                         </p>
                         {formData.network_ranges_config.map((rangeConfig, index) => (
-                            <div key={index} className="mb-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
-                                <div className="flex gap-2 mb-2">
+                            <div key={index} className="mb-4 rounded-lg border border-white/10 bg-black/20 p-4">
+                                <div className="mb-2 flex gap-2">
                                     <div className="flex-1">
-                                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                                        <label className="mb-1 block text-xs font-medium text-white/65">
                                             Range IP *
                                         </label>
                                         <input
@@ -299,11 +287,11 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
                                             value={rangeConfig.range}
                                             onChange={(e) => handleNetworkRangeChange(index, 'range', e.target.value)}
                                             placeholder="192.168.1.0/24"
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                            className={`${HUB_MODAL_FIELD_CLS} text-sm`}
                                         />
                                     </div>
                                     <div className="flex-1">
-                                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                                        <label className="mb-1 block text-xs font-medium text-white/65">
                                             Nome Rete (opzionale)
                                         </label>
                                         <input
@@ -311,14 +299,15 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
                                             value={rangeConfig.name || ''}
                                             onChange={(e) => handleNetworkRangeChange(index, 'name', e.target.value)}
                                             placeholder="es: LAN Principale, Telefonia, Videosorveglianza"
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                            className={`${HUB_MODAL_FIELD_CLS} text-sm`}
                                         />
                                     </div>
                                     {formData.network_ranges_config.length > 1 && (
                                         <div className="flex items-end">
                                             <button
+                                                type="button"
                                                 onClick={() => removeNetworkRange(index)}
-                                                className="px-3 py-2 bg-red-100 text-red-800 rounded-lg hover:bg-red-200 text-sm"
+                                                className="rounded-lg bg-red-500/20 px-3 py-2 text-sm text-red-100 ring-1 ring-red-500/35 hover:bg-red-500/30"
                                             >
                                                 Rimuovi
                                             </button>
@@ -328,8 +317,9 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
                             </div>
                         ))}
                         <button
+                            type="button"
                             onClick={addNetworkRange}
-                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                            className="text-sm font-medium text-[color:var(--hub-accent)] hover:brightness-110"
                         >
                             + Aggiungi altro range
                         </button>
@@ -337,7 +327,7 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
 
                     {/* Intervallo Scansione */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className={HUB_MODAL_LABEL_CLS}>
                             Intervallo Scansione (minuti) *
                         </label>
                         <input
@@ -346,154 +336,151 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
                             onChange={(e) => handleInputChange('scan_interval_minutes', parseInt(e.target.value) || 15)}
                             min="1"
                             max="1440"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className={HUB_MODAL_FIELD_CLS}
                         />
-                        <p className="text-sm text-gray-500 mt-1">
+                        <p className="mt-1 text-sm text-white/55">
                             Quanto spesso scansionare la rete (default: 15 minuti)
                         </p>
                     </div>
 
                     {/* Integrazione Unifi Controller (opzionale) */}
-                    <div className="pt-4 border-t border-gray-200 mt-4">
-                        <div className="flex items-center justify-between mb-3">
-                            <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-                                <Wifi size={20} className="text-blue-600" />
+                    <div className="mt-4 border-t border-white/10 pt-4">
+                        <div className="mb-3 flex items-center justify-between">
+                            <h3 className="flex items-center gap-2 font-semibold text-white">
+                                <Wifi size={20} className="text-[color:var(--hub-accent)]" aria-hidden />
                                 Integrazione Unifi Controller
                             </h3>
-                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <label className="flex cursor-pointer select-none items-center gap-2">
                                 <input
                                     type="checkbox"
                                     checked={!!formData.unifi_enabled}
                                     onChange={(e) => handleInputChange('unifi_enabled', e.target.checked)}
-                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                                    className="h-4 w-4 rounded border-white/25 bg-black/30 text-[color:var(--hub-accent)] focus:ring-[color:var(--hub-accent)]"
                                 />
-                                <span className="text-sm font-medium text-gray-700">Abilita</span>
+                                <span className="text-sm font-medium text-white/78">Abilita</span>
                             </label>
                         </div>
                         {formData.unifi_enabled && (
-                            <div className="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <div className="space-y-3 rounded-lg border border-white/10 bg-black/20 p-4">
                                 {/* Stato dall'agent (esito dell'ultimo check Unifi durante la scansione) */}
                                 <div>
-                                    <span className="text-xs font-medium text-gray-600">Stato dall'agent: </span>
+                                    <span className="text-xs font-medium text-white/65">Stato dall&apos;agent: </span>
                                     {agent?.unifi_last_check_at ? (
                                         agent?.unifi_last_ok === true ? (
-                                            <span className="inline-flex items-center gap-1.5 text-green-700">
-                                                <CheckCircle size={16} />
-                                                Si è collegato all'UniFi con successo
-                                                <span className="text-gray-500 font-normal">
+                                            <span className="inline-flex items-center gap-1.5 text-emerald-300">
+                                                <CheckCircle size={16} aria-hidden />
+                                                Si è collegato all&apos;UniFi con successo
+                                                <span className="font-normal text-white/45">
                                                     ({new Date(agent.unifi_last_check_at).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' })})
                                                 </span>
                                             </span>
                                         ) : (
-                                            <span className="inline-flex items-center gap-1.5 text-red-700">
-                                                <AlertCircle size={16} />
+                                            <span className="inline-flex items-center gap-1.5 text-red-300">
+                                                <AlertCircle size={16} aria-hidden />
                                                 Non è riuscito a collegarsi
-                                                <span className="text-gray-500 font-normal">
+                                                <span className="font-normal text-white/45">
                                                     ({new Date(agent.unifi_last_check_at).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' })})
                                                 </span>
                                             </span>
                                         )
                                     ) : (
-                                        <span className="text-gray-500">Non ha ancora eseguito un check (avviene durante la scansione con Unifi abilitato e salvato)</span>
+                                        <span className="text-white/45">Non ha ancora eseguito un check (avviene durante la scansione con Unifi abilitato e salvato)</span>
                                     )}
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-600 mb-1">Controller URL</label>
+                                    <label className="mb-1 block text-xs font-medium text-white/65">Controller URL</label>
                                     <input
                                         type="text"
                                         value={formData.unifi_config?.url || ''}
                                         onChange={(e) => { setUnifiTestStatus(null); setUnifiTestMessage(''); setFormData(prev => ({ ...prev, unifi_config: { ...prev.unifi_config, url: e.target.value } })); }}
                                         placeholder="https://192.168.1.5:8443"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                        className={`${HUB_MODAL_FIELD_CLS} text-sm`}
                                     />
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="block text-xs font-medium text-gray-600 mb-1">Username</label>
+                                        <label className="mb-1 block text-xs font-medium text-white/65">Username</label>
                                         <input
                                             type="text"
                                             value={formData.unifi_config?.username || ''}
                                             onChange={(e) => { setUnifiTestStatus(null); setUnifiTestMessage(''); setFormData(prev => ({ ...prev, unifi_config: { ...prev.unifi_config, username: e.target.value } })); }}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                            className={`${HUB_MODAL_FIELD_CLS} text-sm`}
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-medium text-gray-600 mb-1">Password</label>
+                                        <label className="mb-1 block text-xs font-medium text-white/65">Password</label>
                                         <input
                                             type="password"
                                             value={formData.unifi_config?.password || ''}
                                             onChange={(e) => { setUnifiTestStatus(null); setUnifiTestMessage(''); setFormData(prev => ({ ...prev, unifi_config: { ...prev.unifi_config, password: e.target.value } })); }}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                            className={`${HUB_MODAL_FIELD_CLS} text-sm`}
                                         />
                                     </div>
                                 </div>
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <button
+                                    <HubModalSecondaryButton
                                         type="button"
                                         onClick={handleTestUnifi}
                                         disabled={unifiTestStatus === 'loading'}
-                                        className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed text-sm font-medium"
+                                        className="disabled:cursor-not-allowed disabled:opacity-60"
                                     >
                                         {unifiTestStatus === 'loading' ? 'Verifica in corso…' : 'Prova connessione'}
-                                    </button>
+                                    </HubModalSecondaryButton>
                                     {unifiTestStatus === 'ok' && (
-                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-100 text-green-800 border border-green-200">
-                                            <CheckCircle size={18} className="flex-shrink-0" />
+                                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/35 bg-emerald-500/15 px-3 py-1.5 text-sm text-emerald-50">
+                                            <CheckCircle size={18} className="shrink-0" aria-hidden />
                                             Connessione OK
                                         </span>
                                     )}
                                     {unifiTestStatus === 'pending' && (
-                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-100 text-blue-800 border border-blue-200">
-                                            <Clock size={18} className="flex-shrink-0" />
+                                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/35 bg-sky-500/12 px-3 py-1.5 text-sm text-sky-50">
+                                            <Clock size={18} className="shrink-0" aria-hidden />
                                             {unifiTestMessage}
                                         </span>
                                     )}
                                     {unifiTestStatus === 'error' && unifiTestMessage && (
-                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-100 text-red-800 border border-red-200">
-                                            <AlertCircle size={18} className="flex-shrink-0" />
+                                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 bg-red-500/15 px-3 py-1.5 text-sm text-red-50">
+                                            <AlertCircle size={18} className="shrink-0" aria-hidden />
                                             {unifiTestMessage}
                                         </span>
                                     )}
                                 </div>
-                                <p className="text-xs text-gray-500">
-                                    L’agent, locale alla rete, riceve queste credenziali solo dal server (HTTPS) e si connette direttamente al Cloud Key/Controller Unifi per rilevare gli aggiornamenti firmware. Le credenziali non vengono mai scritte su file.
+                                <p className="text-xs text-white/45">
+                                    L&apos;agent, locale alla rete, riceve queste credenziali solo dal server (HTTPS) e si connette direttamente al Cloud Key/Controller Unifi per rilevare gli aggiornamenti firmware. Le credenziali non vengono mai scritte su file.
                                 </p>
                             </div>
                         )}
                         {!formData.unifi_enabled && (
-                            <p className="text-sm text-gray-500 italic">Non tutte le aziende usano Ubiquiti/Unifi. Abilita solo se hai un Controller Unifi da integrare.</p>
+                            <p className="text-sm italic text-white/45">Non tutte le aziende usano Ubiquiti/Unifi. Abilita solo se hai un Controller Unifi da integrare.</p>
                         )}
                     </div>
-                </div>
+                </HubModalBody>
 
                 {/* Footer */}
-                <div className="p-6 border-t bg-gray-50 flex items-center justify-end gap-3">
-                    <button
-                        onClick={onClose}
-                        className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-                    >
+                <HubModalChromeFooter className="justify-end">
+                    <HubModalSecondaryButton type="button" onClick={onClose}>
                         Annulla
-                    </button>
-                    <button
+                    </HubModalSecondaryButton>
+                    <HubModalPrimaryButton
+                        type="button"
                         onClick={handleSave}
                         disabled={loading}
-                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         {loading ? (
                             <>
-                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
                                 Salvataggio...
                             </>
                         ) : (
                             <>
-                                <Save size={18} />
+                                <Save size={18} aria-hidden />
                                 Salva Modifiche
                             </>
                         )}
-                    </button>
-                </div>
-            </div>
-        </div>
+                    </HubModalPrimaryButton>
+                </HubModalChromeFooter>
+        </HubModalScaffold>
     );
 };
 

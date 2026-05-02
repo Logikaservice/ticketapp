@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, User, Mail, Phone, Building, FileText, AlertTriangle, Camera, Image as ImageIcon } from 'lucide-react';
-import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
+import { Send, User, FileText, AlertTriangle, Camera, Image as ImageIcon } from 'lucide-react';
+import {
+  HubModalScaffold,
+  HubModalChromeHeader,
+  HubModalChromeFooter,
+  HubModalPrimaryButton,
+  HubModalSecondaryButton
+} from './HubModalChrome';
+import { HUB_MODAL_FIELD_CLS, HUB_MODAL_LABEL_CLS, HUB_MODAL_TEXTAREA_CLS } from '../../utils/techHubAccent';
 
 const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
   const [formData, setFormData] = useState({
@@ -149,39 +156,21 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div
-          className="flex items-center justify-between rounded-t-2xl border-b border-black/10 p-4"
-          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
-        >
-          <div className="flex items-center gap-2">
-            <FileText size={24} className="shrink-0 opacity-95" aria-hidden />
-            <h2 className="text-xl font-bold">Richiesta Assistenza Veloce</h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 transition hover:bg-black/20"
-            aria-label="Chiudi"
-          >
-            <X size={20} aria-hidden />
-          </button>
-        </div>
+    <HubModalScaffold onBackdropClick={onClose} maxWidthClass="max-w-2xl" zClass="z-[118]">
+      <HubModalChromeHeader icon={FileText} title="Richiesta Assistenza Veloce" onClose={onClose} compact />
 
-        {/* Content */}
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+      <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
           {/* Informazioni Personali */}
           <div className="space-y-3">
-            <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-              <User size={18} />
+            <h3 className="flex items-center gap-2 text-base font-semibold text-white">
+              <User size={18} aria-hidden />
               Informazioni Personali
             </h3>
             
             {/* Email in alto su una riga separata */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">
+              <label className={`${HUB_MODAL_LABEL_CLS} mb-0.5 text-xs`}>
                 Email *
               </label>
               <input
@@ -190,20 +179,20 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`${HUB_MODAL_FIELD_CLS} py-1.5 text-sm`}
                 placeholder="esempio@azienda.com"
               />
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="mt-0.5 text-xs text-white/45">
                 Utilizzare la mail aziendale e non quella personale
               </p>
             </div>
             
             {/* Azienda subito sotto Email */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">
+              <label className={`${HUB_MODAL_LABEL_CLS} mb-0.5 text-xs`}>
                 Azienda
                 {aziendaLocked && (
-                  <span className="text-xs text-blue-600 ml-1">
+                  <span className="ml-1 text-xs text-[color:var(--hub-accent)]">
                     (Auto-rilevata)
                   </span>
                 )}
@@ -216,22 +205,22 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                   onChange={handleChange}
                   onBlur={() => setTimeout(() => setShowAziendaSuggestions(false), 150)}
                   readOnly={false}
-                  className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  className={`w-full rounded-lg px-2.5 py-1.5 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)] ${
                     aziendaLocked 
-                      ? 'bg-blue-50 border-blue-200 text-blue-800 cursor-not-allowed' 
-                      : 'border-gray-300'
+                      ? 'cursor-not-allowed border border-[color:var(--hub-accent-border)] bg-black/25 text-white/75' 
+                      : HUB_MODAL_FIELD_CLS
                   }`}
                   placeholder="Nome dell'azienda"
                 />
                 {showAziendaSuggestions && (
-                  <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-auto">
+                  <div className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-white/10 bg-[#1e1e1e] shadow-lg">
                     {aziendaSuggestions.map((sug, idx) => (
                       <button
                         key={idx}
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => handlePickAzienda(sug)}
-                        className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm"
+                        className="w-full px-3 py-2 text-left text-sm text-white/85 hover:bg-white/10"
                         title={sug}
                       >
                         {sug}
@@ -241,16 +230,16 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                 )}
               </div>
               {aziendaLocked && aziendaSource && (
-                <p className="text-xs text-blue-600 mt-1">
+                <p className="mt-1 text-xs text-[color:var(--hub-accent)]">
                   {aziendaSource}
                 </p>
               )}
             </div>
 
             {/* Nome e Cognome in grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                <label className={`${HUB_MODAL_LABEL_CLS} mb-0.5 text-xs`}>
                   Nome *
                 </label>
                 <input
@@ -259,12 +248,12 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                   value={formData.nome}
                   onChange={handleChange}
                   required
-                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`${HUB_MODAL_FIELD_CLS} py-1.5 text-sm`}
                 />
               </div>
               
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                <label className={`${HUB_MODAL_LABEL_CLS} mb-0.5 text-xs`}>
                   Cognome *
                 </label>
                 <input
@@ -273,14 +262,14 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                   value={formData.cognome}
                   onChange={handleChange}
                   required
-                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`${HUB_MODAL_FIELD_CLS} py-1.5 text-sm`}
                 />
               </div>
             </div>
 
             {/* Telefono su una riga separata */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">
+              <label className={`${HUB_MODAL_LABEL_CLS} mb-0.5 text-xs`}>
                 Telefono
               </label>
               <input
@@ -288,7 +277,7 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                 name="telefono"
                 value={formData.telefono}
                 onChange={handleChange}
-                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`${HUB_MODAL_FIELD_CLS} py-1.5 text-sm`}
                 placeholder="+39 123 456 7890"
               />
             </div>
@@ -297,13 +286,13 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
 
           {/* Dettagli Richiesta */}
           <div className="space-y-3">
-            <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-              <AlertTriangle size={18} />
+            <h3 className="flex items-center gap-2 text-base font-semibold text-white">
+              <AlertTriangle size={18} aria-hidden />
               Dettagli Richiesta
             </h3>
             
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">
+              <label className={`${HUB_MODAL_LABEL_CLS} mb-0.5 text-xs`}>
                 Titolo Richiesta *
               </label>
               <input
@@ -313,12 +302,12 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                 onChange={handleChange}
                 required
                 placeholder="Breve descrizione del problema"
-                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`${HUB_MODAL_FIELD_CLS} py-1.5 text-sm`}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">
+              <label className={`${HUB_MODAL_LABEL_CLS} mb-0.5 text-xs`}>
                 Descrizione *
               </label>
               <textarea
@@ -328,19 +317,19 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                 required
                 rows={3}
                 placeholder="Descrivi il problema in dettaglio..."
-                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                className={`${HUB_MODAL_TEXTAREA_CLS} py-1.5 text-sm`}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">
+              <label className={`${HUB_MODAL_LABEL_CLS} mb-0.5 text-xs`}>
                 Priorità
               </label>
               <select
                 name="priorita"
                 value={formData.priorita}
                 onChange={handleChange}
-                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`${HUB_MODAL_FIELD_CLS} py-1.5 text-sm`}
               >
                 <option value="bassa">Bassa</option>
                 <option value="media">Media</option>
@@ -350,7 +339,7 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">
+              <label className={`${HUB_MODAL_LABEL_CLS} mb-0.5 text-xs`}>
                 Foto (opzionale)
               </label>
               <input
@@ -361,24 +350,24 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                 onChange={handleFileSelect}
                 className="hidden"
               />
-              <button
+              <HubModalSecondaryButton
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:bg-gray-50 transition flex items-center justify-center gap-2"
+                className="flex w-full items-center justify-center gap-2 py-1.5 text-sm"
               >
-                <Camera size={16} />
+                <Camera size={16} aria-hidden />
                 {photos.length > 0 ? `${photos.length} foto selezionate` : 'Seleziona foto'}
-              </button>
+              </HubModalSecondaryButton>
               {photos.length > 0 && (
                 <div className="mt-1.5 space-y-1.5">
                   {photos.map((photo, index) => (
-                    <div key={index} className="flex items-center gap-2 p-1.5 bg-gray-50 rounded-lg">
-                      <ImageIcon size={14} className="text-gray-600" />
-                      <span className="text-xs text-gray-700 flex-1 truncate">{photo.name}</span>
+                    <div key={index} className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 p-1.5">
+                      <ImageIcon size={14} className="text-white/55" aria-hidden />
+                      <span className="flex-1 truncate text-xs text-white/78">{photo.name}</span>
                       <button
                         type="button"
                         onClick={() => removePhoto(index)}
-                        className="text-red-600 hover:text-red-800 text-xs"
+                        className="text-xs text-red-300 hover:text-red-200"
                       >
                         Rimuovi
                       </button>
@@ -388,37 +377,28 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
               )}
             </div>
           </div>
+        </div>
 
-          {/* Footer */}
-          <div className="flex gap-2 pt-4 border-t">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
-            >
-              Annulla
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Invio in corso...
-                </>
-              ) : (
-                <>
-                  <Send size={16} />
-                  Invia Richiesta
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <HubModalChromeFooter className="gap-2 border-t border-white/[0.08]">
+          <HubModalSecondaryButton type="button" onClick={onClose} className="flex-1">
+            Annulla
+          </HubModalSecondaryButton>
+          <HubModalPrimaryButton type="submit" disabled={loading} className="flex flex-1 items-center justify-center gap-2 disabled:opacity-50">
+            {loading ? (
+              <>
+                <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
+                Invio in corso...
+              </>
+            ) : (
+              <>
+                <Send size={16} aria-hidden />
+                Invia Richiesta
+              </>
+            )}
+          </HubModalPrimaryButton>
+        </HubModalChromeFooter>
+      </form>
+    </HubModalScaffold>
   );
 };
 

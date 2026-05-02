@@ -8,7 +8,13 @@ import {
   Minus, ChevronDown, ChevronUp, Play, Timer
 } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
-import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
+import {
+  getStoredTechHubAccent,
+  techHubAccentModalHeaderStyle,
+  HUB_PAGE_BG,
+  hubModalCssVars
+} from '../../utils/techHubAccent';
+import { HubModalInnerCard } from './HubModalChrome';
 
 /* ─── Helpers ─── */
 const formatDate = (d) => {
@@ -61,7 +67,7 @@ const HealthGauge = ({ score }) => {
     <div className="flex flex-col items-center gap-1">
       <div className="relative w-20 h-20">
         <svg viewBox="0 0 72 72" className="w-full h-full -rotate-90">
-          <circle cx="36" cy="36" r={r} fill="none" stroke="#e5e7eb" strokeWidth="8" />
+          <circle cx="36" cy="36" r={r} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="8" />
           <circle
             cx="36" cy="36" r={r} fill="none"
             stroke={color} strokeWidth="8"
@@ -83,7 +89,7 @@ const HealthGauge = ({ score }) => {
 const HourlyChart = ({ data }) => {
   const maxVal = Math.max(...data.map(d => d.offline + d.online), 1);
   const hours = data.filter(d => d.offline > 0 || d.online > 0);
-  if (hours.length === 0) return <p className="text-sm text-gray-400 italic">Nessun evento nel periodo.</p>;
+  if (hours.length === 0) return <p className="text-sm italic text-white/45">Nessun evento nel periodo.</p>;
 
   return (
     <div className="overflow-x-auto pb-1">
@@ -92,8 +98,8 @@ const HourlyChart = ({ data }) => {
           const total = offline + online;
           if (total === 0) return (
             <div key={hour} className="flex flex-col items-center gap-0.5 w-7">
-              <div className="w-5 h-0.5 bg-gray-100 rounded" />
-              <span className="text-[9px] text-gray-300">{hour}</span>
+              <div className="h-0.5 w-5 rounded bg-white/12" />
+              <span className="text-[9px] text-white/35">{hour}</span>
             </div>
           );
           const offH = Math.round((offline / maxVal) * 72);
@@ -104,14 +110,14 @@ const HourlyChart = ({ data }) => {
                 {online > 0 && <div style={{ height: onH, minHeight: 4 }} className="w-full bg-green-400 rounded-sm" />}
                 {offline > 0 && <div style={{ height: offH, minHeight: 4 }} className="w-full bg-red-400 rounded-sm" />}
               </div>
-              <span className="text-[9px] text-gray-400">{hour}</span>
+              <span className="text-[9px] text-white/45">{hour}</span>
             </div>
           );
         })}
       </div>
       <div className="flex items-center gap-3 mt-2">
-        <span className="flex items-center gap-1 text-xs text-gray-500"><span className="w-3 h-2 bg-red-400 rounded-sm inline-block" /> Offline</span>
-        <span className="flex items-center gap-1 text-xs text-gray-500"><span className="w-3 h-2 bg-green-400 rounded-sm inline-block" /> Online</span>
+        <span className="flex items-center gap-1 text-xs text-white/55"><span className="inline-block h-2 w-3 rounded-sm bg-red-400" /> Offline</span>
+        <span className="flex items-center gap-1 text-xs text-white/55"><span className="inline-block h-2 w-3 rounded-sm bg-green-400" /> Online</span>
       </div>
     </div>
   );
@@ -128,27 +134,27 @@ const TimelineItem = ({ ev }) => {
 
   const dotColor = isOffline ? 'bg-red-500' : isOnline ? 'bg-green-500' : isConflict ? 'bg-amber-500' : 'bg-blue-400';
   const Icon = isOffline ? ArrowDownRight : isOnline ? ArrowUpRight : isConflict ? AlertTriangle : Minus;
-  const textColor = isOffline ? 'text-red-700' : isOnline ? 'text-green-700' : isConflict ? 'text-amber-700' : 'text-blue-700';
+  const textColor = isOffline ? 'text-red-300' : isOnline ? 'text-emerald-300' : isConflict ? 'text-amber-200' : 'text-sky-300';
 
   return (
     <div className="relative flex gap-3 pb-4">
       <div className="flex flex-col items-center">
-        <div className={`w-2.5 h-2.5 rounded-full ${dotColor} ring-2 ring-white mt-0.5 shrink-0 z-10`} />
-        <div className="w-px flex-1 bg-gray-200 mt-1" />
+        <div className={`w-2.5 h-2.5 rounded-full ${dotColor} mt-0.5 shrink-0 ring-2 ring-[#121212] z-10`} />
+        <div className="mt-1 w-px flex-1 bg-white/12" />
       </div>
       <div className="flex-1 min-w-0 pt-0.5">
         <div className="flex flex-wrap items-center gap-2">
           <Icon className={`w-3.5 h-3.5 ${textColor} shrink-0`} />
           <span className={`text-xs font-semibold ${textColor}`}>{changeTypeLabel(ev.change_type)}</span>
-          <span className="text-xs text-gray-400">{formatDate(ev.detected_at)}</span>
+          <span className="text-xs text-white/45">{formatDate(ev.detected_at)}</span>
           {duration && (
-            <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">
+            <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-100">
               ⏱ {duration}
             </span>
           )}
         </div>
         {(ev.old_value || ev.new_value) && (
-          <p className="text-xs text-gray-500 mt-0.5 font-mono">
+          <p className="mt-0.5 font-mono text-xs text-white/55">
             {isConflict
               ? `MAC 1: ${ev.old_value || '-'} · MAC 2: ${ev.new_value || '-'}`
               : `${ev.old_value ? `${ev.old_value} → ` : ''}${ev.new_value || ''}`}
@@ -402,36 +408,36 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
 
       {/* ── Banner test in corso ── */}
       {testsLoading && (
-        <div className={`shrink-0 border-b ${testsWaitingAgent ? 'bg-blue-50 border-blue-200' : 'bg-amber-50 border-amber-200'}`}>
+        <div className={`shrink-0 border-b ${testsWaitingAgent ? 'border-sky-500/35 bg-sky-500/10' : 'border-amber-500/38 bg-amber-500/10'}`}>
           <div className="flex items-center gap-3 px-6 py-3">
             {testsWaitingAgent
-              ? <Timer className="w-5 h-5 text-blue-600 shrink-0" />
-              : <Loader className="w-5 h-5 text-amber-600 animate-spin shrink-0" />}
-            <div className="flex-1 min-w-0">
-              <div className={`text-sm font-semibold ${testsWaitingAgent ? 'text-blue-900' : 'text-amber-900'}`}>
+              ? <Timer className="h-5 w-5 shrink-0 text-sky-300" />
+              : <Loader className="h-5 w-5 shrink-0 animate-spin text-amber-300" />}
+            <div className="min-w-0 flex-1">
+              <div className={`text-sm font-semibold ${testsWaitingAgent ? 'text-sky-50' : 'text-amber-50'}`}>
                 {testsWaitingAgent
                   ? `⏳ In attesa che l'agent esegua il test${countdown != null ? ` — ${Math.floor(countdown / 60)}:${String(countdown % 60).padStart(2, '0')} rimasti` : ''}`
                   : '⚡ Esecuzione test dal server cloud…'}
               </div>
               {testsWaitingAgent && (
-                <div className="text-xs text-blue-700 mt-0.5">
+                <div className="mt-0.5 text-xs text-sky-100/85">
                   L'agent esegue test locali al prossimo heartbeat (~5 min). Attendi.
                 </div>
               )}
             </div>
             {testsWaitingAgent && countdown != null && (
-              <div className="text-2xl font-mono font-bold text-blue-700 shrink-0">
+              <div className="shrink-0 font-mono text-2xl font-bold text-sky-200">
                 {Math.floor(countdown / 60)}:{String(countdown % 60).padStart(2, '0')}
               </div>
             )}
           </div>
           {testsWaitingAgent && countdown != null && (
-            <div className="h-1 bg-blue-100">
+            <div className="h-1 bg-white/10">
               <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${(countdown / 360) * 100}%` }} />
             </div>
           )}
           {!testsWaitingAgent && (
-            <div className="h-1 bg-amber-100">
+            <div className="h-1 bg-amber-500/15">
               <div className="h-full bg-amber-400 animate-pulse" style={{ width: '65%' }} />
             </div>
           )}
@@ -439,12 +445,12 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
       )}
 
       {/* ── Controls ── */}
-      <div className="px-6 pt-4 pb-2 flex items-center gap-3 border-b border-gray-100 shrink-0 bg-gray-50">
-        <span className="text-xs text-gray-500 font-medium">Periodo:</span>
+      <div className="px-6 pt-4 pb-2 flex items-center gap-3 border-b border-white/10 shrink-0 bg-black/20">
+        <span className="text-xs font-medium text-white/55">Periodo:</span>
         <select
           value={periodDays}
           onChange={e => setPeriodDays(Number(e.target.value))}
-          className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white shadow-sm"
+          className="text-xs rounded-lg border border-white/12 bg-black/28 px-2.5 py-1.5 text-white shadow-none outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)]"
         >
           <option value={7}>7 giorni</option>
           <option value={30}>30 giorni</option>
@@ -454,7 +460,7 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
           type="button"
           onClick={fetchAnalysis}
           disabled={loading}
-          className="text-xs text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50 flex items-center gap-1"
+          className="text-xs font-medium text-sky-300 hover:text-sky-200 disabled:opacity-50 flex items-center gap-1"
         >
           {loading && !testsLoading ? <Loader className="w-3 h-3 animate-spin" /> : null}
           Aggiorna
@@ -465,12 +471,12 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
       <div className="flex-1 overflow-y-auto">
         {loading && !testsLoading && (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <Loader className="w-8 h-8 text-blue-500 animate-spin" />
-            <p className="text-sm text-gray-400">Caricamento analisi…</p>
+            <Loader className="h-8 w-8 animate-spin text-[color:var(--hub-accent)]" />
+            <p className="text-sm text-white/45">Caricamento analisi…</p>
           </div>
         )}
         {error && !testsLoading && (
-          <div className="m-6 flex items-center gap-2 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800">
+          <div className="m-6 flex items-center gap-2 rounded-xl border border-red-500/40 bg-red-500/15 p-4 text-red-50">
             <AlertTriangle className="w-5 h-5 shrink-0" />
             <span className="text-sm">{error}</span>
           </div>
@@ -482,38 +488,38 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
             {/* ── 1. Overview ── */}
             <section>
               <div className="flex items-center gap-2 mb-3">
-                <BarChart3 className="w-4 h-4 text-slate-600" />
-                <h3 className="text-sm font-semibold text-slate-700">Overview & Salute</h3>
+                <BarChart3 className="w-4 h-4 text-white/55" />
+                <h3 className="text-sm font-semibold text-white/78">Overview & Salute</h3>
               </div>
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+              <div className="rounded-xl border border-white/10 bg-black/20 shadow-sm p-5">
                 <div className="flex flex-wrap items-center gap-6">
                   {/* Gauge */}
                   <HealthGauge score={health.health_score} />
 
                   {/* Stats */}
                   <div className="flex flex-wrap gap-4 flex-1 min-w-0">
-                    <div className="bg-gray-50 rounded-xl p-3 flex-1 min-w-[100px] text-center">
-                      <div className="text-2xl font-bold text-gray-800">{health.uptime_pct ?? '-'}%</div>
-                      <div className="text-xs text-gray-500 mt-0.5">Uptime stimato</div>
+                    <div className="min-w-[100px] flex-1 rounded-xl border border-white/10 bg-black/25 p-3 text-center">
+                      <div className="text-2xl font-bold text-white">{health.uptime_pct ?? '-'}%</div>
+                      <div className="mt-0.5 text-xs text-white/55">Uptime stimato</div>
                     </div>
-                    <div className="bg-red-50 rounded-xl p-3 flex-1 min-w-[100px] text-center">
-                      <div className="text-2xl font-bold text-red-600">{health.offline_events ?? 0}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">Eventi offline</div>
+                    <div className="min-w-[100px] flex-1 rounded-xl border border-red-500/35 bg-red-500/12 p-3 text-center">
+                      <div className="text-2xl font-bold text-red-300">{health.offline_events ?? 0}</div>
+                      <div className="mt-0.5 text-xs text-white/55">Eventi offline</div>
                     </div>
-                    <div className="bg-green-50 rounded-xl p-3 flex-1 min-w-[100px] text-center">
-                      <div className="text-2xl font-bold text-green-600">{health.online_events ?? 0}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">Rientri online</div>
+                    <div className="min-w-[100px] flex-1 rounded-xl border border-emerald-500/35 bg-emerald-500/12 p-3 text-center">
+                      <div className="text-2xl font-bold text-emerald-300">{health.online_events ?? 0}</div>
+                      <div className="mt-0.5 text-xs text-white/55">Rientri online</div>
                     </div>
                   </div>
                 </div>
                 {dev.has_ping_failures && (
-                  <div className="mt-4 flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+                  <div className="mt-4 flex items-center gap-2 rounded-lg border border-amber-500/38 bg-amber-500/12 p-3 text-sm text-amber-50">
                     <AlertTriangle className="w-4 h-4 shrink-0" />
                     <span>Disconnessioni frequenti rilevate su questo dispositivo (ping instabile).</span>
                   </div>
                 )}
                 {health.offline_events === 0 && health.uptime_pct === 100 && (
-                  <div className="mt-4 flex items-center gap-2 p-3 rounded-lg bg-green-50 border border-green-200 text-green-800 text-sm">
+                  <div className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-500/35 bg-emerald-500/12 p-3 text-sm text-emerald-50">
                     <CheckCircle className="w-4 h-4 shrink-0" />
                     <span>Nessun problema rilevato nel periodo selezionato.</span>
                   </div>
@@ -524,11 +530,11 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
             {/* ── 2. Test Remoti ── */}
             <section ref={testSectionRef}>
               <div className="flex items-center gap-2 mb-3">
-                <Cpu className="w-4 h-4 text-slate-600" />
-                <h3 className="text-sm font-semibold text-slate-700">Test Remoti</h3>
+                <Cpu className="w-4 h-4 text-white/55" />
+                <h3 className="text-sm font-semibold text-white/78">Test Remoti</h3>
               </div>
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                <p className="text-xs text-gray-400 mb-4">
+              <div className="rounded-xl border border-white/10 bg-black/20 shadow-sm p-5">
+                <p className="mb-4 text-xs text-white/55">
                   Ping e scan porte adattati al tipo dispositivo.
                   Per IP privati (192.168.x, 10.x) i test vengono eseguiti dall'<strong>agent in locale</strong>.
                 </p>
@@ -539,8 +545,8 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                     onClick={(ev) => { ev.stopPropagation(); runTests(ev); }}
                     disabled={testsLoading}
                     className={`px-4 py-2 text-white text-sm rounded-lg flex items-center gap-2 shadow-sm transition-colors ${testsLoading
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-blue-600 hover:bg-blue-700'
+                      ? 'cursor-not-allowed bg-white/25'
+                      : 'bg-[color:var(--hub-accent)] hover:brightness-110'
                       }`}
                   >
                     {testsLoading
@@ -551,18 +557,18 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                       : 'Esegui test'}
                   </button>
                   {tests?.profileLabel && !testsLoading && (
-                    <span className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100 px-2.5 py-1 rounded-full">
+                    <span className="rounded-full border border-sky-500/35 bg-sky-500/15 px-2.5 py-1 text-[11px] text-sky-100">
                       {tests.profileLabel}
                     </span>
                   )}
                   {tests?._deferred && !testsLoading && (
-                    <span className="text-[11px] text-green-600 font-medium">✓ Eseguiti dall'agent in locale</span>
+                    <span className="text-[11px] font-medium text-emerald-300">✓ Eseguiti dall&apos;agent in locale</span>
                   )}
                 </div>
 
                 {/* Stato loading inline compatto */}
                 {testsLoading && testsWaitingAgent && (
-                  <p className="text-xs text-blue-600 mb-4">
+                  <p className="mb-4 text-xs text-sky-200/90">
                     ⏳ Task inviato all'agent — attendi il prossimo heartbeat (~5 min). Il countdown è visibile in cima.
                   </p>
                 )}
@@ -588,14 +594,14 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                 {tests && !tests.error && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Ping */}
-                    <div className="bg-gray-50 rounded-xl p-4">
-                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Ping</div>
+                  <div className="rounded-xl border border-white/10 bg-black/25 p-4">
+                      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/55">Ping</div>
                       {tests.ping?.ok ? (
                         <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-sm text-green-700 font-medium">
+                          <div className="flex items-center gap-2 text-sm font-medium text-emerald-300">
                             <CheckCircle className="w-4 h-4" /> Raggiungibile
                           </div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-white/55">
                             Packet loss: <strong>{tests.ping.packetLoss}%</strong>
                             {tests.ping.avgMs != null && <> · RTT medio: <strong>{tests.ping.avgMs} ms</strong></>}
                           </div>
@@ -614,24 +620,24 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                     </div>
 
                     {/* Porte */}
-                    <div className="bg-gray-50 rounded-xl p-4">
-                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Porte</div>
+                    <div className="rounded-xl border border-white/10 bg-black/25 p-4">
+                      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/55">Porte</div>
                       {tests.ports && Object.keys(tests.ports).length > 0 ? (
                         <div className="flex flex-wrap gap-2">
                           {Object.entries(tests.ports).map(([port, open]) => (
                             <div
                               key={port}
                               className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border ${open
-                                ? 'bg-green-50 text-green-800 border-green-200'
-                                : 'bg-gray-100 text-gray-500 border-gray-200'}`}
+                                ? 'border-emerald-500/35 bg-emerald-500/12 text-emerald-100'
+                                : 'border-white/10 bg-black/25 text-white/55'}`}
                             >
-                              <span className={`w-1.5 h-1.5 rounded-full ${open ? 'bg-green-500' : 'bg-gray-400'}`} />
+                              <span className={`h-1.5 w-1.5 rounded-full ${open ? 'bg-green-500' : 'bg-white/35'}`} />
                               {port}
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <span className="text-xs text-gray-400">Nessun dato</span>
+                        <span className="text-xs text-white/45">Nessun dato</span>
                       )}
                     </div>
                   </div>
@@ -642,11 +648,11 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
             {/* ── 3. Pattern Orario ── */}
             <section>
               <div className="flex items-center gap-2 mb-3">
-                <BarChart3 className="w-4 h-4 text-slate-600" />
-                <h3 className="text-sm font-semibold text-slate-700">Pattern per ora del giorno</h3>
+                <BarChart3 className="w-4 h-4 text-white/55" />
+                <h3 className="text-sm font-semibold text-white/78">Pattern per ora del giorno</h3>
               </div>
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                <p className="text-xs text-gray-400 mb-4">
+              <div className="rounded-xl border border-white/10 bg-black/20 shadow-sm p-5">
+                <p className="mb-4 text-xs text-white/55">
                   Distribuzione degli eventi per fascia oraria — utile per individuare conflitti DHCP, backup schedulati o interruzioni ricorrenti.
                 </p>
                 <HourlyChart data={pattern} />
@@ -656,43 +662,43 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
             {/* ── 4. Confronto ── */}
             <section>
               <div className="flex items-center gap-2 mb-3">
-                <Users className="w-4 h-4 text-slate-600" />
-                <h3 className="text-sm font-semibold text-slate-700">Confronto con dispositivi simili</h3>
+                <Users className="w-4 h-4 text-white/55" />
+                <h3 className="text-sm font-semibold text-white/78">Confronto con dispositivi simili</h3>
               </div>
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
+              <div className="rounded-xl border border-white/10 bg-black/20 shadow-sm p-5 space-y-3">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
-                  <div className="bg-gray-50 rounded-lg p-3 text-center">
-                    <div className="text-xl font-bold text-gray-800">{sameNetwork.length}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">Altri dispositivi con problemi (stessa rete)</div>
+                  <div className="rounded-lg border border-white/10 bg-black/25 p-3 text-center">
+                    <div className="text-xl font-bold text-white">{sameNetwork.length}</div>
+                    <div className="mt-0.5 text-xs text-white/45">Altri dispositivi con problemi (stessa rete)</div>
                   </div>
                   {comparison.same_type_count > 0 && (
                     <>
-                      <div className="bg-gray-50 rounded-lg p-3 text-center">
-                        <div className="text-xl font-bold text-gray-800">{comparison.same_type_avg_offlines}</div>
-                        <div className="text-xs text-gray-400 mt-0.5">Media offline (tipo {dev.device_type || 'N/D'})</div>
+                      <div className="rounded-lg border border-white/10 bg-black/25 p-3 text-center">
+                        <div className="text-xl font-bold text-white">{comparison.same_type_avg_offlines}</div>
+                        <div className="mt-0.5 text-xs text-white/45">Media offline (tipo {dev.device_type || 'N/D'})</div>
                       </div>
-                      <div className={`rounded-lg p-3 text-center ${comparison.this_device_offlines > comparison.same_type_avg_offlines * 2 ? 'bg-red-50' : 'bg-gray-50'}`}>
-                        <div className={`text-xl font-bold ${comparison.this_device_offlines > comparison.same_type_avg_offlines * 2 ? 'text-red-600' : 'text-gray-800'}`}>
+                      <div className={`rounded-lg border p-3 text-center ${comparison.this_device_offlines > comparison.same_type_avg_offlines * 2 ? 'border-red-500/35 bg-red-500/12' : 'border-white/10 bg-black/25'}`}>
+                        <div className={`text-xl font-bold ${comparison.this_device_offlines > comparison.same_type_avg_offlines * 2 ? 'text-red-300' : 'text-white'}`}>
                           {comparison.this_device_offlines}
                         </div>
-                        <div className="text-xs text-gray-400 mt-0.5">Questo dispositivo (offline)</div>
+                        <div className="mt-0.5 text-xs text-white/45">Questo dispositivo (offline)</div>
                       </div>
                     </>
                   )}
                 </div>
 
                 {comparison.suggestion && (
-                  <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+                  <div className="flex items-start gap-2 rounded-xl border border-amber-500/38 bg-amber-500/12 p-3 text-sm text-amber-50">
                     <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                     <span>{comparison.suggestion}</span>
                   </div>
                 )}
 
                 {sameNetwork.length > 0 && (
-                  <div className="overflow-x-auto rounded-lg border border-gray-100">
+                  <div className="overflow-x-auto rounded-lg border border-white/10">
                     <table className="w-full text-xs">
-                      <thead className="bg-gray-50">
-                        <tr className="text-left text-gray-500">
+                      <thead className="bg-black/30">
+                        <tr className="text-left text-white/55">
                           <th className="py-2 px-3 font-medium">IP</th>
                           <th className="py-2 px-3 font-medium">Hostname</th>
                           <th className="py-2 px-3 font-medium">Offline</th>
@@ -701,15 +707,15 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                       </thead>
                       <tbody>
                         {sameNetwork.slice(0, 10).map((row) => (
-                          <tr key={row.id} className="border-t border-gray-100 hover:bg-gray-50">
-                            <td className="py-2 px-3 font-mono">{row.ip_address}</td>
-                            <td className="py-2 px-3 text-gray-600">{row.hostname || '-'}</td>
-                            <td className="py-2 px-3">
-                              <span className={`font-semibold ${(row.offline_count ?? 0) > 5 ? 'text-red-600' : 'text-gray-700'}`}>
+                          <tr key={row.id} className="border-t border-white/10 hover:bg-white/[0.04]">
+                            <td className="px-3 py-2 font-mono text-white/85">{row.ip_address}</td>
+                            <td className="px-3 py-2 text-white/65">{row.hostname || '-'}</td>
+                            <td className="px-3 py-2">
+                              <span className={`font-semibold ${(row.offline_count ?? 0) > 5 ? 'text-red-300' : 'text-white/85'}`}>
                                 {row.offline_count ?? '-'}
                               </span>
                             </td>
-                            <td className="py-2 px-3">{row.has_ping_failures ? <span className="text-amber-600">⚠ Sì</span> : <span className="text-gray-400">-</span>}</td>
+                            <td className="px-3 py-2">{row.has_ping_failures ? <span className="text-amber-300">⚠ Sì</span> : <span className="text-white/38">-</span>}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -727,17 +733,17 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                 <section>
                   <div className="flex items-center gap-2 mb-3">
                     <AlertTriangle className="w-4 h-4 text-amber-500" />
-                    <h3 className="text-sm font-semibold text-slate-700">Conflitti IP Rilevati</h3>
+                    <h3 className="text-sm font-semibold text-white/78">Conflitti IP Rilevati</h3>
                   </div>
-                  <div className="bg-amber-50 rounded-xl border border-amber-200 p-5">
-                    <p className="text-xs text-amber-700 mb-3">Questo dispositivo è stato coinvolto in conflitti IP (stesso IP usato da due MAC diversi).</p>
+                  <div className="rounded-xl border border-amber-500/38 bg-amber-500/10 p-5">
+                    <p className="mb-3 text-xs text-amber-100/85">Questo dispositivo è stato coinvolto in conflitti IP (stesso IP usato da due MAC diversi).</p>
                     <ul className="space-y-2">
                       {ipConflicts.map((ev, i) => (
-                        <li key={i} className="text-sm flex flex-wrap items-center gap-2">
-                          <span className="text-amber-700 font-medium">{formatDate(ev.detected_at)}</span>
-                          <span className="font-mono text-xs bg-white border border-amber-200 px-2 py-0.5 rounded">{ev.old_value || '-'}</span>
-                          <span className="text-amber-400">vs</span>
-                          <span className="font-mono text-xs bg-white border border-amber-200 px-2 py-0.5 rounded">{ev.new_value || '-'}</span>
+                        <li key={i} className="flex flex-wrap items-center gap-2 text-sm">
+                          <span className="font-medium text-amber-200">{formatDate(ev.detected_at)}</span>
+                          <span className="rounded border border-amber-500/35 bg-black/30 px-2 py-0.5 font-mono text-xs text-white/85">{ev.old_value || '-'}</span>
+                          <span className="text-amber-400/80">vs</span>
+                          <span className="rounded border border-amber-500/35 bg-black/30 px-2 py-0.5 font-mono text-xs text-white/85">{ev.new_value || '-'}</span>
                         </li>
                       ))}
                     </ul>
@@ -750,16 +756,16 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
             <section>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-slate-600" />
-                  <h3 className="text-sm font-semibold text-slate-700">
+                  <Clock className="w-4 h-4 text-white/55" />
+                  <h3 className="text-sm font-semibold text-white/78">
                     Timeline eventi
-                    {timeline.length > 0 && <span className="ml-2 text-xs text-gray-400 font-normal">({timeline.length} totali)</span>}
+                    {timeline.length > 0 && <span className="ml-2 text-xs font-normal text-white/45">({timeline.length} totali)</span>}
                   </h3>
                 </div>
               </div>
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+              <div className="rounded-xl border border-white/10 bg-black/20 shadow-sm p-5">
                 {timeline.length === 0 ? (
-                  <p className="text-sm text-gray-400 italic">Nessun evento nel periodo selezionato.</p>
+                  <p className="text-sm italic text-white/45">Nessun evento nel periodo selezionato.</p>
                 ) : (
                   <>
                     <div className="relative">
@@ -771,7 +777,7 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                       <button
                         type="button"
                         onClick={() => setTimelineExpanded(e => !e)}
-                        className="mt-2 flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                        className="mt-2 flex items-center gap-1.5 text-xs font-medium text-sky-300 hover:text-sky-200"
                       >
                         {timelineExpanded
                           ? <><ChevronUp className="w-3.5 h-3.5" /> Mostra meno</>
@@ -790,15 +796,22 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
   );
 
   if (fullPage) {
-    return <div className="fixed inset-0 z-[100] bg-white flex flex-col overflow-hidden">{inner}</div>;
-  }
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+    const ah = getStoredTechHubAccent();
+    return (
       <div
-        className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col"
-        onClick={e => e.stopPropagation()}
+        className="fixed inset-0 z-[100] flex flex-col overflow-hidden"
+        style={{ backgroundColor: HUB_PAGE_BG, ...hubModalCssVars(ah) }}
       >
         {inner}
+      </div>
+    );
+  }
+  return (
+    <div className="fixed inset-0 z-[118] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
+        <HubModalInnerCard maxWidthClass="max-w-3xl" className="flex max-h-[90vh] flex-col overflow-hidden">
+          {inner}
+        </HubModalInnerCard>
       </div>
     </div>
   );

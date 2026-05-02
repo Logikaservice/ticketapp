@@ -1,10 +1,19 @@
 // frontend/src/components/Modals/AnalyticsModal.jsx
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, BarChart3, Building } from 'lucide-react';
+import { BarChart3, Building } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { buildApiUrl } from '../../utils/apiConfig';
-import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
+import { HUB_MODAL_FIELD_CLS, HUB_MODAL_LABEL_CLS } from '../../utils/techHubAccent';
+import { HubModalInnerCard, HubModalChromeHeader, HubModalBody } from './HubModalChrome';
+
+const CHART_TICK = { fill: '#c4c4c4', fontSize: 12 };
+const CHART_TOOLTIP_STYLE = {
+  backgroundColor: '#1e1e1e',
+  border: '1px solid rgba(255,255,255,0.12)',
+  borderRadius: 8,
+  color: '#f5f5f5'
+};
 
 const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
   const [loading, setLoading] = useState(true);
@@ -115,79 +124,62 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
   const totalGenerale = totals.pagato + totals.inAttesa + totals.daFatturare + totals.daCompletare;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div
-          className="flex items-center justify-between border-b border-black/10 p-6"
-          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
-        >
-          <div className="flex items-center gap-3">
-            <BarChart3 className="shrink-0 opacity-95" size={24} aria-hidden />
-            <h2 className="text-2xl font-bold">Analytics</h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 transition hover:bg-black/15"
-            aria-label="Chiudi"
+    <HubModalInnerCard maxWidthClass="max-w-6xl" className="flex max-h-[90vh] flex-col overflow-hidden">
+      <HubModalChromeHeader icon={BarChart3} title="Analytics" onClose={onClose} />
+
+      <div className="shrink-0 border-b border-white/10 bg-black/20 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Building size={18} className="text-white/55" aria-hidden />
+          <label className={`${HUB_MODAL_LABEL_CLS} mb-0`}>Filtra per Azienda:</label>
+          <select
+            value={selectedCompany}
+            onChange={(e) => setSelectedCompany(e.target.value)}
+            className={`max-w-xs ${HUB_MODAL_FIELD_CLS}`}
           >
-            <X size={20} aria-hidden />
-          </button>
+            <option value="all">Tutte le Aziende</option>
+            {companies.map(company => (
+              <option key={company} value={company}>{company}</option>
+            ))}
+          </select>
         </div>
+      </div>
 
-        {/* Filtro Azienda */}
-        <div className="p-4 border-b bg-gray-50">
-          <div className="flex items-center gap-3">
-            <Building size={18} className="text-gray-600" />
-            <label className="text-sm font-medium text-gray-700">Filtra per Azienda:</label>
-            <select
-              value={selectedCompany}
-              onChange={(e) => setSelectedCompany(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">Tutte le Aziende</option>
-              {companies.map(company => (
-                <option key={company} value={company}>{company}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Contenuto */}
-        <div className="flex-1 overflow-y-auto p-6">
+      <HubModalBody className="flex-1 space-y-4 pb-6">
           {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="text-gray-500">Caricamento dati...</div>
+            <div className="flex h-64 items-center justify-center">
+              <div className="text-white/55">Caricamento dati...</div>
             </div>
           ) : data.length === 0 ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="text-gray-500">Nessun dato disponibile</div>
+            <div className="flex h-64 items-center justify-center">
+              <div className="text-white/55">Nessun dato disponibile</div>
             </div>
           ) : (
             <>
               {/* Grafico */}
               <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-4 text-gray-800">Andamento Mensile</h3>
+                <h3 className="mb-4 text-lg font-semibold text-white">Andamento Mensile</h3>
                 <ResponsiveContainer width="100%" height={400}>
                   <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
                     <XAxis 
                       dataKey="month" 
-                      tick={{ fontSize: 12 }}
+                      tick={CHART_TICK}
+                      stroke="rgba(255,255,255,0.2)"
                       angle={-45}
                       textAnchor="end"
                       height={80}
                     />
                     <YAxis 
-                      tick={{ fontSize: 12 }}
+                      tick={CHART_TICK}
+                      stroke="rgba(255,255,255,0.2)"
                       tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
                     />
                     <Tooltip 
                       formatter={(value) => formatCurrency(value)}
-                      contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '4px' }}
+                      contentStyle={CHART_TOOLTIP_STYLE}
+                      labelStyle={{ color: '#e5e5e5' }}
                     />
-                    <Legend />
+                    <Legend wrapperStyle={{ color: '#e5e5e5' }} />
                     <Bar dataKey="pagato" stackId="a" fill="#10b981" name="Pagato (Fatturati)" />
                     <Bar dataKey="inAttesa" stackId="a" fill="#f59e0b" name="In Attesa (Inviati)" />
                     <Bar dataKey="daFatturare" stackId="a" fill="#3b82f6" name="Da Fatturare (Chiusi)" />
@@ -197,50 +189,50 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
               </div>
 
               {/* Totali */}
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="text-sm text-green-700 font-medium mb-1">Pagato</div>
-                  <div className="text-2xl font-bold text-green-800">{formatCurrency(totals.pagato)}</div>
-                  <div className="text-xs text-green-600 mt-1">Fatturati</div>
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+                <div className="rounded-lg border border-emerald-500/35 bg-emerald-500/12 p-4">
+                  <div className="mb-1 text-sm font-medium text-emerald-100">Pagato</div>
+                  <div className="text-2xl font-bold text-emerald-50">{formatCurrency(totals.pagato)}</div>
+                  <div className="mt-1 text-xs text-emerald-100/80">Fatturati</div>
                 </div>
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <div className="text-sm text-yellow-700 font-medium mb-1">In Attesa</div>
-                  <div className="text-2xl font-bold text-yellow-800">{formatCurrency(totals.inAttesa)}</div>
-                  <div className="text-xs text-yellow-600 mt-1">Inviati</div>
+                <div className="rounded-lg border border-amber-500/38 bg-amber-500/12 p-4">
+                  <div className="mb-1 text-sm font-medium text-amber-50">In Attesa</div>
+                  <div className="text-2xl font-bold text-amber-100">{formatCurrency(totals.inAttesa)}</div>
+                  <div className="mt-1 text-xs text-amber-100/75">Inviati</div>
                 </div>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="text-sm text-blue-700 font-medium mb-1">Da Fatturare</div>
-                  <div className="text-2xl font-bold text-blue-800">{formatCurrency(totals.daFatturare)}</div>
-                  <div className="text-xs text-blue-600 mt-1">Chiusi</div>
+                <div className="rounded-lg border border-sky-500/35 bg-sky-500/12 p-4">
+                  <div className="mb-1 text-sm font-medium text-sky-50">Da Fatturare</div>
+                  <div className="text-2xl font-bold text-sky-100">{formatCurrency(totals.daFatturare)}</div>
+                  <div className="mt-1 text-xs text-sky-100/75">Chiusi</div>
                 </div>
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="text-sm text-red-700 font-medium mb-1">Da Completare</div>
-                  <div className="text-2xl font-bold text-red-800">{formatCurrency(totals.daCompletare)}</div>
-                  <div className="text-xs text-red-600 mt-1">Risolti</div>
+                <div className="rounded-lg border border-red-500/40 bg-red-500/15 p-4">
+                  <div className="mb-1 text-sm font-medium text-red-50">Da Completare</div>
+                  <div className="text-2xl font-bold text-red-100">{formatCurrency(totals.daCompletare)}</div>
+                  <div className="mt-1 text-xs text-red-100/80">Risolti</div>
                 </div>
-                <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
-                  <div className="text-sm text-gray-700 font-medium mb-1">Totale</div>
-                  <div className="text-2xl font-bold text-gray-800">{formatCurrency(totalGenerale)}</div>
-                  <div className="text-xs text-gray-600 mt-1">Complessivo</div>
+                <div className="rounded-lg border border-white/10 bg-black/20 p-4">
+                  <div className="mb-1 text-sm font-medium text-white/78">Totale</div>
+                  <div className="text-2xl font-bold text-white">{formatCurrency(totalGenerale)}</div>
+                  <div className="mt-1 text-xs text-white/55">Complessivo</div>
                 </div>
               </div>
 
               {/* Tabella Dettagli */}
               <div className="mt-6">
-                <h3 className="text-lg font-semibold mb-4 text-gray-800">Dettaglio Mensile</h3>
+                <h3 className="mb-4 text-lg font-semibold text-white">Dettaglio Mensile</h3>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full bg-white border border-gray-200 rounded-lg">
-                    <thead className="bg-gray-50">
+                  <table className="min-w-full rounded-lg border border-white/10 bg-black/20">
+                    <thead className="bg-black/30">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Mese</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Pagato</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">In Attesa</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Da Fatturare</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Da Completare</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Totale Mese</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase text-white/70">Mese</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase text-white/70">Pagato</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase text-white/70">In Attesa</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase text-white/70">Da Fatturare</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase text-white/70">Da Completare</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase text-white/70">Totale Mese</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
+                    <tbody className="divide-y divide-white/10">
                       {data.map((row, index) => {
                         const totaleMese = row.pagato + row.inAttesa + row.daFatturare + row.daCompletare;
                         
@@ -268,43 +260,43 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
                         };
                         
                         return (
-                          <tr key={index} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{row.month}</td>
-                            <td className="px-4 py-3 text-sm text-right text-green-700">{formatCurrency(row.pagato)}</td>
+                          <tr key={index} className="hover:bg-white/[0.04]">
+                            <td className="px-4 py-3 text-sm font-medium text-white">{row.month}</td>
+                            <td className="px-4 py-3 text-right text-sm text-emerald-300">{formatCurrency(row.pagato)}</td>
                             <td 
-                              className="px-4 py-3 text-sm text-right text-yellow-700 cursor-help relative"
+                              className="relative cursor-help px-4 py-3 text-right text-sm text-amber-200"
                               onMouseEnter={(e) => handleCellHover('inAttesa', e)}
                               onMouseLeave={handleCellLeave}
                             >
                               {formatCurrency(row.inAttesa)}
                             </td>
                             <td 
-                              className="px-4 py-3 text-sm text-right text-blue-700 cursor-help relative"
+                              className="relative cursor-help px-4 py-3 text-right text-sm text-sky-300"
                               onMouseEnter={(e) => handleCellHover('daFatturare', e)}
                               onMouseLeave={handleCellLeave}
                             >
                               {formatCurrency(row.daFatturare)}
                             </td>
                             <td 
-                              className="px-4 py-3 text-sm text-right text-red-700 cursor-help relative"
+                              className="relative cursor-help px-4 py-3 text-right text-sm text-red-300"
                               onMouseEnter={(e) => handleCellHover('daCompletare', e)}
                               onMouseLeave={handleCellLeave}
                             >
                               {formatCurrency(row.daCompletare)}
                             </td>
-                            <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">{formatCurrency(totaleMese)}</td>
+                            <td className="px-4 py-3 text-right text-sm font-semibold text-white">{formatCurrency(totaleMese)}</td>
                           </tr>
                         );
                       })}
                     </tbody>
-                    <tfoot className="bg-gray-100 font-semibold">
+                    <tfoot className="bg-black/35 font-semibold">
                       <tr>
-                        <td className="px-4 py-3 text-sm text-gray-900">TOTALE</td>
-                        <td className="px-4 py-3 text-sm text-right text-green-700">{formatCurrency(totals.pagato)}</td>
-                        <td className="px-4 py-3 text-sm text-right text-yellow-700">{formatCurrency(totals.inAttesa)}</td>
-                        <td className="px-4 py-3 text-sm text-right text-blue-700">{formatCurrency(totals.daFatturare)}</td>
-                        <td className="px-4 py-3 text-sm text-right text-red-700">{formatCurrency(totals.daCompletare)}</td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-900">{formatCurrency(totalGenerale)}</td>
+                        <td className="px-4 py-3 text-sm text-white">TOTALE</td>
+                        <td className="px-4 py-3 text-right text-sm text-emerald-300">{formatCurrency(totals.pagato)}</td>
+                        <td className="px-4 py-3 text-right text-sm text-amber-200">{formatCurrency(totals.inAttesa)}</td>
+                        <td className="px-4 py-3 text-right text-sm text-sky-300">{formatCurrency(totals.daFatturare)}</td>
+                        <td className="px-4 py-3 text-right text-sm text-red-300">{formatCurrency(totals.daCompletare)}</td>
+                        <td className="px-4 py-3 text-right text-sm text-white">{formatCurrency(totalGenerale)}</td>
                       </tr>
                     </tfoot>
                   </table>
@@ -312,12 +304,11 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
               </div>
             </>
           )}
-        </div>
-        
-        {/* Tooltip per dettagli aziende */}
+      </HubModalBody>
+
         {tooltipData && (
           <div
-            className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-xl p-4 min-w-[250px] max-w-[400px]"
+            className="fixed z-[130] min-w-[250px] max-w-[400px] rounded-lg border border-white/10 bg-[#1e1e1e] p-4 shadow-xl text-white"
             style={{
               left: `${tooltipPosition.x}px`,
               top: `${tooltipPosition.y}px`,
@@ -327,7 +318,7 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
             onMouseEnter={() => {}} // Mantieni il tooltip visibile quando ci passi sopra
             onMouseLeave={handleTooltipLeave}
           >
-            <div className="text-sm font-semibold text-gray-800 mb-2 border-b pb-2">
+            <div className="mb-2 border-b border-white/10 pb-2 text-sm font-semibold text-white">
               {tooltipData.month} - {
                 tooltipData.field === 'inAttesa' ? 'In Attesa' :
                 tooltipData.field === 'daFatturare' ? 'Da Fatturare' :
@@ -336,19 +327,18 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
             </div>
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
               {tooltipData.details.map((item, idx) => (
-                <div key={idx} className="flex justify-between items-center text-sm">
-                  <span className="text-gray-700 font-medium">{item.azienda}</span>
-                  <span className="text-gray-900 font-semibold ml-4">{formatCurrency(item.importo)}</span>
+                <div key={idx} className="flex items-center justify-between text-sm">
+                  <span className="font-medium text-white/78">{item.azienda}</span>
+                  <span className="ml-4 font-semibold text-white">{formatCurrency(item.importo)}</span>
                 </div>
               ))}
             </div>
-            <div className="mt-3 pt-2 border-t text-xs text-gray-600">
+            <div className="mt-3 border-t border-white/10 pt-2 text-xs text-white/55">
               Totale: {formatCurrency(tooltipData.details.reduce((sum, item) => sum + item.importo, 0))}
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </HubModalInnerCard>
   );
 };
 

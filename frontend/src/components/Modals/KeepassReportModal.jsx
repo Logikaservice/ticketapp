@@ -1,9 +1,22 @@
-// Modale per segnalare problemi dalle credenziali KeePass
 import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { X, AlertTriangle, Info, AlertCircle, Upload, Trash2 } from 'lucide-react';
+import { AlertTriangle, Info, AlertCircle, Upload, Trash2 } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
-import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
+import {
+  HubModalBackdrop,
+  HubModalInnerCard,
+  HubModalChromeHeader,
+  HubModalChromeFooter,
+  HubModalPrimaryButton,
+  HubModalSecondaryButton
+} from './HubModalChrome';
+import { HUB_MODAL_LABEL_CLS, HUB_MODAL_FIELD_CLS, HUB_MODAL_TEXTAREA_CLS } from '../../utils/techHubAccent';
+
+const TIPO_OPTIONS = [
+  { value: 'informazione', label: 'Informazione', icon: Info, selectedCls: 'border-sky-500/55 bg-sky-500/12 ring-1 ring-sky-500/35', iconActive: 'text-sky-300', iconIdle: 'text-white/38', labelActive: 'text-white', labelIdle: 'text-white/65' },
+  { value: 'avviso', label: 'Avviso', icon: AlertCircle, selectedCls: 'border-amber-500/55 bg-amber-500/12 ring-1 ring-amber-500/35', iconActive: 'text-amber-200', iconIdle: 'text-white/38', labelActive: 'text-white', labelIdle: 'text-white/65' },
+  { value: 'critico', label: 'Critico', icon: AlertTriangle, selectedCls: 'border-red-500/55 bg-red-500/15 ring-1 ring-red-500/35', iconActive: 'text-red-200', iconIdle: 'text-white/38', labelActive: 'text-white', labelIdle: 'text-white/65' }
+];
 
 const KeepassReportModal = ({ 
   isOpen, 
@@ -158,124 +171,57 @@ const KeepassReportModal = ({
     }
   };
 
-  const getTipoIcon = (tipo) => {
-    switch (tipo) {
-      case 'critico':
-        return <AlertTriangle className="text-red-600" />;
-      case 'avviso':
-        return <AlertCircle className="text-yellow-600" />;
-      default:
-        return <Info className="text-blue-600" />;
-    }
-  };
-
-  const getTipoColor = (tipo) => {
-    switch (tipo) {
-      case 'critico':
-        return 'border-red-600 bg-red-50';
-      case 'avviso':
-        return 'border-yellow-600 bg-yellow-50';
-      default:
-        return 'border-blue-600 bg-blue-50';
-    }
-  };
-
   if (!isOpen) return null;
 
-  // Renderizza il modal usando un Portal direttamente nel body
   return ReactDOM.createPortal(
-    <div 
-      className="fixed inset-0 bg-black/50 flex items-center justify-center overflow-y-auto"
-      style={{ 
-        zIndex: 99999,
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        width: '100vw',
-        height: '100vh'
-      }}
-    >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col m-4">
-        {/* Header */}
-        <div
-          className="rounded-t-2xl border-b border-black/10 p-6"
-          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="flex items-center gap-2 text-2xl font-bold">
-                <AlertTriangle size={28} className="shrink-0 opacity-95" aria-hidden />
-                {credentialData ? 'Segnala Problema Credenziale' : 'Segnalazione Generica'}
-              </h2>
-              <p className="mt-1 text-sm opacity-90">
-                {credentialData 
-                  ? 'Segnala un problema con questa credenziale al team tecnico'
-                  : 'Invia una segnalazione o richiesta al team tecnico'
-                }
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              type="button"
-              className="rounded-lg bg-black/20 p-2 ring-1 ring-black/10 transition hover:bg-black/30 disabled:opacity-50"
-              disabled={isSaving}
-              aria-label="Chiudi"
-            >
-              <X size={24} aria-hidden />
-            </button>
-          </div>
-        </div>
+    <HubModalBackdrop zClass="z-[118]" className="overflow-y-auto py-8">
+      <HubModalInnerCard maxWidthClass="max-w-2xl" className="my-auto flex max-h-[90vh] flex-col overflow-hidden">
+        <HubModalChromeHeader
+          icon={AlertTriangle}
+          title={credentialData ? 'Segnala problema credenziale' : 'Segnalazione generica'}
+          subtitle={
+            credentialData
+              ? 'Segnala un problema con questa credenziale al team tecnico'
+              : 'Invia una segnalazione o richiesta al team tecnico'
+          }
+          onClose={isSaving ? undefined : onClose}
+        />
 
-        {/* Content */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
-          <div className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
             {/* Tipo */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tipo di segnalazione *
-              </label>
+              <label className={HUB_MODAL_LABEL_CLS}>Tipo di segnalazione *</label>
               <div className="grid grid-cols-3 gap-3">
-                {[
-                  { value: 'informazione', label: 'Informazione', icon: Info, color: 'blue' },
-                  { value: 'avviso', label: 'Avviso', icon: AlertCircle, color: 'yellow' },
-                  { value: 'critico', label: 'Critico', icon: AlertTriangle, color: 'red' }
-                ].map(tipo => (
-                  <button
-                    key={tipo.value}
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, tipo: tipo.value }))}
-                    className={`
-                      p-3 rounded-lg border-2 transition flex flex-col items-center gap-2
-                      ${formData.tipo === tipo.value
-                        ? `border-${tipo.color}-600 bg-${tipo.color}-50`
-                        : 'border-gray-200 hover:border-gray-300'
-                      }
-                    `}
-                  >
-                    <tipo.icon 
-                      size={24} 
-                      className={formData.tipo === tipo.value ? `text-${tipo.color}-600` : 'text-gray-400'}
-                    />
-                    <span className={`text-sm font-medium ${formData.tipo === tipo.value ? 'text-gray-900' : 'text-gray-600'}`}>
-                      {tipo.label}
-                    </span>
-                  </button>
-                ))}
+                {TIPO_OPTIONS.map((tipo) => {
+                  const Icon = tipo.icon;
+                  const sel = formData.tipo === tipo.value;
+                  return (
+                    <button
+                      key={tipo.value}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, tipo: tipo.value }))}
+                      disabled={isSaving}
+                      className={`flex flex-col items-center gap-2 rounded-lg border-2 p-3 transition disabled:opacity-50 ${sel ? tipo.selectedCls : 'border-white/10 bg-black/15 hover:border-white/18'}`}
+                    >
+                      <Icon size={24} className={sel ? tipo.iconActive : tipo.iconIdle} aria-hidden />
+                      <span className={`text-sm font-medium ${sel ? tipo.labelActive : tipo.labelIdle}`}>
+                        {tipo.label}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {/* Titolo */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Titolo *
-              </label>
+              <label className={HUB_MODAL_LABEL_CLS}>Titolo *</label>
               <input
                 type="text"
                 value={formData.titolo}
                 onChange={(e) => setFormData(prev => ({ ...prev, titolo: e.target.value }))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                className={HUB_MODAL_FIELD_CLS}
                 placeholder="Breve descrizione del problema"
                 required
                 disabled={isSaving}
@@ -284,14 +230,12 @@ const KeepassReportModal = ({
 
             {/* Descrizione */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Descrizione *
-              </label>
+              <label className={HUB_MODAL_LABEL_CLS}>Descrizione *</label>
               <textarea
                 value={formData.descrizione}
                 onChange={(e) => setFormData(prev => ({ ...prev, descrizione: e.target.value }))}
                 rows={8}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none font-mono text-sm"
+                className={HUB_MODAL_TEXTAREA_CLS}
                 placeholder="Descrivi dettagliatamente il problema riscontrato"
                 required
                 disabled={isSaving}
@@ -300,9 +244,7 @@ const KeepassReportModal = ({
 
             {/* Allegati */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Allegati (opzionale)
-              </label>
+              <label className={HUB_MODAL_LABEL_CLS}>Allegati (opzionale)</label>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -311,31 +253,31 @@ const KeepassReportModal = ({
                 className="hidden"
                 disabled={isSaving}
               />
-              <button
+              <HubModalSecondaryButton
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-red-500 hover:bg-red-50 transition flex items-center justify-center gap-2 text-gray-600 hover:text-red-600"
                 disabled={isSaving}
+                className="flex w-full items-center justify-center gap-2 border-2 border-dashed border-white/18 py-3 hover:border-[color:var(--hub-accent-border)]"
               >
-                <Upload size={20} />
+                <Upload size={20} aria-hidden />
                 Carica screenshot, log o altri file
-              </button>
-              
-              {/* Lista allegati */}
+              </HubModalSecondaryButton>
+
               {formData.allegati.length > 0 && (
                 <div className="mt-3 space-y-2">
                   {formData.allegati.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                      <span className="text-sm text-gray-700 truncate flex-1">
+                    <div key={index} className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 p-2">
+                      <span className="flex-1 truncate text-sm text-white/78">
                         {file.name} ({(file.size / 1024).toFixed(1)} KB)
                       </span>
                       <button
                         type="button"
                         onClick={() => removeFile(index)}
-                        className="ml-2 p-1 text-red-600 hover:bg-red-100 rounded"
+                        className="ml-2 rounded p-1 text-red-300 hover:bg-red-500/15"
                         disabled={isSaving}
+                        aria-label="Rimuovi allegato"
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={16} aria-hidden />
                       </button>
                     </div>
                   ))}
@@ -343,46 +285,34 @@ const KeepassReportModal = ({
               )}
             </div>
 
-            {/* Errore */}
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              <div className="rounded-lg border border-red-500/40 bg-red-500/15 p-3 text-sm text-red-50">
                 {error}
               </div>
             )}
           </div>
-        </form>
 
-        {/* Footer */}
-        <div className="p-4 border-t bg-gray-50 rounded-b-2xl flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-            disabled={isSaving}
-          >
-            Annulla
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isSaving}
-          >
-            {isSaving ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                Invio in corso...
-              </>
-            ) : (
-              <>
-                <AlertTriangle size={18} />
-                Invia Segnalazione
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>,
+          <HubModalChromeFooter className="justify-end gap-3">
+            <HubModalSecondaryButton type="button" onClick={onClose} disabled={isSaving}>
+              Annulla
+            </HubModalSecondaryButton>
+            <HubModalPrimaryButton type="submit" disabled={isSaving} className="flex items-center gap-2 disabled:opacity-50">
+              {isSaving ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
+                  Invio in corso...
+                </>
+              ) : (
+                <>
+                  <AlertTriangle size={18} aria-hidden />
+                  Invia Segnalazione
+                </>
+              )}
+            </HubModalPrimaryButton>
+          </HubModalChromeFooter>
+        </form>
+      </HubModalInnerCard>
+    </HubModalBackdrop>,
     document.body
   );
 };

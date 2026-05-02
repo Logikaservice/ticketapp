@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
+import { Settings } from 'lucide-react';
+import {
+  HubModalScaffold,
+  HubModalChromeHeader,
+  HubModalBody,
+  HubModalChromeFooter,
+  HubModalPrimaryButton,
+  HubModalSecondaryButton
+} from './HubModalChrome';
+import { HUB_MODAL_LABEL_CLS, HUB_MODAL_FIELD_CLS, HUB_MODAL_NOTICE_INFO, getStoredTechHubAccent } from '../../utils/techHubAccent';
 
 const MonitoringScheduleModal = ({ device, onClose, onSave, getAuthHeader, buildApiUrl }) => {
   const [mode, setMode] = useState('always'); // 'always' o 'scheduled'
@@ -8,6 +17,7 @@ const MonitoringScheduleModal = ({ device, onClose, onSave, getAuthHeader, build
   const [expectedTime, setExpectedTime] = useState('02:00');
   const [graceMinutes, setGraceMinutes] = useState(120);
   const [loading, setLoading] = useState(false);
+  const accentHex = getStoredTechHubAccent();
 
   useEffect(() => {
     // Carica configurazione esistente
@@ -56,8 +66,8 @@ const MonitoringScheduleModal = ({ device, onClose, onSave, getAuthHeader, build
   };
 
   const toggleDay = (day) => {
-    setDays(prev => 
-      prev.includes(day) 
+    setDays(prev =>
+      prev.includes(day)
         ? prev.filter(d => d !== day)
         : [...prev, day].sort()
     );
@@ -66,180 +76,155 @@ const MonitoringScheduleModal = ({ device, onClose, onSave, getAuthHeader, build
   const dayLabels = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
 
   return ReactDOM.createPortal(
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999]"
-      onClick={onClose}
-    >
-      <div 
-        className="bg-white rounded-lg shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div
-          className="rounded-t-lg border-b border-black/10 px-6 py-4"
-          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
-        >
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold">⚙️ Configurazione Notifiche</h2>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg px-2 py-1 text-2xl font-bold leading-none transition hover:bg-black/20"
-              title="Chiudi"
-              aria-label="Chiudi"
-            >
-              ×
-            </button>
+    <HubModalScaffold onBackdropClick={onClose} maxWidthClass="max-w-2xl" zClass="z-[118]">
+      <HubModalChromeHeader
+        icon={Settings}
+        title="Configurazione notifiche"
+        subtitle={`Dispositivo: ${device.hostname || device.ip_address || 'Sconosciuto'}`}
+        onClose={onClose}
+      />
+
+      <HubModalBody className="space-y-6">
+        {/* Modalità */}
+        <div>
+          <label className={`${HUB_MODAL_LABEL_CLS}`}>
+            Modalità Notifiche:
+          </label>
+          <div className="space-y-2">
+            <label className="flex cursor-pointer items-start rounded-lg border border-white/10 bg-black/20 p-3 hover:bg-black/28">
+              <input
+                type="radio"
+                name="mode"
+                value="always"
+                checked={mode === 'always'}
+                onChange={() => setMode('always')}
+                className="mr-3 mt-0.5 h-4 w-4 border-white/25 bg-black/30 text-[color:var(--hub-accent)] focus:ring-[color:var(--hub-accent)]"
+              />
+              <div>
+                <span className="font-medium text-white">Sempre</span>
+                <p className="mt-0.5 text-xs text-white/55">
+                  Notifica per ogni evento (accensione, spegnimento, cambio IP/MAC)
+                </p>
+              </div>
+            </label>
+
+            <label className="flex cursor-pointer items-start rounded-lg border border-white/10 bg-black/20 p-3 hover:bg-black/28">
+              <input
+                type="radio"
+                name="mode"
+                value="scheduled"
+                checked={mode === 'scheduled'}
+                onChange={() => setMode('scheduled')}
+                className="mr-3 mt-0.5 h-4 w-4 border-white/25 bg-black/30 text-[color:var(--hub-accent)] focus:ring-[color:var(--hub-accent)]"
+              />
+              <div>
+                <span className="font-medium text-white">Solo in orari specifici</span>
+                <p className="mt-0.5 text-xs text-white/55">
+                  Notifica solo se manca nell&apos;orario previsto o cambio IP/MAC durante backup
+                </p>
+              </div>
+            </label>
           </div>
-          <p className="mt-1 text-sm opacity-90">
-            Dispositivo: {device.hostname || device.ip_address || 'Sconosciuto'}
-          </p>
         </div>
 
-        {/* Body */}
-        <div className="p-6 space-y-6">
-          {/* Modalità */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-3">
-              Modalità Notifiche:
-            </label>
-            <div className="space-y-2">
-              <label className="flex items-start cursor-pointer hover:bg-gray-50 p-3 rounded-lg border border-gray-200">
-                <input
-                  type="radio"
-                  name="mode"
-                  value="always"
-                  checked={mode === 'always'}
-                  onChange={() => setMode('always')}
-                  className="mt-0.5 mr-3 w-4 h-4 text-blue-600"
-                />
-                <div>
-                  <span className="font-medium text-gray-900">Sempre</span>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Notifica per ogni evento (accensione, spegnimento, cambio IP/MAC)
-                  </p>
-                </div>
+        {/* Configurazione Schedulata */}
+        {mode === 'scheduled' && (
+          <div className={`space-y-4 rounded-lg border border-sky-500/35 bg-sky-500/12 p-4`}>
+            {/* Giorni */}
+            <div>
+              <label className={`${HUB_MODAL_LABEL_CLS}`}>
+                Giorni di monitoraggio:
               </label>
+              <div className="flex flex-wrap gap-2">
+                {dayLabels.map((label, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => toggleDay(index)}
+                    className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+                      days.includes(index)
+                        ? 'shadow-md ring-1 ring-white/20 text-[#121212]'
+                        : 'border border-white/15 bg-black/25 text-white/75 hover:bg-black/35'
+                    }`}
+                    style={
+                      days.includes(index)
+                        ? { backgroundColor: accentHex }
+                        : undefined
+                    }
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {days.length === 0 && (
+                <p className="mt-1 text-xs text-red-300">Seleziona almeno un giorno</p>
+              )}
+            </div>
 
-              <label className="flex items-start cursor-pointer hover:bg-gray-50 p-3 rounded-lg border border-gray-200">
-                <input
-                  type="radio"
-                  name="mode"
-                  value="scheduled"
-                  checked={mode === 'scheduled'}
-                  onChange={() => setMode('scheduled')}
-                  className="mt-0.5 mr-3 w-4 h-4 text-blue-600"
-                />
-                <div>
-                  <span className="font-medium text-gray-900">Solo in orari specifici</span>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Notifica solo se manca nell'orario previsto o cambio IP/MAC durante backup
-                  </p>
-                </div>
+            {/* Orario */}
+            <div>
+              <label className={`${HUB_MODAL_LABEL_CLS}`}>
+                Orario previsto accensione:
               </label>
-            </div>
-          </div>
-
-          {/* Configurazione Schedulata */}
-          {mode === 'scheduled' && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-4">
-              {/* Giorni */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Giorni di monitoraggio:
-                </label>
-                <div className="flex gap-2 flex-wrap">
-                  {dayLabels.map((label, index) => (
-                    <button
-                      key={index}
-                      onClick={() => toggleDay(index)}
-                      className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                        days.includes(index)
-                          ? 'bg-blue-600 text-white shadow-md'
-                          : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                {days.length === 0 && (
-                  <p className="text-xs text-red-600 mt-1">⚠️ Seleziona almeno un giorno</p>
-                )}
-              </div>
-
-              {/* Orario */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Orario previsto accensione:
-                </label>
-                <input
-                  type="time"
-                  value={expectedTime}
-                  onChange={(e) => setExpectedTime(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Orario in cui il dispositivo dovrebbe accendersi
-                </p>
-              </div>
-
-              {/* Tolleranza */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Tolleranza (minuti):
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="720"
-                  value={graceMinutes}
-                  onChange={(e) => setGraceMinutes(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Tempo di attesa prima di inviare notifica se dispositivo non rilevato
-                </p>
-              </div>
-
-              {/* Info */}
-              <div className="bg-blue-100 border border-blue-300 rounded-lg p-3">
-                <p className="text-xs text-blue-800">
-                  💡 <strong>Il sistema controllerà:</strong> Se il dispositivo si accende alle <strong>{expectedTime}</strong> nei giorni selezionati. 
-                  Se non viene rilevato entro <strong>{graceMinutes} minuti</strong>, riceverai una notifica Telegram.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {mode === 'always' && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-              <p className="text-xs text-green-800">
-                ✅ <strong>Modalità attiva:</strong> Riceverai notifiche per ogni cambio di stato (online, offline, cambio IP, cambio MAC)
+              <input
+                type="time"
+                value={expectedTime}
+                onChange={(e) => setExpectedTime(e.target.value)}
+                className={HUB_MODAL_FIELD_CLS}
+              />
+              <p className="mt-1 text-xs text-white/45">
+                Orario in cui il dispositivo dovrebbe accendersi
               </p>
             </div>
-          )}
-        </div>
 
-        {/* Footer */}
-        <div className="bg-gray-50 px-6 py-4 rounded-b-lg flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 font-medium transition-colors"
-            disabled={loading}
-          >
-            Annulla
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={loading || (mode === 'scheduled' && days.length === 0)}
-            className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Salvataggio...' : 'Salva Configurazione'}
-          </button>
-        </div>
-      </div>
-    </div>,
+            {/* Tolleranza */}
+            <div>
+              <label className={`${HUB_MODAL_LABEL_CLS}`}>
+                Tolleranza (minuti):
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="720"
+                value={graceMinutes}
+                onChange={(e) => setGraceMinutes(e.target.value)}
+                className={HUB_MODAL_FIELD_CLS}
+              />
+              <p className="mt-1 text-xs text-white/45">
+                Tempo di attesa prima di inviare notifica se dispositivo non rilevato
+              </p>
+            </div>
+
+            {/* Info */}
+            <div className={HUB_MODAL_NOTICE_INFO}>
+              <p className="text-xs">
+                Il sistema controllerà se il dispositivo si accende alle <strong>{expectedTime}</strong> nei giorni selezionati.
+                Se non viene rilevato entro <strong>{graceMinutes} minuti</strong>, riceverai una notifica Telegram.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {mode === 'always' && (
+          <div className="rounded-lg border border-emerald-500/35 bg-emerald-500/12 p-3 text-xs text-emerald-50">
+            <strong>Modalità attiva:</strong> Riceverai notifiche per ogni cambio di stato (online, offline, cambio IP, cambio MAC)
+          </div>
+        )}
+      </HubModalBody>
+
+      <HubModalChromeFooter className="justify-end">
+        <HubModalSecondaryButton type="button" onClick={onClose} disabled={loading}>
+          Annulla
+        </HubModalSecondaryButton>
+        <HubModalPrimaryButton
+          type="button"
+          onClick={handleSave}
+          disabled={loading || (mode === 'scheduled' && days.length === 0)}
+        >
+          {loading ? 'Salvataggio...' : 'Salva Configurazione'}
+        </HubModalPrimaryButton>
+      </HubModalChromeFooter>
+    </HubModalScaffold>,
     document.body
   );
 };

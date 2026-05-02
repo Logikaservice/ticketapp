@@ -1,7 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Printer, Trash2, Image as ImageIcon, Download, Paperclip, File } from 'lucide-react';
+import { Printer, Trash2, Download, Paperclip, File } from 'lucide-react';
 import { getApiBase } from '../../utils/apiConfig';
-import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
+import {
+  HubModalBackdrop,
+  HubModalInnerCard,
+  HubModalChromeHeader,
+  HubModalChromeFooter,
+  HubModalSecondaryButton,
+  HubModalPrimaryButton
+} from './HubModalChrome';
 
 const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPhotos, getAuthHeader, currentUser }) => {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -107,11 +114,11 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
 
   if (!localPhotos || localPhotos.length === 0) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6">
-          <div className="text-center py-8">
-            <File size={64} className="mx-auto text-gray-300 mb-4" />
-            <p className="text-gray-500 text-lg mb-4">Nessun file disponibile per questo ticket</p>
+      <HubModalBackdrop zClass="z-[118]" className="p-4">
+        <HubModalInnerCard maxWidthClass="max-w-2xl" className="p-6">
+          <div className="py-8 text-center">
+            <File size={64} className="mx-auto mb-4 text-white/28" aria-hidden />
+            <p className="mb-4 text-lg text-white/65">Nessun file disponibile per questo ticket</p>
 
             {canManagePhotos && onUploadPhotos && (
               <>
@@ -122,26 +129,26 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
                   onChange={handleFileSelect}
                   className="hidden"
                 />
-                <button
+                <HubModalPrimaryButton
+                  type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploading}
-                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 mx-auto"
+                  className="mx-auto flex items-center gap-2 disabled:opacity-50"
                 >
-                  <Paperclip size={18} />
+                  <Paperclip size={18} aria-hidden />
                   {isUploading ? 'Caricamento...' : 'Carica File'}
-                </button>
+                </HubModalPrimaryButton>
               </>
             )}
 
-            <button
-              onClick={onClose}
-              className="mt-4 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition"
-            >
-              Chiudi
-            </button>
+            <div className="mt-4">
+              <HubModalSecondaryButton type="button" onClick={onClose}>
+                Chiudi
+              </HubModalSecondaryButton>
+            </div>
           </div>
-        </div>
-      </div>
+        </HubModalInnerCard>
+      </HubModalBackdrop>
     );
   }
 
@@ -286,33 +293,15 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
       ticket?.stato && ['aperto', 'in_lavorazione', 'risolto'].includes(ticket.stato));
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div
-          className="rounded-t-2xl border-b border-black/10 p-4"
-          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="flex items-center gap-2 text-xl font-bold">
-                <File size={24} className="shrink-0 opacity-95" aria-hidden />
-                File Ticket {ticket?.numero || ''}
-              </h2>
-              <p className="mt-1 text-sm opacity-90">
-                {currentPhotoIndex + 1} di {localPhotos.length}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg bg-black/20 p-2 ring-1 ring-black/10 transition hover:bg-black/30"
-              aria-label="Chiudi"
-            >
-              <X size={20} aria-hidden />
-            </button>
-          </div>
-        </div>
+    <HubModalBackdrop zClass="z-[118]" className="p-4">
+      <HubModalInnerCard maxWidthClass="max-w-6xl" className="flex max-h-[90vh] flex-col overflow-hidden">
+        <HubModalChromeHeader
+          icon={File}
+          title={`File Ticket ${ticket?.numero || ''}`}
+          subtitle={`${currentPhotoIndex + 1} di ${localPhotos.length}`}
+          onClose={onClose}
+          compact
+        />
 
         {/* Content */}
         <div className="flex-1 overflow-hidden flex">
@@ -404,7 +393,7 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
 
           {/* Sidebar con miniatures */}
           {localPhotos.length > 1 && (
-            <div className="w-32 border-l bg-gray-50 overflow-y-auto p-2">
+            <div className="w-32 shrink-0 overflow-y-auto border-l border-white/10 bg-black/20 p-2">
               <div className="space-y-2">
                 {localPhotos.map((photo, index) => {
                   const isImage = photo.originalName?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i) ||
@@ -414,9 +403,9 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
                     <button
                       key={index}
                       onClick={() => setCurrentPhotoIndex(index)}
-                      className={`w-full aspect-square rounded-lg overflow-hidden border-2 transition flex items-center justify-center ${index === currentPhotoIndex
-                          ? 'border-blue-500 ring-2 ring-blue-300'
-                          : 'border-gray-200 hover:border-gray-300'
+                      className={`flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg border-2 transition ${index === currentPhotoIndex
+                          ? 'border-[color:var(--hub-accent)] ring-2 ring-[color:var(--hub-accent-border)]'
+                          : 'border-white/10 hover:border-white/20'
                         }`}
                     >
                       {isImage ? (() => {
@@ -441,15 +430,15 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
                               const parent = e.target.parentElement;
                               if (parent && !parent.querySelector('.file-icon')) {
                                 const icon = document.createElement('div');
-                                icon.className = 'file-icon flex items-center justify-center w-full h-full bg-gray-100';
-                                icon.innerHTML = '<svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
+                                icon.className = 'file-icon flex items-center justify-center w-full h-full bg-neutral-800';
+                                icon.innerHTML = '<svg class="w-8 h-8 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
                                 parent.appendChild(icon);
                               }
                             }}
                           />
                         );
                       })() : (
-                        <File size={32} className="text-gray-400" />
+                        <File size={32} className="text-white/45" />
                       )}
                     </button>
                   );
@@ -460,20 +449,21 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
         </div>
 
         {/* Footer con controlli */}
-        <div className="p-4 border-t bg-gray-50 rounded-b-2xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">
-                <strong>File:</strong> {currentPhoto?.originalName}
+        <HubModalChromeFooter className="rounded-b-2xl">
+          <div className="flex w-full flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <span className="text-sm text-white/78">
+                <strong className="text-white">File:</strong>{' '}
+                <span className="truncate">{currentPhoto?.originalName}</span>
               </span>
               {currentPhoto?.uploadedAt && (
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-white/45">
                   ({new Date(currentPhoto.uploadedAt).toLocaleDateString('it-IT')})
                 </span>
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {/* Upload file (solo per stati consentiti) */}
               {canManagePhotos && onUploadPhotos && (
                 <>
@@ -484,34 +474,37 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
                     onChange={handleFileSelect}
                     className="hidden"
                   />
-                  <button
+                  <HubModalPrimaryButton
+                    type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isUploading}
-                    className="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
+                    className="flex items-center gap-2 px-3 py-2 text-sm disabled:opacity-50"
                   >
-                    <Paperclip size={18} />
+                    <Paperclip size={18} aria-hidden />
                     {isUploading ? 'Caricamento...' : 'Carica'}
-                  </button>
+                  </HubModalPrimaryButton>
                 </>
               )}
 
               {/* Navigazione */}
               {localPhotos.length > 1 && (
                 <>
-                  <button
+                  <HubModalSecondaryButton
+                    type="button"
                     onClick={() => setCurrentPhotoIndex(Math.max(0, currentPhotoIndex - 1))}
                     disabled={currentPhotoIndex === 0}
-                    className="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    className="px-3 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     ←
-                  </button>
-                  <button
+                  </HubModalSecondaryButton>
+                  <HubModalSecondaryButton
+                    type="button"
                     onClick={() => setCurrentPhotoIndex(Math.min(localPhotos.length - 1, currentPhotoIndex + 1))}
                     disabled={currentPhotoIndex === localPhotos.length - 1}
-                    className="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    className="px-3 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     →
-                  </button>
+                  </HubModalSecondaryButton>
                 </>
               )}
 
@@ -545,17 +538,14 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
                 </button>
               )}
 
-              <button
-                onClick={onClose}
-                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition"
-              >
+              <HubModalSecondaryButton type="button" onClick={onClose}>
                 Chiudi
-              </button>
+              </HubModalSecondaryButton>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+        </HubModalChromeFooter>
+      </HubModalInnerCard>
+    </HubModalBackdrop>
   );
 };
 
