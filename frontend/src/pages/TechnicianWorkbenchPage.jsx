@@ -30,12 +30,9 @@ import {
   AlertTriangle,
   AlertCircle,
   Sparkles,
-  FileText,
-  PlayCircle,
-  Plus
+  LayoutTemplate
 } from 'lucide-react';
 import { fetchImportantAlertsForHub } from '../utils/importantAlertsFeed';
-import HubContractsActiveCard from '../components/hub/HubContractsActiveCard';
 import ImportantAlertsHubEmbedded from '../components/hub/ImportantAlertsHubEmbedded';
 import CommAgentDashboard from '../components/CommAgentDashboard';
 import CommAgentManager from '../components/CommAgentManager';
@@ -48,6 +45,8 @@ import {
   readableOnAccent,
   getStoredTechHubAccent
 } from '../utils/techHubAccent';
+import HubOverviewSection from '../components/hub/HubOverviewSection';
+import { loadHubLayout, getDefaultHubLayout, sanitizeLayoutItems } from '../utils/hubOverviewLayout';
 
 const SURFACE = '#1E1E1E';
 const PAGE_BG = '#121212';
@@ -76,115 +75,6 @@ function loadSidebarCollapsed() {
   } catch (_) {
     return false;
   }
-}
-
-/** Incrociabile: modulo card cliccabile (stesso pattern per tasselli e griglia centrale). */
-function ModuleLaunchCard({ icon: Icon, label, subtitle, accent, onClick, className = '' }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-2xl border border-white/[0.08] p-4 text-left transition hover:bg-white/[0.04] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${className}`}
-      style={{ backgroundColor: SURFACE }}
-    >
-      <div className="mb-3 inline-flex rounded-xl p-2.5" style={{ backgroundColor: hexToRgba(accent, 0.12) }}>
-        <Icon size={22} style={{ color: accent }} className="shrink-0" />
-      </div>
-      <div className="text-sm font-semibold text-white">{label}</div>
-      {subtitle && <div className="mt-1 text-xs text-white/45">{subtitle}</div>}
-    </button>
-  );
-}
-
-/**
- * Stat ticket allineata alla Dashboard (icone FileText / PlayCircle, conteggi stessi ticket tecnico globali).
- * Con conteggio 0: neutra come le altre card Hub, non cliccabile.
- */
-function TicketHubStatCard({ icon: Icon, title, count, accentHex, stateKey, onOpenTicketState }) {
-  const active = Boolean(count > 0);
-  const ticketLabelTone = active ? 'text-white/50' : 'text-white/32';
-  const body = (
-    <>
-      <div className="mb-2 flex gap-3">
-        <div
-          className={`inline-flex shrink-0 rounded-xl p-2.5 transition ${
-            active ? '' : 'bg-white/[0.06]'
-          }`}
-          style={active ? { backgroundColor: hexToRgba(accentHex, 0.14) } : undefined}
-        >
-          <Icon
-            size={22}
-            className="shrink-0"
-            style={{ color: active ? accentHex : 'rgba(255,255,255,0.38)' }}
-          />
-        </div>
-        <div className="min-w-0 flex-1 self-center leading-tight">
-          <div className={`text-[11px] font-semibold uppercase tracking-widest ${ticketLabelTone}`}>
-            Ticket
-          </div>
-          <div className="mt-0.5 text-base font-semibold text-white/90">{title}</div>
-        </div>
-      </div>
-      <div
-        className={`text-5xl font-extrabold leading-none tabular-nums md:text-[3.25rem] ${
-          active ? '' : 'text-white/[0.28]'
-        }`}
-        style={active ? { color: accentHex } : undefined}
-      >
-        {count}
-      </div>
-    </>
-  );
-
-  const surfaceStyle = { backgroundColor: SURFACE };
-
-  if (!active) {
-    return (
-      <div className="rounded-2xl border border-white/[0.08] p-4 text-left" style={surfaceStyle}>
-        {body}
-      </div>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      className={`rounded-2xl border border-white/[0.08] p-4 text-left transition hover:bg-white/[0.04] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)]`}
-      style={surfaceStyle}
-      onClick={() => onOpenTicketState?.(stateKey)}
-      aria-label={`${title}: ${count}. Apri elenco ticket per questo stato`}
-    >
-      {body}
-    </button>
-  );
-}
-
-/** CTA creazione ticket: corpo tinteggiato con l’accento Hub; apre il NewTicketModal esistente dall’App. */
-function HubNewTicketCard({ accentHex, onOpenNewTicket }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onOpenNewTicket?.()}
-      className="flex min-h-[8.5rem] w-full flex-col items-center justify-center gap-3 rounded-2xl border p-5 text-center transition hover:brightness-110 active:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] md:min-h-0 md:py-6"
-      style={{
-        backgroundColor: hexToRgba(accentHex, 0.24),
-        borderColor: hexToRgba(accentHex, 0.55),
-        boxShadow: `0 0 0 1px ${hexToRgba(accentHex, 0.12)} inset`
-      }}
-      aria-label="Crea nuovo ticket"
-    >
-      <span
-        className="flex h-12 w-12 items-center justify-center rounded-2xl"
-        style={{
-          backgroundColor: hexToRgba(accentHex, 0.35),
-          color: readableOnAccent(accentHex)
-        }}
-      >
-        <Plus size={28} strokeWidth={2.4} aria-hidden />
-      </span>
-      <span className="text-base font-bold leading-tight text-white">+ nuovo ticket</span>
-    </button>
-  );
 }
 
 function NavGroup({ title, open, onToggle, children, railMode }) {
@@ -518,6 +408,22 @@ export default function TechnicianWorkbenchPage({
   const [hubCenterView, setHubCenterView] = useState(
     /** @type {'overview' | 'comunicazioni' | 'comm-agent-manager' | 'email' | 'contratti' | 'avvisi'} */ ('overview')
   );
+  const isTechnician = currentUser?.ruolo === 'tecnico';
+  const hubLayoutUserKey = currentUser?.id ?? currentUser?.email ?? '';
+
+  const [hubLayout, setHubLayout] = useState(() => sanitizeLayoutItems(getDefaultHubLayout()));
+  const [hubLayoutEditMode, setHubLayoutEditMode] = useState(false);
+
+  useEffect(() => {
+    const key = currentUser?.id ?? currentUser?.email ?? '';
+    const saved = loadHubLayout(key);
+    if (saved !== null) setHubLayout(sanitizeLayoutItems(saved));
+  }, [currentUser?.id, currentUser?.email]);
+
+  useEffect(() => {
+    if (hubCenterView !== 'overview') setHubLayoutEditMode(false);
+  }, [hubCenterView]);
+
   const userMenuRef = useRef(null);
   const accentPickerRef = useRef(null);
   const minMd = useMinMd();
@@ -872,6 +778,21 @@ export default function TechnicianWorkbenchPage({
                   </div>
                 )}
               </div>
+              {isTechnician && hubCenterView === 'overview' && (
+                <button
+                  type="button"
+                  onClick={() => setHubLayoutEditMode((v) => !v)}
+                  className={`p-2.5 ${hubHoverIconBtn} ${
+                    hubLayoutEditMode
+                      ? 'bg-white/[0.08] text-[color:var(--hub-accent)] [border-width:1px] [border-style:solid] [border-color:var(--hub-accent-border)]'
+                      : ''
+                  }`}
+                  title={hubLayoutEditMode ? 'Termina modifica layout' : 'Modifica layout panoramica'}
+                  aria-pressed={hubLayoutEditMode}
+                >
+                  <LayoutTemplate size={20} aria-hidden />
+                </button>
+              )}
               <button type="button" className={`p-2.5 ${hubHoverIconBtn}`} title="Aggiorna (decorativo)">
                 <RefreshCw size={20} />
               </button>
@@ -972,125 +893,21 @@ export default function TechnicianWorkbenchPage({
                 onNavigateVpn={commAgentNav.onNavigateVpn}
               />
             ) : (
-              <>
-                <p className="mb-3 text-xs text-white/40">
-                  Area modulare: griglia a 12 colonne per comporre tasselli, grafici e riassunti. Esempio sotto
-                  (placeholder).
-                </p>
-                <div
-                  className="grid auto-rows-[minmax(112px,auto)] grid-cols-12 gap-3"
-                  style={{ minHeight: 'min(70vh, 640px)' }}
-                >
-                  <div className="col-span-12 grid grid-cols-1 gap-3 md:grid-cols-3">
-                    <HubNewTicketCard accentHex={accentHex} onOpenNewTicket={onOpenNewTicket} />
-                    <TicketHubStatCard
-                      icon={FileText}
-                      title="Aperti"
-                      count={hubTicketCounts.aperto}
-                      accentHex={accentHex}
-                      stateKey="aperto"
-                      onOpenTicketState={onOpenTicketState}
-                    />
-                    <TicketHubStatCard
-                      icon={PlayCircle}
-                      title="In lavorazione"
-                      count={hubTicketCounts.in_lavorazione}
-                      accentHex={accentHex}
-                      stateKey="in_lavorazione"
-                      onOpenTicketState={onOpenTicketState}
-                    />
-                  </div>
-
-                  {/* Quattro tasselli piccoli = una fascia unificata */}
-                  <div className="col-span-12 grid grid-cols-2 gap-3 md:grid-cols-4">
-                    <ModuleLaunchCard
-                      icon={Mail}
-                      label="Email"
-                      subtitle="Apri modulo"
-                      accent={accentHex}
-                      onClick={() => setHubCenterView('email')}
-                      className="col-span-1"
-                    />
-                    <ModuleLaunchCard
-                      icon={Wifi}
-                      label="Monitoraggio"
-                      subtitle="Stato rete"
-                      accent={accentHex}
-                      onClick={() => nav?.onOpenNetwork?.()}
-                      className="col-span-1"
-                    />
-                    <ModuleLaunchCard
-                      icon={Bell}
-                      label="Comunicazioni"
-                      subtitle="Messaggi broadcast"
-                      accent={accentHex}
-                      onClick={() => setHubCenterView('comunicazioni')}
-                      className="col-span-1"
-                    />
-                    <ModuleLaunchCard
-                      icon={Shield}
-                      label="Anti-Virus"
-                      subtitle="Sicurezza"
-                      accent={accentHex}
-                      onClick={() => nav?.onOpenAntiVirus?.()}
-                      className="col-span-1"
-                    />
-                  </div>
-
-                  {/* Contratti attivi: KPI + grafico a candele / bucket mensili */}
-                  <div className="col-span-12 md:col-span-7 md:row-span-3 md:min-h-0 md:flex md:flex-col">
-                    <HubContractsActiveCard
-                      backgroundColor={SURFACE}
-                      accentHex={accentHex}
-                      getAuthHeader={getAuthHeader}
-                      currentUser={currentUser}
-                      onOpenContractsList={() => setHubCenterView('contratti')}
-                    />
-                  </div>
-
-                  {/* Stack destro */}
-                  <div className="col-span-12 flex flex-col gap-3 md:col-span-5 md:row-span-2">
-                    <div
-                      className="flex-1 rounded-2xl border border-white/[0.08] p-4"
-                      style={{ backgroundColor: SURFACE }}
-                    >
-                      <h3 className="text-sm font-semibold text-white">Riepilogo rapido</h3>
-                      <p className="mt-2 text-xs leading-relaxed text-white/45">
-                        Qui potrai inserire KPI o testo che riassume ticket, agent o avvisi. Struttura pronta per
-                        contenuti dinamici.
-                      </p>
-                    </div>
-                    <ModuleLaunchCard
-                      icon={MapPin}
-                      label="Mappatura"
-                      subtitle="Topologia e dispositivi"
-                      accent={accentHex}
-                      onClick={() => nav?.onOpenMappatura?.()}
-                      className="flex-1"
-                    />
-                  </div>
-
-                  {/* Riga bassa: due tasselli affiancati */}
-                  <div
-                    className="col-span-12 rounded-2xl border border-dashed border-white/[0.12] p-4 transition hover:[border-color:var(--hub-accent-border)] md:col-span-6"
-                    style={{ backgroundColor: 'rgba(30,30,30,0.55)' }}
-                  >
-                    <p className="text-xs font-medium text-white/55">Slot libero — metà larghezza</p>
-                    <p className="mt-2 text-xs text-white/35">
-                      Può diventare tabella avvisi interni, grafico a barre o feed.
-                    </p>
-                  </div>
-                  <div
-                    className="col-span-12 rounded-2xl border border-dashed border-white/[0.12] p-4 transition hover:[border-color:var(--hub-accent-border)] md:col-span-6"
-                    style={{ backgroundColor: 'rgba(30,30,30,0.55)' }}
-                  >
-                    <p className="text-xs font-medium text-white/55">Slot libero — metà larghezza</p>
-                    <p className="mt-2 text-xs text-white/35">
-                      Combinazione con sopra forma una riga responsive a tutta griglia.
-                    </p>
-                  </div>
-                </div>
-              </>
+              <HubOverviewSection
+                accentHex={accentHex}
+                hubTicketCounts={hubTicketCounts}
+                hubLayout={hubLayout}
+                setHubLayout={setHubLayout}
+                hubLayoutEditMode={hubLayoutEditMode}
+                isTechnician={isTechnician}
+                layoutUserKey={hubLayoutUserKey}
+                onOpenNewTicket={onOpenNewTicket}
+                onOpenTicketState={onOpenTicketState}
+                setHubCenterView={setHubCenterView}
+                nav={nav}
+                getAuthHeader={getAuthHeader}
+                currentUser={currentUser}
+              />
             )}
           </div>
         </section>
