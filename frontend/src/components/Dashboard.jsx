@@ -5,7 +5,6 @@ import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCh
 import TicketListContainer from './TicketListContainer';
 import TicketsCalendar from './TicketsCalendar';
 import TemporarySuppliesPanel from './TemporarySuppliesPanel';
-import ContractTimelineCard from './ContractTimelineCard';
 import KeepassReportModal from './Modals/KeepassReportModal';
 
 
@@ -608,124 +607,6 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     fetchContracts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id, currentUser?.ruolo, JSON.stringify(currentUser?.admin_companies || [])]);
-
-  // Ordina i contratti: prima quelli con pagamenti da fare, poi quelli completati
-  // All'interno di ogni gruppo, ordina per scadenza prossima
-  const sortedContracts = React.useMemo(() => {
-    if (!contracts || contracts.length === 0) return [];
-    
-    // Crea una copia dell'array per non mutare l'originale
-    const sorted = [...contracts];
-    
-    // Funzione helper per verificare se un contratto ha eventi non processati
-    const hasUnprocessedEvents = (contract) => {
-      if (!contract.events || !Array.isArray(contract.events) || contract.events.length === 0) {
-        return false;
-      }
-      
-      // Escludi gli eventi di rinnovo dal controllo
-      // Controlla se ci sono eventi di fatturazione (non rinnovo) non processati
-      const billingEvents = contract.events.filter(event => {
-        const isRenewal = event.event_type === 'renewal' || event.type === 'renewal';
-        return !isRenewal;
-      });
-      
-      // Se non ci sono eventi di fatturazione, considera il contratto come processato
-      if (billingEvents.length === 0) {
-        return false;
-      }
-      
-      // Verifica se almeno un evento di fatturazione non è processato
-      // Gestisci sia booleano che null/undefined/stringa
-      const hasUnprocessed = billingEvents.some(event => {
-        // Controlla se l'evento è processato in vari modi
-        // Se is_processed è null, undefined, false, 'false', 0, '0', o stringa vuota, NON è processato
-        const isProcessed = event.is_processed === true || 
-                           event.is_processed === 'true' || 
-                           event.is_processed === 1 ||
-                           event.is_processed === '1';
-        return !isProcessed;
-      });
-      
-      return hasUnprocessed;
-    };
-    
-    // Funzione helper per calcolare il numero di eventi non processati
-    const countUnprocessedEvents = (contract) => {
-      if (!contract.events || !Array.isArray(contract.events) || contract.events.length === 0) {
-        return 0;
-      }
-      
-      const billingEvents = contract.events.filter(event => {
-        const isRenewal = event.event_type === 'renewal' || event.type === 'renewal';
-        return !isRenewal;
-      });
-      
-      if (billingEvents.length === 0) {
-        return 0;
-      }
-      
-      return billingEvents.filter(event => {
-        const isProcessed = event.is_processed === true || 
-                           event.is_processed === 'true' || 
-                           event.is_processed === 1 ||
-                           event.is_processed === '1';
-        return !isProcessed;
-      }).length;
-    };
-    
-    // Ordina i contratti
-    sorted.sort((a, b) => {
-      const hasUnprocessedA = hasUnprocessedEvents(a);
-      const hasUnprocessedB = hasUnprocessedEvents(b);
-      
-      // Prima priorità: contratti con eventi non processati vanno PRIMA (in cima)
-      // Contratti con tutti gli eventi processati vanno DOPO (in fondo)
-      if (hasUnprocessedA && !hasUnprocessedB) {
-        return -1; // A va prima (A ha eventi non processati, B ha tutti processati)
-      }
-      if (!hasUnprocessedA && hasUnprocessedB) {
-        return 1; // B va prima (B ha eventi non processati, A ha tutti processati)
-      }
-      
-      // Se entrambi hanno eventi non processati, ordina per numero di eventi non processati
-      // (più eventi non processati = maggiore priorità)
-      if (hasUnprocessedA && hasUnprocessedB) {
-        const countA = countUnprocessedEvents(a);
-        const countB = countUnprocessedEvents(b);
-        if (countA !== countB) {
-          return countB - countA; // Più eventi non processati = prima
-        }
-      }
-      
-      // Se entrambi hanno lo stesso stato (entrambi con o senza eventi non processati),
-      // ordina per data di scadenza (end_date)
-      // I contratti con scadenza più vicina vanno in cima
-      // I contratti senza scadenza vanno in fondo
-      const dateA = a.end_date ? new Date(a.end_date).getTime() : Infinity;
-      const dateB = b.end_date ? new Date(b.end_date).getTime() : Infinity;
-      
-      // Se entrambi hanno scadenza, ordina per data crescente (più vicina prima)
-      if (dateA !== Infinity && dateB !== Infinity) {
-        return dateA - dateB;
-      }
-      
-      // Se solo A ha scadenza, A va prima
-      if (dateA !== Infinity && dateB === Infinity) {
-        return -1;
-      }
-      
-      // Se solo B ha scadenza, B va prima
-      if (dateA === Infinity && dateB !== Infinity) {
-        return 1;
-      }
-      
-      // Se nessuno ha scadenza, mantieni l'ordine originale
-      return 0;
-    });
-    
-    return sorted;
-  }, [contracts]);
 
   // Listener per refresh automatico quando viene creato, eliminato o modificato un contratto
   React.useEffect(() => {
@@ -1730,34 +1611,6 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
               setModalState={setModalState}
             />
           </div>
-
-          {/* CONTRATTI ATTIVI */}
-          {sortedContracts.length > 0 && (
-            <div className="mb-6">
-              <div className="bg-white rounded-xl border">
-                <div className="p-4 border-b flex items-center justify-between">
-                  <h3 className="font-semibold flex items-center gap-2">
-                    <FileText size={18} />
-                    Contratti Attivi
-                  </h3>
-                  <div className="text-xs text-gray-500">
-                    {sortedContracts.length} {sortedContracts.length === 1 ? 'contratto' : 'contratti'}
-                  </div>
-                </div>
-                <div className="p-4 space-y-4">
-                  {sortedContracts.map(contract => (
-                    <ContractTimelineCard 
-                      key={contract.id} 
-                      contract={contract} 
-                      currentUser={currentUser}
-                      getAuthHeader={getAuthHeader}
-                      onEdit={(contract) => setModalState({ type: 'editContract', data: contract })}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
 
             {/* Sezione Forniture Temporanee - per tutti gli utenti */}
           <div className="mb-6">
