@@ -40,6 +40,7 @@ import ContractsListModal from '../components/Modals/ContractsListModal';
 import EmailPage from './EmailPage';
 import OfficePage from './OfficePage';
 import AntiVirusPage from './AntiVirusPage';
+import DispositiviAziendaliPage from './DispositiviAziendaliPage';
 import {
   TECH_HUB_ACCENT_PALETTE,
   STORAGE_KEY_TECH_HUB_ACCENT,
@@ -429,7 +430,9 @@ export default function TechnicianWorkbenchPage({
   /** Come `hubEmbedEmailKick` per `handleOpenOffice`. */
   hubEmbedOfficeKick = 0,
   /** Anti-Virus integrato nell’Hub (kick da App / hash). */
-  hubEmbedAntiVirusKick = 0
+  hubEmbedAntiVirusKick = 0,
+  hubEmbedDispositiviKick = 0,
+  dispositiviHighlightMac = null
 }) {
   const [accentHex, setAccentHex] = useState(getStoredTechHubAccent);
   const [hubImportantAlerts, setHubImportantAlerts] = useState([]);
@@ -442,7 +445,7 @@ export default function TechnicianWorkbenchPage({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   /** Centro Hub: panoramica a griglia oppure modulo integrato (Comunicazioni, Email, Anti-Virus…). */
   const [hubCenterView, setHubCenterView] = useState(
-    /** @type {'overview' | 'comunicazioni' | 'comm-agent-manager' | 'email' | 'office' | 'antivirus' | 'contratti' | 'avvisi'} */ ('overview')
+    /** @type {'overview' | 'comunicazioni' | 'comm-agent-manager' | 'email' | 'office' | 'antivirus' | 'dispositivi' | 'contratti' | 'avvisi'} */ ('overview')
   );
   const isTechnician = currentUser?.ruolo === 'tecnico';
   const hubLayoutUserKey = currentUser?.id ?? currentUser?.email ?? '';
@@ -481,6 +484,10 @@ export default function TechnicianWorkbenchPage({
   useEffect(() => {
     if (hubEmbedAntiVirusKick > 0) setHubCenterView('antivirus');
   }, [hubEmbedAntiVirusKick]);
+
+  useEffect(() => {
+    if (hubEmbedDispositiviKick > 0) setHubCenterView('dispositivi');
+  }, [hubEmbedDispositiviKick]);
 
   const userMenuRef = useRef(null);
   const accentPickerRef = useRef(null);
@@ -735,7 +742,8 @@ export default function TechnicianWorkbenchPage({
             icon={Monitor}
             label="Dispositivi aziendali"
             accentHex={accentHex}
-            onClick={() => nav?.onOpenDispositivi?.()}
+            active={hubCenterView === 'dispositivi'}
+            onClick={() => setHubCenterView('dispositivi')}
           />
           <SidebarLink
             railMode={railMode}
@@ -874,11 +882,13 @@ export default function TechnicianWorkbenchPage({
                           ? 'Office'
                           : hubCenterView === 'antivirus'
                             ? 'Anti-Virus'
-                          : hubCenterView === 'contratti'
-                            ? 'Contratti attivi'
-                            : hubCenterView === 'avvisi'
-                              ? 'Avvisi importanti'
-                              : 'Panoramica'}
+                            : hubCenterView === 'dispositivi'
+                              ? 'Dispositivi aziendali'
+                              : hubCenterView === 'contratti'
+                                ? 'Contratti attivi'
+                                : hubCenterView === 'avvisi'
+                                  ? 'Avvisi importanti'
+                                  : 'Panoramica'}
                 </span>
               </div>
             </div>
@@ -965,6 +975,7 @@ export default function TechnicianWorkbenchPage({
               hubCenterView === 'email' ||
               hubCenterView === 'office' ||
               hubCenterView === 'antivirus' ||
+              hubCenterView === 'dispositivi' ||
               hubCenterView === 'contratti' ||
               hubCenterView === 'avvisi'
                 ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-2 md:px-5 md:pb-5'
@@ -1003,7 +1014,7 @@ export default function TechnicianWorkbenchPage({
                 onOpenTicket={onOpenTicketWithPrefill ?? undefined}
                 onNavigateOffice={() => setHubCenterView('office')}
                 onNavigateAntiVirus={() => setHubCenterView('antivirus')}
-                onNavigateDispositiviAziendali={() => nav?.onOpenDispositivi?.()}
+                onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
                 onNavigateNetworkMonitoring={() => nav?.onOpenNetwork?.()}
                 onNavigateMappatura={() => nav?.onOpenMappatura?.()}
                 onNavigateSpeedTest={() => nav?.onOpenSpeedTest?.()}
@@ -1022,7 +1033,7 @@ export default function TechnicianWorkbenchPage({
                 onOpenTicket={onOpenTicketWithPrefill ?? undefined}
                 onNavigateEmail={() => setHubCenterView('email')}
                 onNavigateAntiVirus={() => setHubCenterView('antivirus')}
-                onNavigateDispositiviAziendali={() => nav?.onOpenDispositivi?.()}
+                onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
                 onNavigateNetworkMonitoring={() => nav?.onOpenNetwork?.()}
                 onNavigateMappatura={() => nav?.onOpenMappatura?.()}
                 onNavigateSpeedTest={() => nav?.onOpenSpeedTest?.()}
@@ -1045,13 +1056,39 @@ export default function TechnicianWorkbenchPage({
                 onOpenTicket={onOpenTicketWithPrefill ?? undefined}
                 onNavigateOffice={() => setHubCenterView('office')}
                 onNavigateEmail={() => setHubCenterView('email')}
-                onNavigateDispositiviAziendali={() => nav?.onOpenDispositivi?.()}
+                onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
                 onNavigateNetworkMonitoring={() => nav?.onOpenNetwork?.()}
                 onNavigateMappatura={() => nav?.onOpenMappatura?.()}
                 onNavigateSpeedTest={() => nav?.onOpenSpeedTest?.()}
                 onNavigateVpn={() => nav?.onOpenVpn?.()}
                 onNavigateLSight={() => nav?.onOpenLSight?.()}
                 onNavigateHome={() => setHubCenterView('overview')}
+              />
+            ) : hubCenterView === 'dispositivi' ? (
+              <DispositiviAziendaliPage
+                embedded
+                accentHex={accentHex}
+                closeEmbedded={() => setHubCenterView('overview')}
+                getAuthHeader={getAuthHeader}
+                selectedCompanyId={selectedCompanyId}
+                onCompanyChange={onGloballyCompanyChange ?? undefined}
+                readOnly={
+                  currentUser?.ruolo === 'cliente' &&
+                  !!(currentUser?.admin_companies && currentUser.admin_companies.length > 0)
+                }
+                currentUser={currentUser}
+                highlightMac={dispositiviHighlightMac}
+                onNavigateOffice={() => setHubCenterView('office')}
+                onNavigateEmail={() => setHubCenterView('email')}
+                onNavigateAntiVirus={() => setHubCenterView('antivirus')}
+                onNavigateNetworkMonitoring={() => nav?.onOpenNetwork?.()}
+                onNavigateMappatura={() => nav?.onOpenMappatura?.()}
+                onNavigateSpeedTest={() => nav?.onOpenSpeedTest?.()}
+                onNavigateVpn={() => nav?.onOpenVpn?.()}
+                onNavigateLSight={() => nav?.onOpenLSight?.()}
+                onNavigateHome={() => setHubCenterView('overview')}
+                onNavigateCommAgent={() => setHubCenterView('comunicazioni')}
+                onNavigateCommAgentManager={() => setHubCenterView('comm-agent-manager')}
               />
             ) : hubCenterView === 'comunicazioni' ? (
               <CommAgentDashboard
@@ -1068,7 +1105,7 @@ export default function TechnicianWorkbenchPage({
                 onNavigateNetworkMonitoring={commAgentNav.onNavigateNetworkMonitoring}
                 onNavigateMappatura={commAgentNav.onNavigateMappatura}
                 onNavigateSpeedTest={commAgentNav.onNavigateSpeedTest}
-                onNavigateDispositiviAziendali={commAgentNav.onNavigateDispositiviAziendali}
+                onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
                 onNavigateCommAgentManager={() => setHubCenterView('comm-agent-manager')}
                 onNavigateVpn={commAgentNav.onNavigateVpn}
               />
@@ -1087,7 +1124,7 @@ export default function TechnicianWorkbenchPage({
                 onNavigateNetworkMonitoring={commAgentNav.onNavigateNetworkMonitoring}
                 onNavigateMappatura={commAgentNav.onNavigateMappatura}
                 onNavigateSpeedTest={commAgentNav.onNavigateSpeedTest}
-                onNavigateDispositiviAziendali={commAgentNav.onNavigateDispositiviAziendali}
+                onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
                 onNavigateVpn={commAgentNav.onNavigateVpn}
               />
             ) : (

@@ -268,6 +268,8 @@ export default function TicketApp() {
   const [hubEmbedOfficeKick, setHubEmbedOfficeKick] = useState(0);
   /** Anti-Virus nel centro Hub (stesso schema). */
   const [hubEmbedAntiVirusKick, setHubEmbedAntiVirusKick] = useState(0);
+  /** Dispositivi aziendali nel centro Hub (stesso schema). */
+  const [hubEmbedDispositiviKick, setHubEmbedDispositiviKick] = useState(0);
 
   const [dispositiviAziendaliHighlightMac, setDispositiviAziendaliHighlightMac] = useState(null);
   const [showDeviceAnalysisStandalone, setShowDeviceAnalysisStandalone] = useState(false);
@@ -367,11 +369,17 @@ export default function TicketApp() {
   const applyViewFromUrl = (viewName) => {
     if (!viewName || viewName === 'dashboard') return;
     if (mountsTicketHubFromRole(getRuoloFromStoredToken())) {
-      if (viewName === 'office' || viewName === 'email' || viewName === 'antivirus') {
+      if (
+        viewName === 'office' ||
+        viewName === 'email' ||
+        viewName === 'antivirus' ||
+        viewName === 'dispositivi-aziendali'
+      ) {
         handleOpenTechnicianWorkbench();
         if (viewName === 'office') setHubEmbedOfficeKick((n) => n + 1);
         else if (viewName === 'email') setHubEmbedEmailKick((n) => n + 1);
-        else setHubEmbedAntiVirusKick((n) => n + 1);
+        else if (viewName === 'antivirus') setHubEmbedAntiVirusKick((n) => n + 1);
+        else setHubEmbedDispositiviKick((n) => n + 1);
         return;
       }
     }
@@ -511,6 +519,26 @@ export default function TicketApp() {
       setShowCommAgentManager(false);
       setShowVpnManager(false);
       setHubEmbedAntiVirusKick((n) => n + 1);
+      return;
+    }
+    if (hubEmbedFromToken && view === 'dispositivi-aziendali') {
+      setShowDeviceAnalysisStandalone(false);
+      setShowTechnicianWorkbench(true);
+      setShowDashboard(false);
+      setShowMappatura(false);
+      setShowNetworkMonitoring(false);
+      setShowLSight(false);
+      setShowLSightSession(false);
+      setShowAntiVirus(false);
+      setShowFlottaPC(false);
+      setShowSpeedTest(false);
+      setShowPackVision(false);
+      setShowOrariTurni(false);
+      setShowVivaldi(false);
+      setShowCommAgent(false);
+      setShowCommAgentManager(false);
+      setShowVpnManager(false);
+      setHubEmbedDispositiviKick((n) => n + 1);
       return;
     }
 
@@ -797,6 +825,13 @@ export default function TicketApp() {
   const handleOpenDispositiviAziendali = (companyId, highlightMac = null) => {
     if (companyId) setShowGloballySelectedCompanyId(companyId);
     setDispositiviAziendaliHighlightMac(highlightMac || null);
+    const openInHub =
+      mountsTicketHubUser(currentUser) || mountsTicketHubFromRole(getRuoloFromStoredToken());
+    if (openInHub) {
+      handleOpenTechnicianWorkbench();
+      setHubEmbedDispositiviKick((n) => n + 1);
+      return;
+    }
     setShowTechnicianWorkbench(false);
     setShowFlottaPC(true);
     setShowDashboard(false);
@@ -972,6 +1007,7 @@ export default function TicketApp() {
       setHubEmbedEmailKick(0);
       setHubEmbedOfficeKick(0);
       setHubEmbedAntiVirusKick(0);
+      setHubEmbedDispositiviKick(0);
     }
   }, [showTechnicianWorkbench]);
 
@@ -3865,6 +3901,8 @@ export default function TicketApp() {
             hubEmbedEmailKick={hubEmbedEmailKick}
             hubEmbedOfficeKick={hubEmbedOfficeKick}
             hubEmbedAntiVirusKick={hubEmbedAntiVirusKick}
+            hubEmbedDispositiviKick={hubEmbedDispositiviKick}
+            dispositiviHighlightMac={dispositiviAziendaliHighlightMac}
           />
         )}
 

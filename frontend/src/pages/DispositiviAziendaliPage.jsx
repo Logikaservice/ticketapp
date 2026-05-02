@@ -1,8 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Monitor, Cpu, HardDrive, Battery, Shield, User, Loader2, Wifi, WifiOff, Activity, Settings, X } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Monitor, HardDrive, Battery, User, Loader2, Wifi, WifiOff, Activity, Settings, X, ArrowLeft } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import DispositiviAziendaliIntroCard from '../components/DispositiviAziendaliIntroCard';
 import SectionNavMenu from '../components/SectionNavMenu';
+import {
+  HUB_PAGE_BG,
+  HUB_SURFACE,
+  hexToRgba,
+  normalizeHex,
+  readableOnAccent,
+  getStoredTechHubAccent
+} from '../utils/techHubAccent';
 
 /** Formatta indirizzo MAC con due punti (es. 00:50:56:C0:00:01) */
 const formatMacWithColons = (mac) => {
@@ -10,30 +18,38 @@ const formatMacWithColons = (mac) => {
   return mac.trim().replace(/-/g, ':');
 };
 
-const renderDisks = (disksJson) => {
-  if (!disksJson) return <span className="text-gray-500">—</span>;
+const renderDisks = (disksJson, embedded = false) => {
+  const emptyCls = embedded ? 'text-white/45' : 'text-gray-500';
+  if (!disksJson) return <span className={emptyCls}>—</span>;
   try {
     const arr = typeof disksJson === 'string' ? JSON.parse(disksJson) : disksJson;
-    if (!Array.isArray(arr) || arr.length === 0) return <span className="text-gray-500">—</span>;
+    if (!Array.isArray(arr) || arr.length === 0) return <span className={emptyCls}>—</span>;
     return (
-      <div className="flex flex-col gap-2 w-full mt-1">
+      <div className="mt-1 flex w-full flex-col gap-2">
         {arr.map((d, i) => {
           if (d.total_gb == null || d.free_gb == null) return null;
           const used = Math.max(0, d.total_gb - d.free_gb);
           const percent = d.total_gb > 0 ? Math.round((used / d.total_gb) * 100) : 0;
           return (
-            <div key={i} className="flex flex-col gap-1 text-xs w-full bg-gray-50 p-2 rounded border border-gray-100">
-              <div className="flex justify-between text-gray-700 font-medium">
+            <div
+              key={i}
+              className={
+                embedded
+                  ? 'flex w-full flex-col gap-1 rounded border border-white/[0.10] bg-black/[0.22] p-2 text-xs'
+                  : 'flex w-full flex-col gap-1 rounded border border-gray-100 bg-gray-50 p-2 text-xs'
+              }
+            >
+              <div className={`flex justify-between font-medium ${embedded ? 'text-white/82' : 'text-gray-700'}`}>
                 <span>Disco {d.letter}</span>
                 <span>{percent}% in uso</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+              <div className={`h-1.5 w-full overflow-hidden rounded-full ${embedded ? 'bg-white/10' : 'bg-gray-200'}`}>
                 <div
-                  className={`h-1.5 rounded-full ${percent > 90 ? 'bg-red-500' : percent > 75 ? 'bg-yellow-500' : 'bg-teal-500'}`}
+                  className={`h-1.5 rounded-full ${percent > 90 ? 'bg-red-500' : percent > 75 ? 'bg-yellow-500' : embedded ? 'bg-[color:var(--hub-accent)]' : 'bg-teal-500'}`}
                   style={{ width: `${percent}%` }}
-                ></div>
+                />
               </div>
-              <div className="flex justify-between text-[10px] text-gray-500">
+              <div className={`flex justify-between text-[10px] ${embedded ? 'text-white/45' : 'text-gray-500'}`}>
                 <span>Liberi: {d.free_gb} GB</span>
                 <span>Totali: {d.total_gb} GB</span>
               </div>
@@ -43,7 +59,7 @@ const renderDisks = (disksJson) => {
       </div>
     );
   } catch (e) {
-    return <span className="text-gray-500">—</span>;
+    return <span className={emptyCls}>—</span>;
   }
 };
 
@@ -64,8 +80,55 @@ const DispositiviAziendaliPage = ({
   onNavigateSpeedTest,
   onNavigateVpn,
   onNavigateHome,
+  onNavigateLSight,
+  embedded = false,
+  closeEmbedded,
+  accentHex: accentHexProp,
   highlightMac = null
 }) => {
+  const accent = useMemo(() => normalizeHex(accentHexProp) || getStoredTechHubAccent(), [accentHexProp]);
+  const primaryBtnStyle = useMemo(
+    () => ({ backgroundColor: accent, color: readableOnAccent(accent) }),
+    [accent]
+  );
+  const onEmbeddedBack = () => {
+    if (typeof closeEmbedded === 'function') closeEmbedded();
+    else if (typeof onClose === 'function') onClose();
+  };
+  const embeddedBackBtnStyle = useMemo(
+    () => ({
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: '8px 12px',
+      borderRadius: 12,
+      border: '1px solid rgba(255,255,255,0.12)',
+      background: 'rgba(0,0,0,0.28)',
+      color: 'rgba(255,255,255,0.82)',
+      cursor: 'pointer',
+      fontSize: 13,
+      fontWeight: 600,
+      flexShrink: 0
+    }),
+    []
+  );
+  const rootEmbeddedStyle = useMemo(
+    () =>
+      embedded
+        ? {
+            backgroundColor: HUB_PAGE_BG,
+            ['--hub-accent']: accent,
+            ['--hub-accent-border']: hexToRgba(accent, 0.48)
+          }
+        : undefined,
+    [embedded, accent]
+  );
+  const companySelectCls = embedded
+    ? 'min-w-[180px] rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none [color-scheme:light] focus:ring-2 focus:ring-[color:var(--hub-accent)] sm:min-w-[200px]'
+    : 'min-w-[200px] rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500';
+  const rootClassName = embedded
+    ? 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.08] font-sans'
+    : 'fixed inset-0 z-50 flex flex-col overflow-hidden bg-gray-100 font-sans';
   const [companies, setCompanies] = useState([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId || '');
   const [devices, setDevices] = useState([]);
@@ -264,94 +327,147 @@ const DispositiviAziendaliPage = ({
     }
   }, [highlightMac, devices]);
 
+  const statHintCls = embedded ? 'text-[10px] text-white/40' : 'text-[10px] text-gray-400';
+
   return (
-    <div className="fixed inset-0 bg-gray-100 z-50 flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="bg-white border-b px-6 py-4 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
-          <SectionNavMenu
-            currentPage="dispositivi-aziendali"
-            onNavigateHome={onNavigateHome || onClose}
-            onNavigateOffice={onNavigateOffice}
-            onNavigateEmail={onNavigateEmail}
-            onNavigateAntiVirus={onNavigateAntiVirus}
-            onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
-            onNavigateMappatura={onNavigateMappatura}
-            onNavigateSpeedTest={onNavigateSpeedTest}
-            onNavigateDispositiviAziendali={null}
-            onNavigateVpn={onNavigateVpn}
-            currentUser={currentUser}
-            selectedCompanyId={selectedCompanyId}
-          />
-          <div className="bg-teal-100 p-2 rounded-lg text-teal-600">
-            <Monitor size={24} />
+    <div className={rootClassName} style={rootEmbeddedStyle}>
+      <div
+        className={
+          embedded
+            ? 'flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3'
+            : 'flex flex-wrap items-center justify-between border-b bg-white px-6 py-4 shadow-sm'
+        }
+        style={embedded ? { backgroundColor: HUB_SURFACE } : undefined}
+      >
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          {embedded ? (
+            <button type="button" onClick={onEmbeddedBack} style={embeddedBackBtnStyle}>
+              <ArrowLeft size={18} aria-hidden />
+              Panoramica Hub
+            </button>
+          ) : (
+            <SectionNavMenu
+              currentPage="dispositivi-aziendali"
+              onNavigateHome={onNavigateHome || onClose}
+              onNavigateOffice={onNavigateOffice}
+              onNavigateEmail={onNavigateEmail}
+              onNavigateAntiVirus={onNavigateAntiVirus}
+              onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
+              onNavigateMappatura={onNavigateMappatura}
+              onNavigateSpeedTest={onNavigateSpeedTest}
+              onNavigateDispositiviAziendali={null}
+              onNavigateVpn={onNavigateVpn}
+              onNavigateLSight={onNavigateLSight}
+              currentUser={currentUser}
+              selectedCompanyId={selectedCompanyId}
+            />
+          )}
+          <div
+            className={embedded ? 'rounded-lg p-2' : 'rounded-lg bg-teal-100 p-2 text-teal-600'}
+            style={embedded ? { backgroundColor: hexToRgba(accent, 0.18) } : undefined}
+          >
+            <Monitor size={24} style={embedded ? { color: accent } : undefined} />
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-800">Dispositivi aziendali</h1>
-            {readOnly && <p className="text-sm text-gray-500 mt-0.5">Sola consultazione</p>}
+          <div className="min-w-0">
+            <h1 className={`font-bold ${embedded ? 'truncate text-lg text-white' : 'text-xl text-gray-800'}`}>
+              Dispositivi aziendali
+            </h1>
+            {readOnly && (
+              <p className={`mt-0.5 text-sm ${embedded ? 'text-white/50' : 'text-gray-500'}`}>Sola consultazione</p>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
           <select
-            className="border rounded-lg px-3 py-2 bg-gray-50 text-sm focus:ring-2 focus:ring-teal-500 outline-none min-w-[200px]"
+            className={companySelectCls}
             value={selectedCompanyId}
             onChange={(e) => setSelectedCompanyId(e.target.value)}
           >
             <option value="">{readOnly ? 'Seleziona Azienda...' : 'Seleziona Cliente...'}</option>
-            {companies.map(c => (
-              <option key={c.id} value={c.id}>{c.azienda || (c.nome && c.cognome ? `${c.nome} ${c.cognome}` : `ID ${c.id}`)}</option>
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.azienda || (c.nome && c.cognome ? `${c.nome} ${c.cognome}` : `ID ${c.id}`)}
+              </option>
             ))}
           </select>
-          {/* Pulsante: torna a Monitoraggio Rete */}
           <button
+            type="button"
             title="Vai a Monitoraggio Rete"
             onClick={() => onNavigateNetworkMonitoring && onNavigateNetworkMonitoring(selectedCompanyId || null)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium shadow-sm transition-colors ${
+              embedded ? 'hover:brightness-105' : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
+            style={embedded ? primaryBtnStyle : undefined}
           >
             <Activity size={16} />
             <span className="hidden sm:inline">Monitoraggio</span>
           </button>
           <button
+            type="button"
             title="Aggiornamento automatico dispositivi"
-            onClick={() => setAutoRefreshEnabled(v => !v)}
-            className={`flex items-center gap-1.5 px-3 py-2 text-white text-sm font-medium rounded-lg transition-colors shadow-sm ${
-              autoRefreshEnabled ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-gray-500 hover:bg-gray-600'
+            onClick={() => setAutoRefreshEnabled((v) => !v)}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium shadow-sm transition-colors ${
+              autoRefreshEnabled ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-500 text-white hover:bg-gray-600'
             }`}
           >
             <Activity size={16} />
             <span className="hidden sm:inline">Auto-refresh {autoRefreshEnabled ? 'ON' : 'OFF'}</span>
           </button>
-          {/* Pulsante Comunicazioni / Gear con dropdown */}
           <div className="relative" ref={gearRef}>
             <button
+              type="button"
               title="Comunicazioni"
-              onClick={() => setShowGearMenu(v => !v)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+              onClick={() => setShowGearMenu((v) => !v)}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors ${
+                embedded ? 'border border-white/[0.12] bg-black/30 hover:bg-black/45' : 'bg-gray-700 hover:bg-gray-800'
+              }`}
             >
               <Settings size={16} />
             </button>
             {showGearMenu && (
-              <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-200 py-1 z-50">
-                <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide border-b mb-1">Comunicazioni</div>
+              <div
+                className={`absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border py-1 shadow-2xl ${
+                  embedded
+                    ? 'border-white/[0.12] bg-[#1e1e1e]'
+                    : 'border-gray-200 bg-white'
+                }`}
+              >
+                <div
+                  className={`mb-1 border-b px-3 py-2 text-xs font-semibold uppercase tracking-wide ${
+                    embedded ? 'border-white/[0.08] text-white/45' : 'text-gray-400'
+                  }`}
+                >
+                  Comunicazioni
+                </div>
                 <button
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-violet-50 text-gray-700 hover:text-violet-700 transition-colors"
+                  type="button"
+                  className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
+                    embedded
+                      ? 'text-white/85 hover:bg-white/[0.06] hover:text-[color:var(--hub-accent)]'
+                      : 'text-gray-700 hover:bg-violet-50 hover:text-violet-700'
+                  }`}
                   onClick={() => {
                     setShowGearMenu(false);
                     if (onNavigateCommAgentManager) onNavigateCommAgentManager(selectedCompanyId || null);
                   }}
                 >
-                  <Monitor size={16} className="text-violet-500" />
+                  <Monitor size={16} className={embedded ? 'text-[color:var(--hub-accent)]' : 'text-violet-500'} />
                   Crea / Visualizza Agent
                 </button>
                 <button
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-violet-50 text-gray-700 hover:text-violet-700 transition-colors"
+                  type="button"
+                  className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
+                    embedded
+                      ? 'text-white/85 hover:bg-white/[0.06] hover:text-[color:var(--hub-accent)]'
+                      : 'text-gray-700 hover:bg-violet-50 hover:text-violet-700'
+                  }`}
                   onClick={() => {
                     setShowGearMenu(false);
                     if (onNavigateCommAgent) onNavigateCommAgent(selectedCompanyId || null);
                   }}
                 >
-                  <Settings size={16} className="text-violet-500" />
+                  <Settings size={16} className={embedded ? 'text-[color:var(--hub-accent)]' : 'text-violet-500'} />
                   Invia Comunicazione
                 </button>
               </div>
@@ -360,51 +476,78 @@ const DispositiviAziendaliPage = ({
         </div>
       </div>
 
-      {/* Stats cards */}
-      <div className="bg-white border-b px-6 py-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-1 shadow-sm">
-          <div className="flex items-center gap-2 text-green-600 text-xs font-medium">
+      <div
+        className={`grid grid-cols-2 gap-3 border-b px-6 py-3 sm:grid-cols-4 ${
+          embedded ? 'border-white/[0.08] bg-transparent' : 'bg-white'
+        }`}
+      >
+        <div
+          className={`flex flex-col gap-1 rounded-xl p-4 shadow-sm ${
+            embedded ? 'border border-white/[0.10] bg-black/[0.22]' : 'border border-gray-200 bg-white'
+          }`}
+        >
+          <div className={`flex items-center gap-2 text-xs font-medium ${embedded ? 'text-emerald-400' : 'text-green-600'}`}>
             <Wifi size={14} /> Online
           </div>
-          <div className="text-2xl font-bold text-green-600">{globalOnline ?? '—'}</div>
-          <div className="text-[10px] text-gray-400">agent monitor (tutte le aziende)</div>
+          <div className={`text-2xl font-bold ${embedded ? 'text-emerald-400' : 'text-green-600'}`}>{globalOnline ?? '—'}</div>
+          <div className={statHintCls}>agent monitor (tutte le aziende)</div>
         </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-1 shadow-sm">
-          <div className="flex items-center gap-2 text-red-500 text-xs font-medium">
+        <div
+          className={`flex flex-col gap-1 rounded-xl p-4 shadow-sm ${
+            embedded ? 'border border-white/[0.10] bg-black/[0.22]' : 'border border-gray-200 bg-white'
+          }`}
+        >
+          <div className="flex items-center gap-2 text-xs font-medium text-red-400">
             <WifiOff size={14} /> Offline
           </div>
-          <div className="text-2xl font-bold text-red-500">{globalOffline ?? '—'}</div>
-          <div className="text-[10px] text-gray-400">agent monitor (tutte le aziende)</div>
+          <div className="text-2xl font-bold text-red-400">{globalOffline ?? '—'}</div>
+          <div className={statHintCls}>agent monitor (tutte le aziende)</div>
         </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-1 shadow-sm">
-          <div className="flex items-center gap-2 text-blue-600 text-xs font-medium">
+        <div
+          className={`flex flex-col gap-1 rounded-xl p-4 shadow-sm ${
+            embedded ? 'border border-white/[0.10] bg-black/[0.22]' : 'border border-gray-200 bg-white'
+          }`}
+        >
+          <div className={`flex items-center gap-2 text-xs font-medium ${embedded ? 'text-sky-400' : 'text-blue-600'}`}>
             <Activity size={14} /> Agent Online
           </div>
-          <div className="text-2xl font-bold text-blue-600">
+          <div className={`text-2xl font-bold ${embedded ? 'text-sky-400' : 'text-blue-600'}`}>
             {selectedCompanyId ? companyAgentsOnline : '—'}
           </div>
-          {selectedCompanyId
-            ? <div className="text-[10px] text-gray-400">di {totalCompanyAgents} per questa azienda</div>
-            : <div className="text-[10px] text-gray-400">seleziona un'azienda</div>}
+          {selectedCompanyId ? (
+            <div className={statHintCls}>di {totalCompanyAgents} per questa azienda</div>
+          ) : (
+            <div className={statHintCls}>seleziona un&apos;azienda</div>
+          )}
         </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-1 shadow-sm">
-          <div className="flex items-center gap-2 text-orange-500 text-xs font-medium">
+        <div
+          className={`flex flex-col gap-1 rounded-xl p-4 shadow-sm ${
+            embedded ? 'border border-white/[0.10] bg-black/[0.22]' : 'border border-gray-200 bg-white'
+          }`}
+        >
+          <div className="flex items-center gap-2 text-xs font-medium text-orange-400">
             <Activity size={14} /> Agent Offline
           </div>
-          <div className="text-2xl font-bold text-orange-500">
+          <div className="text-2xl font-bold text-orange-400">
             {selectedCompanyId ? companyAgentsOffline : '—'}
           </div>
-          {selectedCompanyId
-            ? <div className="text-[10px] text-gray-400">di {totalCompanyAgents} per questa azienda</div>
-            : <div className="text-[10px] text-gray-400">seleziona un'azienda</div>}
+          {selectedCompanyId ? (
+            <div className={statHintCls}>di {totalCompanyAgents} per questa azienda</div>
+          ) : (
+            <div className={statHintCls}>seleziona un&apos;azienda</div>
+          )}
         </div>
       </div>
 
-      {/* Content: intro solo senza azienda selezionata; con azienda solo lista dispositivi a tutta larghezza */}
-      <div className="flex-1 overflow-auto p-6">
+      <div
+        className={`flex-1 overflow-auto ${embedded ? 'bg-[transparent] px-4 py-4 md:px-5' : 'p-6'}`}
+        style={embedded ? { backgroundColor: HUB_PAGE_BG } : undefined}
+      >
         {!selectedCompanyId ? (
-          <div className="max-w-4xl mx-auto w-full">
+          <div className="mx-auto w-full max-w-4xl">
             <DispositiviAziendaliIntroCard
+              embedded={embedded}
+              accentHex={accent}
               companies={companies}
               value={selectedCompanyId}
               onChange={(id) => setSelectedCompanyId(id || '')}
@@ -412,123 +555,211 @@ const DispositiviAziendaliPage = ({
           </div>
         ) : (
           <div className="w-full">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Dispositivi (dati dagli agent)</h3>
+            <h3 className={`mb-4 text-lg font-semibold ${embedded ? 'text-white' : 'text-gray-900'}`}>Dispositivi (dati dagli agent)</h3>
             {devicesLoading ? (
-              <div className="flex items-center gap-2 text-gray-500 py-8">
+              <div className={`flex items-center gap-2 py-8 ${embedded ? 'text-white/50' : 'text-gray-500'}`}>
                 <Loader2 size={20} className="animate-spin" />
                 Caricamento...
               </div>
             ) : devices.length === 0 ? (
-              <p className="text-gray-500 py-6">Nessun dispositivo con agent registrato per questa azienda, oppure i dati non sono ancora stati inviati.</p>
+              <p className={`py-6 ${embedded ? 'text-white/50' : 'text-gray-500'}`}>
+                Nessun dispositivo con agent registrato per questa azienda, oppure i dati non sono ancora stati inviati.
+              </p>
             ) : (
               <div className="space-y-4">
                 {devices.map((row) => {
                   const hasInfo = row.mac || row.device_name || row.os_name;
+                  const lbl = embedded ? 'text-white/45' : 'text-gray-500';
+                  const muted = embedded ? 'text-white/35' : 'text-gray-400';
+                  const delBtn =
+                    embedded
+                      ? 'text-white/40 hover:bg-red-500/15 hover:text-red-400'
+                      : 'text-gray-400 hover:bg-red-50 hover:text-red-500';
                   return (
                     <div
                       key={row.agent_id}
                       ref={highlightedDeviceId === row.agent_id ? highlightRef : null}
-                      className={`bg-white border border-gray-200 rounded-xl p-4 shadow-sm transition-all duration-700 ${highlightedDeviceId === row.agent_id ? 'ring-4 ring-yellow-400 bg-yellow-50' : ''}`}
+                      className={`rounded-xl border p-4 shadow-sm transition-all duration-700 ${
+                        embedded
+                          ? highlightedDeviceId === row.agent_id
+                            ? 'border-yellow-400/50 bg-yellow-500/15 ring-4 ring-yellow-400/85'
+                            : 'border-white/[0.10] bg-black/[0.22]'
+                          : highlightedDeviceId === row.agent_id
+                            ? 'border-gray-200 bg-yellow-50 ring-4 ring-yellow-400'
+                            : 'border-gray-200 bg-white'
+                      }`}
                     >
                       {!hasInfo ? (
-                        <div className="flex justify-between items-center gap-4">
-                          <p className="text-gray-500 text-sm">Dispositivo {row.machine_name || row.email} — in attesa di dati dall&apos;agent.</p>
-                          <button onClick={() => handleDeleteDevice(row.agent_id, row.machine_name || row.email)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors flex-shrink-0" title="Elimina dispositivo">
+                        <div className="flex items-center justify-between gap-4">
+                          <p className={`text-sm ${embedded ? 'text-white/55' : 'text-gray-500'}`}>
+                            Dispositivo {row.machine_name || row.email} — in attesa di dati dall&apos;agent.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteDevice(row.agent_id, row.machine_name || row.email)}
+                            className={`flex-shrink-0 rounded-lg p-1.5 transition-colors ${delBtn}`}
+                            title="Elimina dispositivo"
+                          >
                             <X size={18} />
                           </button>
                         </div>
                       ) : (
                         <>
-                          {/* Riga titolo: nome, subito dopo MAC (tra parentesi), poi badge Online */}
-                          <div className="font-semibold text-gray-800 flex items-center gap-2 flex-wrap mb-2">
-                            <Monitor size={16} className="text-teal-600" />
+                          <div className={`mb-2 flex flex-wrap items-center gap-2 font-semibold ${embedded ? 'text-white' : 'text-gray-800'}`}>
+                            <Monitor size={16} style={embedded ? { color: accent } : undefined} className={embedded ? '' : 'text-teal-600'} />
                             <span>{row.device_name || row.machine_name || '—'}</span>
-                            <span className="text-gray-500 font-normal text-sm">{row.mac ? `(MAC: ${formatMacWithColons(row.mac)})` : ''}</span>
-                            {row.real_status === 'online' && <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Online</span>}
+                            <span className={`font-normal text-sm ${embedded ? 'text-white/50' : 'text-gray-500'}`}>
+                              {row.mac ? `(MAC: ${formatMacWithColons(row.mac)})` : ''}
+                            </span>
+                            {row.real_status === 'online' && (
+                              <span
+                                className={
+                                  embedded ? 'rounded bg-emerald-500/20 px-1.5 py-0.5 text-xs text-emerald-300' : 'rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700'
+                                }
+                              >
+                                Online
+                              </span>
+                            )}
                             <div className="ml-auto">
-                              <button onClick={() => handleDeleteDevice(row.agent_id, row.device_name || row.machine_name)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors flex-shrink-0" title="Elimina dispositivo">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteDevice(row.agent_id, row.device_name || row.machine_name)}
+                                className={`flex-shrink-0 rounded-lg p-1.5 transition-colors ${delBtn}`}
+                                title="Elimina dispositivo"
+                              >
                                 <X size={18} />
                               </button>
                             </div>
                           </div>
-                          {/* Utente sotto il titolo */}
-                          <div className="flex items-center gap-1 text-sm mb-4"><User size={14} className="text-gray-400" /><span className="text-gray-500">Utente:</span> {row.current_user || '—'}</div>
-                          {/* 3 colonne: Identità/SO | Hardware/CPU/RAM/GPU/Batteria/AV | Archiviazione Dischi */}
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                          <div className={`mb-4 flex items-center gap-1 text-sm ${embedded ? 'text-white/82' : ''}`}>
+                            <User size={14} className={muted} />
+                            <span className={lbl}>Utente:</span> {row.current_user || '—'}
+                          </div>
+                          <div className={`grid grid-cols-1 gap-6 text-sm md:grid-cols-3 ${embedded ? 'text-white/85' : ''}`}>
                             <div className="space-y-1">
                               <div>
-                                <span className="text-gray-500">IP:</span>{' '}
+                                <span className={lbl}>IP:</span>{' '}
                                 {(() => {
                                   const raw = row.ip_addresses || '';
-                                  if (!raw) return <span>—</span>;
-                                  const segments = raw.split(/\s*,\s*/).map(s => s.trim()).filter(Boolean);
+                                  if (!raw) return <span className={muted}>—</span>;
+                                  const segments = raw.split(/\s*,\s*/).map((s) => s.trim()).filter(Boolean);
                                   return segments.map((seg, i) => {
                                     const ipOnly = seg.replace(/\s*\(.*$/, '').trim();
                                     const inMonitoring = monitoringIps.has(ipOnly);
                                     return (
                                       <span key={i}>
                                         {i > 0 && ', '}
-                                        {inMonitoring ? <strong className="font-semibold text-gray-900" title="Presente nel monitoraggio rete">{seg}</strong> : seg}
+                                        {inMonitoring ? (
+                                          <strong
+                                            className={embedded ? 'font-semibold text-white' : 'font-semibold text-gray-900'}
+                                            title="Presente nel monitoraggio rete"
+                                          >
+                                            {seg}
+                                          </strong>
+                                        ) : (
+                                          seg
+                                        )}
                                       </span>
                                     );
                                   });
                                 })()}
                               </div>
-                              <div><span className="text-gray-500">SO:</span> {row.os_name || '—'} {row.os_version && `(${row.os_version})`} {row.os_arch && ` · ${row.os_arch}`}</div>
-                              {row.os_install_date && <div><span className="text-gray-500">Installato:</span> {new Date(row.os_install_date).toLocaleDateString('it-IT')}</div>}
+                              <div>
+                                <span className={lbl}>SO:</span> {row.os_name || '—'} {row.os_version && `(${row.os_version})`}{' '}
+                                {row.os_arch && ` · ${row.os_arch}`}
+                              </div>
+                              {row.os_install_date && (
+                                <div>
+                                  <span className={lbl}>Installato:</span>{' '}
+                                  {new Date(row.os_install_date).toLocaleDateString('it-IT')}
+                                </div>
+                              )}
                               {(row.antivirus_name || row.antivirus_state) && (
-                                <div className="flex items-center gap-1"><span className="text-gray-500">AV:</span> {row.antivirus_name || '—'} {row.antivirus_state && `· ${row.antivirus_state}`}</div>
+                                <div className="flex items-center gap-1">
+                                  <span className={lbl}>AV:</span> {row.antivirus_name || '—'}{' '}
+                                  {row.antivirus_state && `· ${row.antivirus_state}`}
+                                </div>
                               )}
                             </div>
                             <div className="space-y-1">
-                              <div><span className="text-gray-500">HW:</span> {row.manufacturer || '—'} {row.model && `· ${row.model}`} {row.device_type && `(${row.device_type})`}</div>
                               <div>
-                                <span className="text-gray-500">CPU:</span> {row.cpu_name || '—'} {row.cpu_cores != null && `· ${row.cpu_cores} core`} {row.cpu_clock_mhz != null && `· ${row.cpu_clock_mhz} MHz`}
+                                <span className={lbl}>HW:</span> {row.manufacturer || '—'} {row.model && `· ${row.model}`}{' '}
+                                {row.device_type && `(${row.device_type})`}
                               </div>
-                              <div><span className="text-gray-500">RAM:</span> {row.ram_free_gb != null && row.ram_total_gb != null ? `${row.ram_free_gb} / ${row.ram_total_gb} GB liberi` : (row.ram_total_gb != null ? `${row.ram_total_gb} GB` : '—')}</div>
-                              {/* GPU: solo schede reali (no Virtual/Meta monitor), formato Nome · X GB */}
+                              <div>
+                                <span className={lbl}>CPU:</span> {row.cpu_name || '—'}{' '}
+                                {row.cpu_cores != null && `· ${row.cpu_cores} core`}{' '}
+                                {row.cpu_clock_mhz != null && `· ${row.cpu_clock_mhz} MHz`}
+                              </div>
+                              <div>
+                                <span className={lbl}>RAM:</span>{' '}
+                                {row.ram_free_gb != null && row.ram_total_gb != null
+                                  ? `${row.ram_free_gb} / ${row.ram_total_gb} GB liberi`
+                                  : row.ram_total_gb != null
+                                    ? `${row.ram_total_gb} GB`
+                                    : '—'}
+                              </div>
                               <div className="mt-1">
-                                <span className="text-gray-500">GPU:</span>
-                                {row.gpus_json ? (() => {
-                                  try {
-                                    const gpus = typeof row.gpus_json === 'string' ? JSON.parse(row.gpus_json) : row.gpus_json;
-                                    if (Array.isArray(gpus) && gpus.length > 0) {
-                                      const virtualSkip = /Virtual Desktop Monitor|Meta Virtual Monitor/i;
-                                      const realGpus = gpus.filter(g => {
-                                        const name = (g.name || g.caption || '').trim();
-                                        return name && !virtualSkip.test(name);
-                                      });
-                                      if (realGpus.length === 0) return <span className="text-gray-500"> —</span>;
-                                      const parts = realGpus.map(g => {
-                                        const name = g.name || g.caption || '—';
-                                        const gb = g.adapter_ram_mb != null ? Math.round(g.adapter_ram_mb / 1024) : null;
-                                        return gb != null ? `${name} · ${gb} GB` : name;
-                                      });
-                                      return <span className="text-gray-700"> {parts.join(', ')}</span>;
+                                <span className={lbl}>GPU:</span>
+                                {row.gpus_json ? (
+                                  (() => {
+                                    try {
+                                      const gpus = typeof row.gpus_json === 'string' ? JSON.parse(row.gpus_json) : row.gpus_json;
+                                      if (Array.isArray(gpus) && gpus.length > 0) {
+                                        const virtualSkip = /Virtual Desktop Monitor|Meta Virtual Monitor/i;
+                                        const realGpus = gpus.filter((g) => {
+                                          const name = (g.name || g.caption || '').trim();
+                                          return name && !virtualSkip.test(name);
+                                        });
+                                        if (realGpus.length === 0) return <span className={lbl}> —</span>;
+                                        const parts = realGpus.map((g) => {
+                                          const name = g.name || g.caption || '—';
+                                          const gb = g.adapter_ram_mb != null ? Math.round(g.adapter_ram_mb / 1024) : null;
+                                          return gb != null ? `${name} · ${gb} GB` : name;
+                                        });
+                                        return (
+                                          <span className={embedded ? 'text-white/82' : 'text-gray-700'}>{' '}{parts.join(', ')}</span>
+                                        );
+                                      }
+                                    } catch (_) {
+                                      /* ignore */
                                     }
-                                  } catch (_) {}
-                                  return <span className="text-gray-700"> {row.gpu_name || '—'}</span>;
-                                })() : row.gpu_name ? (
-                                  <span className="text-gray-700"> {row.gpu_name}</span>
+                                    return (
+                                      <span className={embedded ? 'text-white/82' : 'text-gray-700'}> {row.gpu_name || '—'}</span>
+                                    );
+                                  })()
+                                ) : row.gpu_name ? (
+                                  <span className={embedded ? 'text-white/82' : 'text-gray-700'}> {row.gpu_name}</span>
                                 ) : (
-                                  <span className="text-gray-400 italic" title="Riavvia o aggiorna l’agent sul PC per inviare i dati delle schede video">Nessun dato ricevuto dall’agent</span>
+                                  <span className={`italic ${muted}`} title="Riavvia o aggiorna l’agent sul PC per inviare i dati delle schede video">
+                                    Nessun dato ricevuto dall’agent
+                                  </span>
                                 )}
                               </div>
                               {(row.battery_percent != null || row.battery_status) && (
-                                <div className="flex items-center gap-1"><Battery size={14} className="text-gray-400" /> {row.battery_status || ''} {row.battery_percent != null && `${row.battery_percent}%`} {row.battery_charging && '(in carica)'}</div>
+                                <div className="flex items-center gap-1">
+                                  <Battery size={14} className={muted} /> {row.battery_status || ''}{' '}
+                                  {row.battery_percent != null && `${row.battery_percent}%`} {row.battery_charging && '(in carica)'}
+                                </div>
                               )}
                             </div>
                             <div className="space-y-1">
-                              <div className="flex items-center gap-1"><HardDrive size={14} className="text-gray-400" /><span className="text-gray-500 font-medium">Archiviazione Dischi:</span></div>
-                              {renderDisks(row.disks_json)}
+                              <div className="flex items-center gap-1">
+                                <HardDrive size={14} className={muted} />
+                                <span className={`${lbl} font-medium`}>Archiviazione Dischi:</span>
+                              </div>
+                              {renderDisks(row.disks_json, embedded)}
                             </div>
                           </div>
                         </>
-                        )}
-                        <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-400">
-                          {row.email} · Aggiornato: {row.device_info_updated_at ? new Date(row.device_info_updated_at).toLocaleString('it-IT') : 'mai'}
-                        </div>
+                      )}
+                      <div
+                        className={`mt-2 border-t pt-2 text-xs ${embedded ? 'border-white/[0.08] text-white/38' : 'border-gray-100 text-gray-400'}`}
+                      >
+                        {row.email} · Aggiornato:{' '}
+                        {row.device_info_updated_at ? new Date(row.device_info_updated_at).toLocaleString('it-IT') : 'mai'}
                       </div>
+                    </div>
                     );
                   })}
                 </div>
