@@ -21,7 +21,8 @@ import {
   LogOut,
   Calendar,
   Volume2,
-  Layers
+  Layers,
+  Ticket as TicketHomeIcon
 } from 'lucide-react';
 
 const SURFACE = '#1E1E1E';
@@ -314,9 +315,18 @@ export default function TechnicianWorkbenchPage({
           </div>
         </div>
 
-        <nav className="mt-5 min-h-0 flex-1 space-y-4 overflow-y-auto pb-6 pr-1">
-          <div>
-            <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-white/35">Strumenti</p>
+        <nav className="mt-5 min-h-0 flex-1 space-y-1 overflow-y-auto pb-6 pr-1">
+          <SidebarLink icon={TicketHomeIcon} label="Ticket" onClick={() => onNavigateHome?.()} />
+          <SidebarLink icon={Building2} label="Office" onClick={() => nav?.onOpenOffice?.()} />
+          <SidebarLink icon={Mail} label="Email" onClick={() => nav?.onOpenEmail?.()} />
+          <SidebarLink icon={Shield} label="Anti-Virus" onClick={() => nav?.onOpenAntiVirus?.()} />
+          <SidebarLink icon={Eye} label="L-Sight" onClick={() => nav?.onOpenLSight?.()} />
+          <SidebarLink icon={Monitor} label="Dispositivi aziendali" onClick={() => nav?.onOpenDispositivi?.()} />
+          <SidebarLink icon={Gauge} label="Speed Test" onClick={() => nav?.onOpenSpeedTest?.()} />
+          <SidebarLink icon={Wifi} label="Monitoraggio rete" onClick={() => nav?.onOpenNetwork?.()} />
+          <SidebarLink icon={MapPin} label="Mappatura" onClick={() => nav?.onOpenMappatura?.()} />
+
+          <div className="pt-2">
             <NavGroup title="Comunicazioni" open={navToolsOpen} onToggle={() => setNavToolsOpen((o) => !o)}>
               <SidebarLink
                 nested
@@ -327,20 +337,8 @@ export default function TechnicianWorkbenchPage({
               <SidebarLink nested icon={Bell} label="Invia comunicazione" onClick={() => nav?.onOpenCommAgent?.()} />
             </NavGroup>
           </div>
-          <div className="space-y-1">
-            <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-white/35">Moduli</p>
-            <SidebarLink icon={Building2} label="Office" onClick={() => nav?.onOpenOffice?.()} />
-            <SidebarLink icon={Mail} label="Email" onClick={() => nav?.onOpenEmail?.()} />
-            <SidebarLink icon={Shield} label="Anti-Virus" onClick={() => nav?.onOpenAntiVirus?.()} />
-            <SidebarLink icon={Eye} label="L-Sight" onClick={() => nav?.onOpenLSight?.()} />
-            <SidebarLink icon={Monitor} label="Dispositivi aziendali" onClick={() => nav?.onOpenDispositivi?.()} />
-            <SidebarLink icon={Gauge} label="Speed Test" onClick={() => nav?.onOpenSpeedTest?.()} />
-            <SidebarLink icon={Wifi} label="Monitoraggio rete" onClick={() => nav?.onOpenNetwork?.()} />
-            <SidebarLink icon={MapPin} label="Mappatura" onClick={() => nav?.onOpenMappatura?.()} />
-          </div>
 
-          <div>
-            <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-white/35">Progetti</p>
+          <div className="pt-2">
             <NavGroup title="Altri progetti" open={navProjectsOpen} onToggle={() => setNavProjectsOpen((o) => !o)}>
               <SidebarLink nested icon={Calendar} label="Orari e Turni" onClick={() => nav?.onOpenOrari?.()} />
               <SidebarLink nested icon={Volume2} label="Vivaldi" onClick={() => nav?.onOpenVivaldi?.()} />
@@ -350,18 +348,9 @@ export default function TechnicianWorkbenchPage({
           </div>
         </nav>
 
-        <div className="mt-auto flex items-center justify-between border-t border-white/[0.06] pt-4">
-          <div className="flex items-center gap-2 opacity-70">
-            <LayoutGrid size={20} style={{ color: accentHex }} />
-            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/55">Ticket</span>
-          </div>
-          <button
-            type="button"
-            onClick={onNavigateHome}
-            className="rounded-xl border border-transparent px-3 py-1.5 text-xs font-medium text-white/50 transition hover:bg-white/[0.06] hover:text-[color:var(--hub-accent)] hover:[border-color:var(--hub-accent-border)]"
-          >
-            Dashboard ticket →
-          </button>
+        <div className="mt-auto flex items-center gap-2 border-t border-white/[0.06] pt-4 opacity-70">
+          <LayoutGrid size={20} style={{ color: accentHex }} />
+          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/55">Ticket</span>
         </div>
       </aside>
 
