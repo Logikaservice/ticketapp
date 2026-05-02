@@ -21,6 +21,18 @@ function fmtEuroCompact(n) {
   }).format(x);
 }
 
+/** Solo asse Y: compatto, evita rumore vicino allo zero. */
+function fmtEuroAxisTick(n) {
+  if (!n) return '0';
+  const k = Math.abs(n);
+  if (k >= 1000) {
+    const t = k / 1000;
+    const s = Number.isInteger(t) ? `${t}` : t.toLocaleString('it-IT', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    return `${s}k`;
+  }
+  return `${Math.round(n)}`;
+}
+
 /** Allineati alla scala delle candele (= max mensile fra i previsti nell’anno). */
 function ticksForScale(scaleMax) {
   const m = Math.max(scaleMax || 1, 1);
@@ -99,18 +111,17 @@ export default function HubContractsActiveCard({
 
   const chartModel = useMemo(() => {
     const W = 520;
-    const H = 168;
-    const padL = 40;
-    const padR = 8;
-    const padT = 6;
-    const padB = 26;
+    const H = 144;
+    const padL = 28;
+    const padR = 4;
+    const padT = 4;
+    const padB = 30;
     const innerW = W - padL - padR;
     const innerH = H - padT - padB;
     const n = 12;
-    const gapFrac = 0.2;
     const slot = innerW / n;
-    const gap = slot * gapFrac;
-    const barW = Math.max(6, slot - gap);
+    const maxBarW = 10;
+    const barW = Math.max(4, Math.min(maxBarW, slot * 0.28));
 
     const scaleMax = Math.max(euroModel.chartEuroMax, 1);
     /** @type {Array<{ bx: number; bw: number; hTrack: number; hFill: number; monthIndex: number }>} */
@@ -120,37 +131,42 @@ export default function HubContractsActiveCard({
       const sg = euroModel.series[mi] || { previsto: 0, pagato: 0 };
       const prev = sg.previsto;
       const paid = sg.pagato;
-      const x0 = padL + mi * slot + gap / 2;
-      const bx = x0 + (slot - gap - barW) / 2;
+      const x0 = padL + mi * slot;
+      const bx = x0 + (slot - barW) / 2;
       const hTrack =
-        prev > 0 ? Math.max(innerH * (prev / scaleMax), 6) : 4;
+        prev > 0 ? Math.max(innerH * (prev / scaleMax), 5) : 3;
       const ratioRaw = prev > 0 ? paid / prev : 0;
       const ratio = Math.min(1, Math.max(0, ratioRaw));
-      const hFill = prev > 0 ? Math.max(hTrack * ratio, paid > 0 ? 6 * ratio || 4 : 0) : paid > 0 ? 8 : 0;
+      const hFill = prev > 0 ? Math.max(hTrack * ratio, paid > 0 ? 5 * ratio || 3 : 0) : paid > 0 ? 6 : 0;
 
       bars.push({ bx, bw: barW, hTrack, hFill, monthIndex: mi });
     }
 
-    return { W, H, padL, padR, padT, padB, innerH, bars, scaleMax };
+    return { W, H, padL, padR, padT, padB, innerW, innerH, slot, bars, scaleMax };
   }, [euroModel]);
 
   const baseY = chartModel.padT + chartModel.innerH;
   const yTicks = ticksForScale(chartModel.scaleMax);
+  const now = new Date();
+  const showCurrentMonthMarker =
+    refYear === now.getFullYear();
+  const currentMonthIndex = now.getMonth();
+  const currentMonthCenterX =
+    chartModel.padL + (currentMonthIndex + 0.5) * chartModel.slot;
 
   return (
-    <div className="rounded-2xl border border-white/[0.08] p-4 md:p-5" style={{ backgroundColor }}>
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+    <div className="rounded-2xl border border-white/[0.08] p-3" style={{ backgroundColor }}>
+      <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <FileSignature size={20} style={{ color: accentHex }} className="shrink-0" />
-            <h2 className="text-sm font-semibold text-white">Contratti attivi</h2>
+          <div className="flex items-center gap-1.5">
+            <FileSignature size={18} style={{ color: accentHex }} className="shrink-0" />
+            <h2 className="text-xs font-semibold text-white sm:text-sm">Contratti attivi</h2>
           </div>
-          <p className="mt-1 text-[10px] leading-snug text-white/42">
-            {refYear}: rate previste nel mese (guscio) e incassato nel mese (riempimento). KPI:{' '}
-            <span className="text-white/55">
+          <p className="mt-0.5 text-[9px] leading-snug text-white/38">
+            {refYear} · guscio = previsto · verde = pagato · KPI:{' '}
+            <span className="text-white/50">
               {kpiScope === 'mese' ? 'mese in corso' : `anno ${refYear}`}
             </span>
-            .
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -178,18 +194,17 @@ export default function HubContractsActiveCard({
         </div>
       </div>
 
-      {/* Tre colonne KPI (come reference “Audiences”) */}
-      <div className="mb-3 grid grid-cols-3 divide-x divide-white/[0.08] rounded-xl border border-white/[0.08] bg-black/15">
-        <KpiMoneyCol label="Totale" sub="Previsto" value={moneyKpis.previsto} />
-        <KpiMoneyCol label="Pagato" sub="Nel periodo" value={moneyKpis.pagato} highlight />
-        <KpiMoneyCol label="Mancante" sub="Da incassare" value={moneyKpis.mancante} />
+      <div className="mb-2 grid grid-cols-3 divide-x divide-white/[0.08] rounded-lg border border-white/[0.08] bg-black/15">
+        <KpiMoneyCol title="Totale" subline="Totale previsto" value={moneyKpis.previsto} />
+        <KpiMoneyCol title="Pagato" subline="Nel periodo" value={moneyKpis.pagato} highlight />
+        <KpiMoneyCol title="Mancante" subline="Da incassare" value={moneyKpis.mancante} />
       </div>
 
-      <div ref={chartRef} className="relative min-h-[172px]" onMouseLeave={() => setTip(null)}>
+      <div ref={chartRef} className="relative min-h-[136px]" onMouseLeave={() => setTip(null)}>
         {loading ? (
-          <div className="flex h-[152px] items-center justify-center text-xs text-white/35">Caricamento…</div>
+          <div className="flex h-[126px] items-center justify-center text-[11px] text-white/35">Caricamento…</div>
         ) : err ? (
-          <div className="flex h-[152px] items-center justify-center text-xs text-red-300/90">{err}</div>
+          <div className="flex h-[126px] items-center justify-center text-[11px] text-red-300/90">{err}</div>
         ) : (
           <svg
             className="h-auto w-full max-w-full"
@@ -210,14 +225,14 @@ export default function HubContractsActiveCard({
               return (
                 <g key={`y-${tick}-${chartModel.scaleMax}`}>
                   <text
-                    x={chartModel.padL - 6}
-                    y={tick === 0 ? baseY + 10 : yt}
-                    fill="rgba(255,255,255,0.32)"
-                    fontSize="9"
+                    x={chartModel.padL - 2}
+                    y={tick === 0 ? baseY + 9 : yt}
+                    fill="rgba(255,255,255,0.28)"
+                    fontSize="7"
                     textAnchor="end"
                     dominantBaseline={tick === 0 ? 'hanging' : 'middle'}
                   >
-                    {fmtEuroCompact(tick)}
+                    {fmtEuroAxisTick(tick)}
                   </text>
                   {tick !== 0 && (
                     <line
@@ -232,6 +247,15 @@ export default function HubContractsActiveCard({
                 </g>
               );
             })}
+            <text
+              x={chartModel.padL - 2}
+              y={chartModel.padT + 2}
+              fill="rgba(255,255,255,0.22)"
+              fontSize="6"
+              textAnchor="end"
+            >
+              €
+            </text>
 
             {chartModel.bars.map((c) => {
               const mi = c.monthIndex;
@@ -257,7 +281,7 @@ export default function HubContractsActiveCard({
                 });
               };
 
-              const rx = Math.min(4, c.bw / 2);
+              const rx = Math.min(2.5, c.bw / 2);
               const yTrack = baseY - c.hTrack;
               const yFill = baseY - c.hFill;
 
@@ -297,16 +321,16 @@ export default function HubContractsActiveCard({
             })}
 
             {euroModel.monthsMeta.map(({ label }, idx) => {
-              const slot = chartModel.innerW / 12;
-              const x = chartModel.padL + idx * slot + slot / 2;
+              const x = chartModel.padL + idx * chartModel.slot + chartModel.slot / 2;
+              const isCurrent = showCurrentMonthMarker && idx === currentMonthIndex;
               return (
                 <text
                   key={`${label}-${idx}`}
                   x={x}
-                  y={chartModel.H - 8}
-                  fill="rgba(255,255,255,0.36)"
-                  fontSize="10"
-                  fontWeight={600}
+                  y={chartModel.H - 15}
+                  fill={isCurrent ? 'rgba(255,255,255,0.78)' : 'rgba(255,255,255,0.34)'}
+                  fontSize="8.5"
+                  fontWeight={isCurrent ? 700 : 600}
                   textAnchor="middle"
                   className="capitalize"
                 >
@@ -314,6 +338,17 @@ export default function HubContractsActiveCard({
                 </text>
               );
             })}
+            {showCurrentMonthMarker && (
+              <g aria-hidden>
+                {/* Triangolo sotto i nomi mese, punta verso la candela */}
+                <polygon
+                  points={`${currentMonthCenterX - 4},${chartModel.H - 6} ${currentMonthCenterX + 4},${chartModel.H - 6} ${currentMonthCenterX},${chartModel.H - 13}`}
+                  fill="rgba(255,255,255,0.42)"
+                  stroke="rgba(255,255,255,0.08)"
+                  strokeWidth="0.5"
+                />
+              </g>
+            )}
           </svg>
         )}
 
@@ -346,7 +381,7 @@ export default function HubContractsActiveCard({
         )}
       </div>
 
-      <div className="mt-2 flex flex-wrap justify-center gap-4 border-t border-white/[0.06] pt-2 text-[10px] text-white/42">
+      <div className="mt-1.5 flex flex-wrap justify-center gap-3 border-t border-white/[0.06] pt-1.5 text-[9px] text-white/38">
         <span className="flex items-center gap-1.5">
           <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: COL_TRACK }} />{' '}
           Previsto nel mese
@@ -373,14 +408,22 @@ function SegmentBtn({ active, children, onClick }) {
   );
 }
 
-function KpiMoneyCol({ label, sub, value, highlight }) {
+function KpiMoneyCol({ title, subline, value, highlight }) {
   return (
-    <div className={`px-2 py-2.5 text-center sm:px-3 ${highlight ? 'text-emerald-200/95' : 'text-white'}`}>
-      <div className="text-lg font-extrabold tabular-nums leading-tight sm:text-xl">{fmtEuroCompact(value)}</div>
-      <div className={`mt-0.5 text-[10px] font-bold uppercase tracking-wide ${highlight ? 'text-emerald-200/65' : 'text-white/40'}`}>
-        {label}
+    <div
+      className={`min-w-0 px-1.5 py-1.5 sm:px-2 ${highlight ? 'text-emerald-200/95' : 'text-white'}`}
+    >
+      <div className="flex items-baseline justify-between gap-1.5">
+        <span className="text-xs font-bold tabular-nums leading-none sm:text-sm">{fmtEuroCompact(value)}</span>
+        <span
+          className={`shrink-0 text-[9px] font-semibold uppercase tracking-wide ${highlight ? 'text-emerald-200/75' : 'text-white/45'}`}
+        >
+          {title}
+        </span>
       </div>
-      <div className="text-[10px] text-white/38">{sub}</div>
+      <div className={`mt-0.5 text-[8px] leading-tight ${highlight ? 'text-emerald-200/45' : 'text-white/32'}`}>
+        {subline}
+      </div>
     </div>
   );
 }
