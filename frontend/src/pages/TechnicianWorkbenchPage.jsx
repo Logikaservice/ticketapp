@@ -35,6 +35,7 @@ import {
   Plus
 } from 'lucide-react';
 import { fetchImportantAlertsForHub } from '../utils/importantAlertsFeed';
+import HubContractsActiveCard from '../components/hub/HubContractsActiveCard';
 import {
   TECH_HUB_ACCENT_PALETTE,
   STORAGE_KEY_TECH_HUB_ACCENT,
@@ -482,7 +483,8 @@ export default function TechnicianWorkbenchPage({
   alertsRefreshTrigger = 0,
   tickets = [],
   onOpenTicketState,
-  onOpenNewTicket
+  onOpenNewTicket,
+  onOpenContractsList
 }) {
   const [accentHex, setAccentHex] = useState(getStoredTechHubAccent);
   const [hubImportantAlerts, setHubImportantAlerts] = useState([]);
@@ -899,53 +901,15 @@ export default function TechnicianWorkbenchPage({
                 />
               </div>
 
-              {/* Blocco grafico più ampio */}
-              <div
-                className="col-span-12 flex flex-col rounded-2xl border border-white/[0.08] p-5 md:col-span-7 md:row-span-3"
-                style={{ backgroundColor: SURFACE }}
-              >
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <h2 className="text-sm font-semibold text-white">Grafico (placeholder)</h2>
-                  <span className="text-xs text-white/35">Aggiorna con dati reali</span>
-                </div>
-                <div className="relative flex flex-1 min-h-[200px] items-center justify-center">
-                  {/* Donut semplice CSS */}
-                  <div
-                    className="relative h-44 w-44 rounded-full"
-                    style={{
-                      background: `conic-gradient(${accentHex} 0deg 210deg, ${hexToRgba(
-                        accentHex,
-                        0.28
-                      )} 210deg 300deg, rgba(255,255,255,0.06) 300deg 360deg)`
-                    }}
-                  >
-                    <div
-                      className="absolute inset-[18%] flex items-center justify-center rounded-full text-center"
-                      style={{ backgroundColor: PAGE_BG }}
-                    >
-                      <div>
-                        <div className="text-2xl font-bold tabular-nums text-white">68%</div>
-                        <div className="mt-1 text-[11px] text-white/40">Placeholder</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/[0.06] pt-4 text-center">
-                  <div>
-                    <div className="text-lg font-semibold tabular-nums text-white">12</div>
-                    <div className="text-[10px] uppercase tracking-wide text-white/35">Ieri</div>
-                  </div>
-                  <div>
-                    <div className="text-lg font-semibold tabular-nums" style={{ color: accentHex }}>
-                      48
-                    </div>
-                    <div className="text-[10px] uppercase tracking-wide text-white/35">Oggi</div>
-                  </div>
-                  <div>
-                    <div className="text-lg font-semibold tabular-nums text-white">5</div>
-                    <div className="text-[10px] uppercase tracking-wide text-white/35">In attesa</div>
-                  </div>
-                </div>
+              {/* Contratti attivi: KPI + grafico a candele / bucket mensili */}
+              <div className="col-span-12 md:col-span-7 md:row-span-3 md:min-h-0 md:flex md:flex-col">
+                <HubContractsActiveCard
+                  backgroundColor={SURFACE}
+                  accentHex={accentHex}
+                  getAuthHeader={getAuthHeader}
+                  currentUser={currentUser}
+                  onOpenContractsList={onOpenContractsList}
+                />
               </div>
 
               {/* Stack destro */}

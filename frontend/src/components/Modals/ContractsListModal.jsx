@@ -98,7 +98,7 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
             <div className="bg-white rounded-2xl w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl animate-scaleIn">
                 <div className="p-6 border-b flex justify-between items-center bg-white rounded-t-2xl">
                     <h2 className="text-2xl font-bold text-gray-800">Lista Contratti Attivi</h2>

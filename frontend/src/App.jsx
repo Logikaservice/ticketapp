@@ -3677,6 +3677,7 @@ export default function TicketApp() {
             alertsRefreshTrigger={alertsRefreshTrigger}
             onNavigateHome={() => { setShowTechnicianWorkbench(false); setShowDashboard(true); }}
             onOpenNewTicket={openNewTicketModal}
+            onOpenContractsList={() => setShowContractsListModal(true)}
             onLogout={handleLogout}
             onOpenSettings={openSettings}
             nav={{
