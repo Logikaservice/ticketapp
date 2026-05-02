@@ -47,6 +47,7 @@ import SpeedTestPage from './pages/SpeedTestPage';
 import VpnManagerPage from './pages/VpnManagerPage';
 import TechnicianWorkbenchPage from './pages/TechnicianWorkbenchPage';
 import { buildApiUrl } from './utils/apiConfig';
+import { HUB_PAGE_BG } from './utils/techHubAccent';
 
 const INITIAL_NEW_CLIENT_DATA = {
   nome: '',
@@ -931,6 +932,20 @@ export default function TicketApp() {
       setShowDashboard(true);
     }
   }, [isLoggedIn, currentUser, showTechnicianWorkbench]);
+
+  /** Overscroll / area sotto il layer fixed dell’Hub: evita fascia chiara (#body / vuoto dopo lo zoom wrapper). */
+  useEffect(() => {
+    const hub = isLoggedIn && showTechnicianWorkbench && currentUser?.ruolo === 'tecnico';
+    if (!hub) return undefined;
+    const prevHtml = document.documentElement.style.backgroundColor;
+    const prevBody = document.body.style.backgroundColor;
+    document.documentElement.style.backgroundColor = HUB_PAGE_BG;
+    document.body.style.backgroundColor = HUB_PAGE_BG;
+    return () => {
+      document.documentElement.style.backgroundColor = prevHtml;
+      document.body.style.backgroundColor = prevBody;
+    };
+  }, [isLoggedIn, showTechnicianWorkbench, currentUser?.ruolo]);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -3719,8 +3734,14 @@ export default function TicketApp() {
     );
   }
 
+  const hubShellBackdrop =
+    isLoggedIn && showTechnicianWorkbench && currentUser?.ruolo === 'tecnico';
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      className={hubShellBackdrop ? 'min-h-screen' : 'min-h-screen bg-gray-50'}
+      style={hubShellBackdrop ? { backgroundColor: HUB_PAGE_BG } : undefined}
+    >
       <div className="fixed bottom-5 right-5 z-[100] flex flex-col-reverse gap-2">
         {notifications.map((notif) => (
           <Notification key={notif.id} notification={notif} handleClose={() => handleCloseNotification(notif.id)} />
