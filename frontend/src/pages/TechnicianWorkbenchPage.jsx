@@ -155,26 +155,31 @@ function ModuleLaunchCard({ icon: Icon, label, subtitle, accent, onClick, classN
  */
 function TicketHubStatCard({ icon: Icon, title, count, accentHex, stateKey, onOpenTicketState }) {
   const active = Boolean(count > 0);
+  const ticketLabelTone = active ? 'text-white/50' : 'text-white/32';
   const body = (
     <>
-      <div
-        className={`mb-3 inline-flex rounded-xl p-2.5 transition ${
-          active ? '' : 'bg-white/[0.06]'
-        }`}
-        style={active ? { backgroundColor: hexToRgba(accentHex, 0.14) } : undefined}
-      >
-        <Icon
-          size={22}
-          className="shrink-0"
-          style={{ color: active ? accentHex : 'rgba(255,255,255,0.38)' }}
-        />
+      <div className="mb-2 flex gap-3">
+        <div
+          className={`inline-flex shrink-0 rounded-xl p-2.5 transition ${
+            active ? '' : 'bg-white/[0.06]'
+          }`}
+          style={active ? { backgroundColor: hexToRgba(accentHex, 0.14) } : undefined}
+        >
+          <Icon
+            size={22}
+            className="shrink-0"
+            style={{ color: active ? accentHex : 'rgba(255,255,255,0.38)' }}
+          />
+        </div>
+        <div className="min-w-0 flex-1 self-center leading-tight">
+          <div className={`text-[11px] font-semibold uppercase tracking-widest ${ticketLabelTone}`}>
+            Ticket
+          </div>
+          <div className="mt-0.5 text-base font-semibold text-white/90">{title}</div>
+        </div>
       </div>
-      <div className={`text-[11px] font-semibold uppercase tracking-widest ${active ? 'text-white/50' : 'text-white/32'}`}>
-        Ticket · interventi
-      </div>
-      <div className="mt-0.5 text-sm font-semibold text-white/90">{title}</div>
       <div
-        className={`mt-3 text-5xl font-extrabold leading-none tabular-nums md:text-[3.25rem] ${
+        className={`text-5xl font-extrabold leading-none tabular-nums md:text-[3.25rem] ${
           active ? '' : 'text-white/[0.28]'
         }`}
         style={active ? { color: accentHex } : undefined}
