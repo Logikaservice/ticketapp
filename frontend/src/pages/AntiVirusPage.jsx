@@ -975,11 +975,10 @@ const AntiVirusPage = ({
                                                             ) : (
                                                                 <input
                                                                     type="text"
-                                                                    className={`w-full rounded px-2 py-1 text-sm outline-none ${
-                                                                        embedded
-                                                                            ? 'border border-white/[0.12] bg-black/28 text-white focus:ring-1 focus:ring-[color:var(--hub-accent)] placeholder:text-white/35'
-                                                                            : 'border focus:ring-1 focus:ring-indigo-500'
-                                                                    }`}
+                                                                    autoComplete="off"
+                                                                    className={
+                                                                        embedded ? `${embedHubFieldCls} w-full` : 'w-full rounded border px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-indigo-500'
+                                                                    }
                                                                     placeholder="Nome prodotto"
                                                                     value={draft.product_name || ''}
                                                                     onChange={(e) => updateDraft(id, 'product_name', e.target.value)}

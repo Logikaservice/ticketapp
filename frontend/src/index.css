@@ -22,7 +22,19 @@ body {
   isolation: isolate; /* Crea un nuovo stacking context */
 }
 
-/* Anti-Virus (Hub scuro): evita sfondo/form control chiaro dai browser su input tabella */
+/* Anti-Virus (Hub scuro): sfondo sempre scuro; Chromium/Windows ignora talvolta le utility Tailwind sui form control */
+input.anti-virus-hub-field {
+  color-scheme: dark;
+  background-color: #171717 !important;
+  color: #f4f4f5 !important;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+input.anti-virus-hub-field::placeholder {
+  color: rgb(161 161 170);
+  opacity: 1;
+}
+
 input.anti-virus-hub-field:-webkit-autofill,
 input.anti-virus-hub-field:-webkit-autofill:hover,
 input.anti-virus-hub-field:-webkit-autofill:focus {
