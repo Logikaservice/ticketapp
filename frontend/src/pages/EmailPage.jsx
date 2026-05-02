@@ -443,8 +443,10 @@ const EmailPage = ({
     []
   );
 
+  // Il menu nativo del <select> su Windows/Chromium usa spesso uno sfondo chiaro: non usare text-white sulla
+  // `<select>` o le `<option>` risultano invisibili (testo chiaro su sfondo chiaro). Stile “pill” chiaro sulla barra Hub.
   const selectCls = embedded
-    ? 'rounded-md px-3 py-1.5 text-sm outline-none bg-white/[0.08] text-white border border-white/15 focus:ring-2 focus:ring-[color:var(--hub-accent)]'
+    ? 'rounded-md border border-gray-300 bg-gray-50 px-3 py-1.5 text-sm text-gray-900 outline-none [color-scheme:light] focus:ring-2 focus:ring-blue-500/80'
     : 'border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none';
 
   return (
@@ -544,9 +546,13 @@ const EmailPage = ({
               }}
             >
               <option value="">Seleziona Azienda...</option>
-              {companies.map(c => (
-                <option key={c.id} value={String(c.id)}>{c.azienda || `ID ${c.id}`}</option>
-              ))}
+              {companies
+                .filter((c) => c.id != null)
+                .map((c) => (
+                  <option key={c.id} value={String(c.id)}>
+                    {c.azienda || `ID ${c.id}`}
+                  </option>
+                ))}
             </select>
           )}
         </div>
