@@ -37,6 +37,7 @@ import {
 import { fetchImportantAlertsForHub } from '../utils/importantAlertsFeed';
 import HubContractsActiveCard from '../components/hub/HubContractsActiveCard';
 import CommAgentDashboard from '../components/CommAgentDashboard';
+import ContractsListModal from '../components/Modals/ContractsListModal';
 import EmailPage from './EmailPage';
 import {
   TECH_HUB_ACCENT_PALETTE,
@@ -486,7 +487,7 @@ export default function TechnicianWorkbenchPage({
   tickets = [],
   onOpenTicketState,
   onOpenNewTicket,
-  onOpenContractsList,
+  onOpenCreateContract = null,
   notify = () => {},
   selectedCompanyId = null,
   /** Allineamento alla selezione aziendale globale (es. modulo Email nell’Hub). */
@@ -506,7 +507,9 @@ export default function TechnicianWorkbenchPage({
   const [navProjectsOpen, setNavProjectsOpen] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   /** Centro Hub: panoramica a griglia oppure modulo integrato (Comunicazioni, Email). */
-  const [hubCenterView, setHubCenterView] = useState(/** @type {'overview' | 'comunicazioni' | 'email'} */ ('overview'));
+  const [hubCenterView, setHubCenterView] = useState(
+    /** @type {'overview' | 'comunicazioni' | 'email' | 'contratti'} */ ('overview')
+  );
   const userMenuRef = useRef(null);
   const accentPickerRef = useRef(null);
   const minMd = useMinMd();
@@ -796,7 +799,9 @@ export default function TechnicianWorkbenchPage({
                     ? 'Comunicazioni'
                     : hubCenterView === 'email'
                       ? 'Email'
-                      : 'Panoramica'}
+                      : hubCenterView === 'contratti'
+                        ? 'Contratti attivi'
+                        : 'Panoramica'}
                 </span>
               </div>
             </div>
@@ -863,12 +868,21 @@ export default function TechnicianWorkbenchPage({
 
           <div
             className={
-              hubCenterView === 'comunicazioni' || hubCenterView === 'email'
+              hubCenterView === 'comunicazioni' || hubCenterView === 'email' || hubCenterView === 'contratti'
                 ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-2 md:px-5 md:pb-5'
                 : 'min-h-0 flex-1 overflow-y-auto p-4 md:p-5'
             }
           >
-            {hubCenterView === 'email' ? (
+            {hubCenterView === 'contratti' ? (
+              <ContractsListModal
+                embedded
+                accentHex={accentHex}
+                closeEmbedded={() => setHubCenterView('overview')}
+                getAuthHeader={getAuthHeader}
+                notify={notify}
+                onOpenCreateContract={onOpenCreateContract ?? undefined}
+              />
+            ) : hubCenterView === 'email' ? (
               <EmailPage
                 embedded
                 accentHex={accentHex}
@@ -979,7 +993,7 @@ export default function TechnicianWorkbenchPage({
                       accentHex={accentHex}
                       getAuthHeader={getAuthHeader}
                       currentUser={currentUser}
-                      onOpenContractsList={onOpenContractsList}
+                      onOpenContractsList={() => setHubCenterView('contratti')}
                     />
                   </div>
 

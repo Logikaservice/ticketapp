@@ -3747,7 +3747,7 @@ export default function TicketApp() {
             alertsRefreshTrigger={alertsRefreshTrigger}
             onNavigateHome={() => { setShowTechnicianWorkbench(false); setShowDashboard(true); }}
             onOpenNewTicket={openNewTicketModal}
-            onOpenContractsList={() => setShowContractsListModal(true)}
+            onOpenCreateContract={() => setShowContractModal(true)}
             onLogout={handleLogout}
             onOpenSettings={openSettings}
             notify={notify}
@@ -4511,6 +4511,7 @@ export default function TicketApp() {
           onClose={() => setShowContractsListModal(false)}
           getAuthHeader={getAuthHeader}
           notify={notify}
+          onOpenCreateContract={() => setShowContractModal(true)}
         />
       )}
 

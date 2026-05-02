@@ -1,16 +1,53 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { X, Search, Filter, RefreshCw, Calendar, Trash2, FileText } from 'lucide-react';
+import { X, Search, Filter, RefreshCw, Calendar, Trash2, FileText, ArrowLeft, Plus } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
 import ContractTimelineCard from '../ContractTimelineCard';
 import {
   getStoredTechHubAccent,
+  normalizeHex,
   techHubAccentModalHeaderStyle,
   hubShellThemeVars
 } from '../../utils/techHubAccent';
 
-const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
-    const dashboardAccentHex = useMemo(() => getStoredTechHubAccent(), []);
+const ContractsListModal = ({
+    onClose,
+    getAuthHeader,
+    notify,
+    /** Area centrale Hub tecnico (niente overlay full-screen). */
+    embedded = false,
+    accentHex: accentHexProp,
+    closeEmbedded,
+    /** Apre il flusso di creazione contratto (es. ManageContractsModal dall’App). */
+    onOpenCreateContract = null
+}) => {
+    const dashboardAccentHex = useMemo(
+        () => normalizeHex(accentHexProp) || getStoredTechHubAccent(),
+        [accentHexProp]
+    );
     const hubTheme = useMemo(() => hubShellThemeVars(dashboardAccentHex), [dashboardAccentHex]);
+
+    const onEmbeddedBack = useCallback(() => {
+        if (typeof closeEmbedded === 'function') closeEmbedded();
+        else if (typeof onClose === 'function') onClose();
+    }, [closeEmbedded, onClose]);
+
+    const embeddedBackBtnStyle = useMemo(
+        () => ({
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '8px 12px',
+            borderRadius: 12,
+            border: '1px solid rgba(255,255,255,0.12)',
+            background: 'rgba(0,0,0,0.28)',
+            color: 'rgba(255,255,255,0.82)',
+            cursor: 'pointer',
+            fontSize: 13,
+            fontWeight: 600,
+            flexShrink: 0
+        }),
+        []
+    );
     const [contracts, setContracts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -107,37 +144,72 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
     const inputFieldDark =
       'border border-white/10 bg-[color:var(--hub-surface)] text-white placeholder:text-white/35 outline-none transition focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]';
 
-    return (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-            <div
-              className="contracts-list-hub-shell flex h-[90vh] w-full max-w-screen-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--hub-page)] text-white/90 shadow-2xl animate-scaleIn"
-              style={{ ...hubTheme, colorScheme: 'dark' }}
+    const shellClassName = embedded
+      ? 'contracts-list-hub-shell flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--hub-page)] text-white/90 shadow-none'
+      : 'contracts-list-hub-shell flex h-[90vh] w-full max-w-screen-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--hub-page)] text-white/90 shadow-2xl animate-scaleIn';
+
+    const headerBlock = embedded ? (
+        <div
+            className="flex shrink-0 items-center gap-3 border-b border-black/10 px-4 py-3"
+            style={techHubAccentModalHeaderStyle(dashboardAccentHex)}
+        >
+            <button type="button" onClick={onEmbeddedBack} style={embeddedBackBtnStyle}>
+                <ArrowLeft size={18} aria-hidden />
+                Panoramica Hub
+            </button>
+            <div className="min-w-0 flex-1">
+                <h2 className="flex items-center gap-2 text-lg font-bold">
+                    <FileText size={20} className="shrink-0 opacity-95" aria-hidden />
+                    Lista contratti attivi
+                </h2>
+                <p className="mt-0.5 text-[11px] leading-snug opacity-90">
+                    Cerca, filtra e gestisci i contratti dall&apos;Hub tecnico.
+                </p>
+            </div>
+        </div>
+    ) : (
+        <div
+            className="flex shrink-0 items-center justify-between border-b border-black/10 px-5 py-3.5"
+            style={techHubAccentModalHeaderStyle(dashboardAccentHex)}
+        >
+            <div>
+                <h2 className="flex items-center gap-2 text-xl font-bold">
+                    <FileText size={22} className="shrink-0 opacity-95" aria-hidden />
+                    Lista contratti attivi
+                </h2>
+                <p className="mt-0.5 text-xs leading-snug opacity-90">
+                    Cerca, filtra e gestisci i contratti dall&apos;Hub tecnico (stesso tema colore dell&apos;Hub).
+                </p>
+            </div>
+            <button
+                type="button"
+                onClick={onClose}
+                className="rounded-lg bg-black/20 p-1.5 ring-1 ring-black/10 transition hover:bg-black/30"
+                aria-label="Chiudi"
             >
-                <div
-                  className="flex shrink-0 items-center justify-between border-b border-black/10 px-5 py-3.5"
-                  style={techHubAccentModalHeaderStyle(dashboardAccentHex)}
-                >
-                    <div>
-                        <h2 className="flex items-center gap-2 text-xl font-bold">
-                          <FileText size={22} className="shrink-0 opacity-95" aria-hidden />
-                          Lista contratti attivi
-                        </h2>
-                        <p className="mt-0.5 text-xs leading-snug opacity-90">
-                          Cerca, filtra e gestisci i contratti dall&apos;Hub tecnico (stesso tema colore dell&apos;Hub).
-                        </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className="rounded-lg bg-black/20 p-1.5 ring-1 ring-black/10 transition hover:bg-black/30"
-                      aria-label="Chiudi"
-                    >
-                        <X size={22} className="opacity-95" aria-hidden />
-                    </button>
-                </div>
+                <X size={22} className="opacity-95" aria-hidden />
+            </button>
+        </div>
+    );
+
+    const creaContrattoBtn =
+        typeof onOpenCreateContract === 'function' ? (
+            <button
+                type="button"
+                onClick={() => onOpenCreateContract()}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--td-accent)] bg-[color:var(--td-soft-strong)] px-3 py-1.5 text-sm font-medium text-[color:var(--td-accent)] transition hover:brightness-110"
+            >
+                <Plus size={16} aria-hidden />
+                Crea contratto
+            </button>
+        ) : null;
+
+    const inner = (
+            <div className={shellClassName} style={{ ...hubTheme, colorScheme: 'dark' }}>
+                {headerBlock}
 
                 <div className="flex shrink-0 flex-col gap-2.5 border-b border-white/10 bg-[color:var(--hub-surface)] px-4 py-3">
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap gap-3">
                         <div className="relative flex-1">
                             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-white/38" size={18} />
                             <input
@@ -160,6 +232,7 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
                             <Filter size={16} />
                             Filtri
                         </button>
+                        {creaContrattoBtn}
                         <button
                             type="button"
                             onClick={fetchContracts}
@@ -282,6 +355,15 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
                     )}
                 </div>
             </div>
+    );
+
+    if (embedded) {
+        return inner;
+    }
+
+    return (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+            {inner}
         </div>
     );
 };
