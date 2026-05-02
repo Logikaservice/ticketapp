@@ -39,10 +39,8 @@ import MappaturaPage from './pages/MappaturaPage';
 import AntiVirusPage from './pages/AntiVirusPage';
 import DispositiviAziendaliPage from './pages/DispositiviAziendaliPage';
 import PingTerminalPage from './pages/PingTerminalPage';
-import OfficePage from './pages/OfficePage';
 import LSightPage from './pages/LSightPage';
 import LSightSessionPage from './pages/LSightSessionPage';
-import EmailPage from './pages/EmailPage';
 import SpeedTestPage from './pages/SpeedTestPage';
 import VpnManagerPage from './pages/VpnManagerPage';
 import TechnicianWorkbenchPage from './pages/TechnicianWorkbenchPage';
@@ -76,6 +74,24 @@ function getRuoloFromStoredToken() {
   }
 }
 
+/** Tecnico / admin / tutti i client Ticket: ingresso nell’Hub (Office/Email solo embedded, no pagine legacy). */
+function mountsTicketHubFromRole(ruolo) {
+  return ruolo === 'tecnico' || ruolo === 'admin' || ruolo === 'cliente';
+}
+
+function mountsTicketHubUser(user) {
+  return Boolean(user && mountsTicketHubFromRole(user.ruolo));
+}
+
+function hubShowsOfficeEmailInNav(user) {
+  if (!user) return false;
+  return (
+    user.ruolo === 'tecnico' ||
+    user.ruolo === 'admin' ||
+    (user.ruolo === 'cliente' && user.admin_companies && user.admin_companies.length > 0)
+  );
+}
+
 const FULL_SCREEN_HASH_VIEWS_EXCEPT_TECH_HUB = new Set([
   'mappatura',
   'network-monitoring',
@@ -89,9 +105,9 @@ const FULL_SCREEN_HASH_VIEWS_EXCEPT_TECH_HUB = new Set([
   'vpn'
 ]);
 
-/** Per tecnico: home predefinita = Hub quando non è richiesta un’altra vista full-screen nell’hash. */
+/** Home predefinita = Hub quando non è richiesta un’altra vista full-screen nell’hash. */
 function shouldOpenTechHubAsHomeFromUrl() {
-  if (getRuoloFromStoredToken() !== 'tecnico') return false;
+  if (!mountsTicketHubFromRole(getRuoloFromStoredToken())) return false;
   const h = (typeof window !== 'undefined' && window.location.hash ? window.location.hash : '')
     .replace(/^#/, '')
     .toLowerCase();
@@ -207,8 +223,6 @@ export default function TicketApp() {
   const [showNetworkMap, setShowNetworkMap] = useState(false);
   const [showMappatura, setShowMappatura] = useState(false);
   const [showAntiVirus, setShowAntiVirus] = useState(false);
-  const [showEmail, setShowEmail] = useState(false);
-  const [showOffice, setShowOffice] = useState(false);
   const [showLSight, setShowLSight] = useState(false);
   const [showLSightSession, setShowLSightSession] = useState(() => {
     const h = (typeof window !== 'undefined' && window.location.hash ? window.location.hash : '').replace(/^#/, '').toLowerCase();
@@ -308,11 +322,9 @@ export default function TicketApp() {
   const isFullScreenViewActive =
     showLSight ||
     showLSightSession ||
-    showOffice ||
     showMappatura ||
     showNetworkMonitoring ||
     showAntiVirus ||
-    showEmail ||
     showSpeedTest ||
     showFlottaPC ||
     showVpnManager ||
@@ -352,7 +364,7 @@ export default function TicketApp() {
   // Ripristina la vista dall'URL (es. dopo F5)
   const applyViewFromUrl = (viewName) => {
     if (!viewName || viewName === 'dashboard') return;
-    if (getRuoloFromStoredToken() === 'tecnico') {
+    if (mountsTicketHubFromRole(getRuoloFromStoredToken())) {
       if (viewName === 'office' || viewName === 'email') {
         handleOpenTechnicianWorkbench();
         if (viewName === 'office') setHubEmbedOfficeKick((n) => n + 1);
@@ -366,17 +378,11 @@ export default function TicketApp() {
       setShowVivaldi(false);
       setShowNetworkMonitoring(false);
       setShowMappatura(false);
-      setShowOffice(false);
       setShowAntiVirus(false);
-      setShowEmail(false);
       setShowFlottaPC(false);
       setShowSpeedTest(false);
     };
     switch (viewName) {
-      case 'office':
-        allFalse(); setShowOffice(true); break;
-      case 'email':
-        allFalse(); setShowEmail(true); break;
       case 'mappatura':
         allFalse(); setShowMappatura(true); break;
       case 'antivirus':
@@ -406,7 +412,7 @@ export default function TicketApp() {
       const fullHashViews = ['mappatura', 'network-monitoring', 'antivirus', 'dispositivi-aziendali', 'speedtest', 'email', 'office', 'lsight', 'lsight-session', 'device-analysis', 'vpn', 'tech-hub'];
       const hashIsFullView = h && (fullHashViews.includes(h) || h.startsWith('device-analysis'));
       if (!hashIsFullView) {
-        if (getRuoloFromStoredToken() === 'tecnico') {
+        if (mountsTicketHubFromRole(getRuoloFromStoredToken())) {
           setShowTechnicianWorkbench(true);
           setShowDashboard(false);
         } else {
@@ -433,8 +439,6 @@ export default function TicketApp() {
       setShowLSight(false);
       setShowLSightSession(false);
       setShowAntiVirus(false);
-      setShowEmail(false);
-      setShowOffice(false);
       setShowFlottaPC(false);
       setShowSpeedTest(false);
       setShowPackVision(false);
@@ -445,8 +449,8 @@ export default function TicketApp() {
       return;
     }
 
-    const tecnicoFromToken = getRuoloFromStoredToken() === 'tecnico';
-    if (tecnicoFromToken && view === 'email') {
+    const hubEmbedFromToken = mountsTicketHubFromRole(getRuoloFromStoredToken());
+    if (hubEmbedFromToken && view === 'email') {
       setShowDeviceAnalysisStandalone(false);
       setShowTechnicianWorkbench(true);
       setShowDashboard(false);
@@ -455,8 +459,6 @@ export default function TicketApp() {
       setShowLSight(false);
       setShowLSightSession(false);
       setShowAntiVirus(false);
-      setShowEmail(false);
-      setShowOffice(false);
       setShowFlottaPC(false);
       setShowSpeedTest(false);
       setShowPackVision(false);
@@ -468,7 +470,7 @@ export default function TicketApp() {
       setHubEmbedEmailKick((n) => n + 1);
       return;
     }
-    if (tecnicoFromToken && view === 'office') {
+    if (hubEmbedFromToken && view === 'office') {
       setShowDeviceAnalysisStandalone(false);
       setShowTechnicianWorkbench(true);
       setShowDashboard(false);
@@ -477,8 +479,6 @@ export default function TicketApp() {
       setShowLSight(false);
       setShowLSightSession(false);
       setShowAntiVirus(false);
-      setShowEmail(false);
-      setShowOffice(false);
       setShowFlottaPC(false);
       setShowSpeedTest(false);
       setShowPackVision(false);
@@ -499,32 +499,29 @@ export default function TicketApp() {
       setStandaloneDeviceId(search.get('deviceId'));
       setStandaloneDeviceLabel(search.get('deviceLabel') || '');
       setShowDashboard(false); setShowNetworkMonitoring(false); setShowMappatura(false);
-      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setShowFlottaPC(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowFlottaPC(false);
     } else if (view === 'mappatura') {
       setShowDeviceAnalysisStandalone(false);
       setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false);
-      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setShowFlottaPC(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowFlottaPC(false);
     } else if (view === 'network-monitoring') {
       setShowDeviceAnalysisStandalone(false);
       setShowNetworkMonitoring(true); setShowDashboard(false); setShowMappatura(false);
-      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setShowFlottaPC(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowFlottaPC(false);
     } else if (view === 'antivirus') {
       setShowAntiVirus(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
-      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowEmail(false); setShowOffice(false); setShowFlottaPC(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowFlottaPC(false);
     } else if (view === 'dispositivi-aziendali') {
       setShowFlottaPC(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
-      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setShowSpeedTest(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowSpeedTest(false);
     } else if (view === 'speedtest') {
       setShowDeviceAnalysisStandalone(false);
       setShowSpeedTest(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
-      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setShowFlottaPC(false);
-    } else if (view === 'email') {
-      setShowEmail(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
-      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowOffice(false); setShowFlottaPC(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowFlottaPC(false);
     } else if (view === 'lsight') {
       setShowLSight(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
       setShowLSightSession(false);
-      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowFlottaPC(false); setShowOffice(false); setShowSpeedTest(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowFlottaPC(false); setShowSpeedTest(false);
     } else if (view === 'lsight-session') {
       const params = new URLSearchParams(window.location.search);
       const rawId = params.get('lsightSessionId');
@@ -532,26 +529,20 @@ export default function TicketApp() {
       setLsightSessionId(id && !Number.isNaN(id) ? id : null);
       setShowLSightSession(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
       setShowLSight(false);
-      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowFlottaPC(false); setShowOffice(false); setShowSpeedTest(false);
-    } else if (view === 'office') {
-      setShowOffice(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
-      setShowLSightSession(false);
-      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowFlottaPC(false); setShowVpnManager(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowFlottaPC(false); setShowSpeedTest(false);
     } else if (view === 'vpn') {
       setShowVpnManager(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
       setShowLSight(false); setShowLSightSession(false);
-      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowFlottaPC(false); setShowOffice(false); setShowSpeedTest(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowFlottaPC(false); setShowSpeedTest(false);
     } else if (view !== 'device-analysis') {
       setShowDeviceAnalysisStandalone(false);
-      const landingHub = getRuoloFromStoredToken() === 'tecnico';
+      const landingHub = mountsTicketHubFromRole(getRuoloFromStoredToken());
       if (landingHub) {
         setShowTechnicianWorkbench(true);
         setShowDashboard(false);
         setShowMappatura(false);
         setShowNetworkMonitoring(false);
         setShowAntiVirus(false);
-        setShowEmail(false);
-        setShowOffice(false);
         setShowFlottaPC(false);
         setShowSpeedTest(false);
         setShowLSight(false);
@@ -563,8 +554,6 @@ export default function TicketApp() {
         setShowMappatura(false);
         setShowNetworkMonitoring(false);
         setShowAntiVirus(false);
-        setShowEmail(false);
-        setShowOffice(false);
         setShowFlottaPC(false);
         setShowSpeedTest(false);
         setShowLSight(false);
@@ -600,28 +589,24 @@ export default function TicketApp() {
           ? 'lsight-session'
           : showLSight
             ? 'lsight'
-            : showOffice
-              ? 'office'
-              : showVpnManager
-                ? 'vpn'
-                : showMappatura
-                  ? 'mappatura'
-                  : showNetworkMonitoring
-                    ? 'network-monitoring'
-                    : showAntiVirus
-                      ? 'antivirus'
-                      : showFlottaPC
-                        ? 'dispositivi-aziendali'
-                        : showSpeedTest
-                          ? 'speedtest'
-                          : showEmail
-                            ? 'email'
-                            : '';
+            : showVpnManager
+              ? 'vpn'
+              : showMappatura
+                ? 'mappatura'
+                : showNetworkMonitoring
+                  ? 'network-monitoring'
+                  : showAntiVirus
+                    ? 'antivirus'
+                    : showFlottaPC
+                      ? 'dispositivi-aziendali'
+                      : showSpeedTest
+                        ? 'speedtest'
+                        : '';
     const newHash = h ? '#' + h : '';
     if (window.location.hash !== newHash) {
       window.history.replaceState(null, '', base + newHash);
     }
-  }, [showDeviceAnalysisStandalone, showTechnicianWorkbench, showOffice, showVpnManager, showMappatura, showNetworkMonitoring, showAntiVirus, showEmail, showFlottaPC, showSpeedTest, showLSight, showLSightSession]);
+  }, [showDeviceAnalysisStandalone, showTechnicianWorkbench, showVpnManager, showMappatura, showNetworkMonitoring, showAntiVirus, showFlottaPC, showSpeedTest, showLSight, showLSightSession]);
 
   const handleOpenTechnicianWorkbench = () => {
     setShowTechnicianWorkbench(true);
@@ -629,11 +614,9 @@ export default function TicketApp() {
     setShowNetworkMonitoring(false);
     setShowMappatura(false);
     setShowAntiVirus(false);
-    setShowOffice(false);
     setShowOrariTurni(false);
     setShowVivaldi(false);
     setShowPackVision(false);
-    setShowEmail(false);
     setShowFlottaPC(false);
     setShowSpeedTest(false);
     setShowLSight(false);
@@ -676,9 +659,7 @@ export default function TicketApp() {
     setShowVivaldi(false);
     setShowPackVision(false);
     setShowAntiVirus(false);
-    setShowOffice(false);
     setShowFlottaPC(false);
-    setShowEmail(false);
     setShowVpnManager(false);
   };
 
@@ -698,12 +679,10 @@ export default function TicketApp() {
     setShowTechnicianWorkbench(false);
     setShowLSight(true);
     setShowLSightSession(false);
-    setShowOffice(false);
     setShowDashboard(false);
     setShowNetworkMonitoring(false);
     setShowMappatura(false);
     setShowAntiVirus(false);
-    setShowEmail(false);
     setShowSpeedTest(false);
     setShowCommAgent(false);
     setShowCommAgentManager(false);
@@ -720,12 +699,10 @@ export default function TicketApp() {
     setShowTechnicianWorkbench(false);
     setShowLSightSession(true);
     setShowLSight(false);
-    setShowOffice(false);
     setShowDashboard(false);
     setShowNetworkMonitoring(false);
     setShowMappatura(false);
     setShowAntiVirus(false);
-    setShowEmail(false);
     setShowSpeedTest(false);
     setShowCommAgent(false);
     setShowCommAgentManager(false);
@@ -745,22 +722,11 @@ export default function TicketApp() {
 
   const handleOpenOffice = (companyId) => {
     if (companyId) setShowGloballySelectedCompanyId(companyId);
-    if (currentUser?.ruolo === 'tecnico') {
-      handleOpenTechnicianWorkbench();
-      setHubEmbedOfficeKick((n) => n + 1);
-      return;
-    }
-    setShowTechnicianWorkbench(false);
-    setShowOffice(true);
-    setShowDashboard(false);
-    setShowNetworkMonitoring(false);
-    setShowMappatura(false);
-    setShowAntiVirus(false);
-    setShowEmail(false);
-    setShowSpeedTest(false);
-    setShowCommAgent(false);
-    setShowCommAgentManager(false);
-    setShowVpnManager(false);
+    const openInHub =
+      mountsTicketHubUser(currentUser) || mountsTicketHubFromRole(getRuoloFromStoredToken());
+    if (!openInHub) return;
+    handleOpenTechnicianWorkbench();
+    setHubEmbedOfficeKick((n) => n + 1);
   };
 
   const handleOpenVpnManager = () => {
@@ -770,11 +736,9 @@ export default function TicketApp() {
     setShowNetworkMonitoring(false);
     setShowMappatura(false);
     setShowAntiVirus(false);
-    setShowOffice(false);
     setShowOrariTurni(false);
     setShowVivaldi(false);
     setShowPackVision(false);
-    setShowEmail(false);
     setShowFlottaPC(false);
     setShowSpeedTest(false);
     setShowLSight(false);
@@ -790,11 +754,9 @@ export default function TicketApp() {
     setShowDashboard(false);
     setShowNetworkMonitoring(false);
     setShowMappatura(false);
-    setShowOffice(false);
     setShowOrariTurni(false);
     setShowVivaldi(false);
     setShowPackVision(false);
-    setShowEmail(false);
     setShowFlottaPC(false);
     setShowSpeedTest(false);
     setShowCommAgent(false);
@@ -810,11 +772,9 @@ export default function TicketApp() {
     setShowDashboard(false);
     setShowNetworkMonitoring(false);
     setShowMappatura(false);
-    setShowOffice(false);
     setShowOrariTurni(false);
     setShowVivaldi(false);
     setShowPackVision(false);
-    setShowEmail(false);
     setShowAntiVirus(false);
     setShowCommAgent(false);
     setShowCommAgentManager(false);
@@ -828,11 +788,9 @@ export default function TicketApp() {
     setShowDashboard(false);
     setShowNetworkMonitoring(false);
     setShowMappatura(false);
-    setShowOffice(false);
     setShowOrariTurni(false);
     setShowVivaldi(false);
     setShowPackVision(false);
-    setShowEmail(false);
     setShowAntiVirus(false);
     setShowFlottaPC(false);
     setShowCommAgent(false);
@@ -842,25 +800,11 @@ export default function TicketApp() {
 
   const handleOpenEmail = (companyId) => {
     if (companyId) setShowGloballySelectedCompanyId(companyId);
-    if (currentUser?.ruolo === 'tecnico') {
-      handleOpenTechnicianWorkbench();
-      setHubEmbedEmailKick((n) => n + 1);
-      return;
-    }
-    setShowTechnicianWorkbench(false);
-    setShowEmail(true);
-    setShowDashboard(false);
-    setShowNetworkMonitoring(false);
-    setShowMappatura(false);
-    setShowOrariTurni(false);
-    setShowVivaldi(false);
-    setShowAntiVirus(false);
-    setShowOffice(false);
-    setShowPackVision(false);
-    setShowSpeedTest(false);
-    setShowCommAgent(false);
-    setShowCommAgentManager(false);
-    setShowVpnManager(false);
+    const openInHub =
+      mountsTicketHubUser(currentUser) || mountsTicketHubFromRole(getRuoloFromStoredToken());
+    if (!openInHub) return;
+    handleOpenTechnicianWorkbench();
+    setHubEmbedEmailKick((n) => n + 1);
   };
 
   const handleOpenNetworkMonitoring = (companyId, view = null) => {
@@ -871,8 +815,6 @@ export default function TicketApp() {
     setShowOrariTurni(false);
     setShowVivaldi(false);
     setShowAntiVirus(false);
-    setShowEmail(false);
-    setShowOffice(false);
     setShowFlottaPC(false);
     setShowMappatura(false);
     setShowPackVision(false);
@@ -996,14 +938,6 @@ export default function TicketApp() {
   } = useAuth(showNotification);
 
   useEffect(() => {
-    if (!isLoggedIn || !currentUser) return;
-    if (showTechnicianWorkbench && currentUser.ruolo !== 'tecnico') {
-      setShowTechnicianWorkbench(false);
-      setShowDashboard(true);
-    }
-  }, [isLoggedIn, currentUser, showTechnicianWorkbench]);
-
-  useEffect(() => {
     if (!showTechnicianWorkbench) {
       setHubEmbedEmailKick(0);
       setHubEmbedOfficeKick(0);
@@ -1012,7 +946,10 @@ export default function TicketApp() {
 
   /** Overscroll / area sotto il layer fixed dell’Hub: evita fascia chiara (#body / vuoto dopo lo zoom wrapper). */
   useEffect(() => {
-    const hub = isLoggedIn && showTechnicianWorkbench && currentUser?.ruolo === 'tecnico';
+    const hub =
+      isLoggedIn &&
+      showTechnicianWorkbench &&
+      (mountsTicketHubUser(currentUser) || mountsTicketHubFromRole(getRuoloFromStoredToken()));
     if (!hub) return undefined;
     const prevHtml = document.documentElement.style.backgroundColor;
     const prevBody = document.body.style.backgroundColor;
@@ -1022,7 +959,7 @@ export default function TicketApp() {
       document.documentElement.style.backgroundColor = prevHtml;
       document.body.style.backgroundColor = prevBody;
     };
-  }, [isLoggedIn, showTechnicianWorkbench, currentUser?.ruolo]);
+  }, [isLoggedIn, showTechnicianWorkbench, currentUser]);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -1309,7 +1246,10 @@ export default function TicketApp() {
       } else if (urlView && urlView !== 'dashboard') {
         setShowDashboard(true);
         applyViewFromUrl(urlView);
-      } else if (currentUser?.ruolo === 'tecnico' || getRuoloFromStoredToken() === 'tecnico') {
+      } else if (
+        mountsTicketHubUser(currentUser) ||
+        mountsTicketHubFromRole(getRuoloFromStoredToken())
+      ) {
         setShowTechnicianWorkbench(true);
         setShowDashboard(false);
       } else {
@@ -3812,7 +3752,9 @@ export default function TicketApp() {
   }
 
   const hubShellBackdrop =
-    isLoggedIn && showTechnicianWorkbench && currentUser?.ruolo === 'tecnico';
+    isLoggedIn &&
+    showTechnicianWorkbench &&
+    (mountsTicketHubUser(currentUser) || mountsTicketHubFromRole(getRuoloFromStoredToken()));
 
   return (
     <div
@@ -3832,7 +3774,10 @@ export default function TicketApp() {
             : '')
         }
       >
-        {showTechnicianWorkbench && currentUser?.ruolo === 'tecnico' && (
+        {showTechnicianWorkbench &&
+          (mountsTicketHubUser(currentUser) ||
+            mountsTicketHubFromRole(getRuoloFromStoredToken())) &&
+          currentUser && (
           <TechnicianWorkbenchPage
             currentUser={currentUser}
             tickets={tickets}
@@ -3891,7 +3836,7 @@ export default function TicketApp() {
           />
         )}
 
-        {!showPackVision && !showNetworkMonitoring && !showLSight && !showEmail && !showOffice && !showAntiVirus && !showMappatura && !showSpeedTest && !showVpnManager && !showTechnicianWorkbench && (
+        {!showPackVision && !showNetworkMonitoring && !showLSight && !showAntiVirus && !showMappatura && !showSpeedTest && !showVpnManager && !showTechnicianWorkbench && (
           <Header
             {...{
               currentUser,
@@ -3908,13 +3853,13 @@ export default function TicketApp() {
               openOrariTurni: openOrariTurniMenu,
               openVivaldi: openVivaldiMenu,
               openPackVision: openPackVisionMenu,
-              openNetworkMonitoring: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView(null); },
-              openNetworkMonitoringAgents: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView('agents'); },
-              openNetworkMonitoringCreateAgent: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView('create'); },
-              openNetworkMonitoringDeviceTypes: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView('deviceTypes'); },
-              openNetworkMonitoringNotifications: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView('notifications'); },
-              openNetworkMonitoringTelegram: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView('telegram'); },
-              openMappatura: () => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowOffice(false); setShowEmail(false); },
+              openNetworkMonitoring: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView(null); },
+              openNetworkMonitoringAgents: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('agents'); },
+              openNetworkMonitoringCreateAgent: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('create'); },
+              openNetworkMonitoringDeviceTypes: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('deviceTypes'); },
+              openNetworkMonitoringNotifications: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('notifications'); },
+              openNetworkMonitoringTelegram: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('telegram'); },
+              openMappatura: () => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); },
               openOffice: handleOpenOffice,
               openLSight: handleOpenLSight,
               openAntiVirus: handleOpenAntiVirus,
@@ -3925,9 +3870,9 @@ export default function TicketApp() {
               openSpeedTest: handleOpenSpeedTest,
               openVpnManager: handleOpenVpnManager,
             }}
-            openNetworkMonitoringNotifications={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView('notifications'); }}
-            openNetworkMonitoringTelegram={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView('telegram'); }}
-            openMappatura={() => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); }}
+            openNetworkMonitoringNotifications={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('notifications'); }}
+            openNetworkMonitoringTelegram={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('telegram'); }}
+            openMappatura={() => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); }}
             openCreateContract={() => setShowContractModal(true)}
             openContractsList={() => setShowContractsListModal(true)}
             isOrariDomain={isOrariDomain}
@@ -3954,10 +3899,10 @@ export default function TicketApp() {
           </div>
         )}
 
-        {!showDashboard && !showOrariTurni && !showVivaldi && !showPackVision && !showNetworkMonitoring && !showNetworkMap && !showMappatura && !showAntiVirus && !showEmail && !showFlottaPC && !showSpeedTest && !showLSight && !showVpnManager && !showTechnicianWorkbench && (
+        {!showDashboard && !showOrariTurni && !showVivaldi && !showPackVision && !showNetworkMonitoring && !showNetworkMap && !showMappatura && !showAntiVirus && !showFlottaPC && !showSpeedTest && !showLSight && !showVpnManager && !showTechnicianWorkbench && (
           <div
             className="w-full bg-gray-100 text-gray-700 shadow-sm text-center text-sm py-2 cursor-pointer hover:bg-gray-200"
-            onClick={() => { setShowDashboard(true); setShowNetworkMap(false); setShowMappatura(false); setShowAntiVirus(false); setShowEmail(false); setShowFlottaPC(false); setShowSpeedTest(false); setShowLSight(false); }}
+            onClick={() => { setShowDashboard(true); setShowNetworkMap(false); setShowMappatura(false); setShowAntiVirus(false); setShowFlottaPC(false); setShowSpeedTest(false); setShowLSight(false); }}
           >
             Torna alla Dashboard
           </div>
@@ -4165,25 +4110,6 @@ export default function TicketApp() {
           />
         )}
 
-        {showOffice && (
-          <OfficePage
-            onClose={() => { setShowOffice(false); setShowDashboard(true); }}
-            getAuthHeader={getAuthHeader}
-            selectedCompanyId={globallySelectedCompanyId || (currentUser?.ruolo === 'cliente' ? currentUser?.azienda_id : null) || (currentUser?.admin_companies && currentUser.admin_companies.length > 0 ? currentUser.admin_companies[0] : null)}
-            onCompanyChange={setShowGloballySelectedCompanyId}
-            onOpenTicket={openNewTicketWithData}
-            currentUser={currentUser}
-            onNavigateEmail={handleOpenEmail}
-            onNavigateAntiVirus={handleOpenAntiVirus}
-            onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
-            onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
-            onNavigateMappatura={handleOpenMappatura}
-            onNavigateSpeedTest={handleOpenSpeedTest}
-            onNavigateVpn={handleOpenVpnManager}
-            onNavigateHome={() => { setShowDashboard(true); setShowOffice(false); }}
-          />
-        )}
-
         {showAntiVirus && (
           <AntiVirusPage
             onClose={() => { setShowAntiVirus(false); setShowDashboard(true); }}
@@ -4202,26 +4128,6 @@ export default function TicketApp() {
             onNavigateSpeedTest={handleOpenSpeedTest}
             onNavigateVpn={handleOpenVpnManager}
             onNavigateHome={() => { setShowDashboard(true); setShowAntiVirus(false); }}
-          />
-        )}
-
-        {showEmail && (
-          <EmailPage
-            onClose={() => { setShowEmail(false); setShowDashboard(true); }}
-            getAuthHeader={getAuthHeader}
-            selectedCompanyId={globallySelectedCompanyId || (currentUser?.ruolo === 'cliente' ? currentUser?.azienda_id : null) || (currentUser?.admin_companies && currentUser.admin_companies.length > 0 ? currentUser.admin_companies[0] : null)}
-            onCompanyChange={setShowGloballySelectedCompanyId}
-            currentUser={currentUser}
-            onOpenTicket={openNewTicketWithData}
-            onNavigateOffice={handleOpenOffice}
-            onNavigateLSight={handleOpenLSight}
-            onNavigateAntiVirus={handleOpenAntiVirus}
-            onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
-            onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
-            onNavigateMappatura={handleOpenMappatura}
-            onNavigateSpeedTest={handleOpenSpeedTest}
-            onNavigateVpn={handleOpenVpnManager}
-            onNavigateHome={() => { setShowDashboard(true); setShowEmail(false); }}
           />
         )}
 
