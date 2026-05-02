@@ -242,18 +242,27 @@ const ContractTimelineCard = ({
 
             {/* Timeline Visual */}
             <div className="relative py-8 mb-5 px-6">
-                {/* Line */}
+                {/* Traccia totale anno (past + future): grigio visibile sopra alla card */}
                 <div
+                    aria-hidden
                     className={
                         isHub
-                            ? 'absolute left-6 right-6 top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/12'
-                            : 'absolute left-6 right-6 top-1/2 h-1 -translate-y-1/2 rounded-full bg-gray-200'
+                            ? 'pointer-events-none absolute left-6 right-6 top-1/2 z-0 h-1 -translate-y-1/2 rounded-full bg-zinc-600/65'
+                            : 'pointer-events-none absolute left-6 right-6 top-1/2 z-0 h-1 -translate-y-1/2 rounded-full bg-gray-300'
                     }
-                ></div>
-                <div className="absolute top-1/2 left-6 h-1 bg-teal-400 rounded-full -translate-y-1/2 transition-all duration-1000" style={{ width: `calc((100% - 48px) * ${progress / 100})` }}></div>
+                />
+                {/* Parte già percorsa (anno → oggi) */}
+                <div
+                    aria-hidden
+                    className="pointer-events-none absolute left-6 top-1/2 z-[1] h-1 -translate-y-1/2 rounded-full bg-teal-400 transition-all duration-1000"
+                    style={{ width: `calc((100% - 48px) * ${progress / 100})` }}
+                />
 
                 {/* Current Point (Today) */}
-                <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `calc(24px + ((100% - 48px) * ${progress / 100}))` }}>
+                <div
+                    className="absolute top-1/2 z-[2] -translate-y-1/2"
+                    style={{ left: `calc(24px + ((100% - 48px) * ${progress / 100}))` }}
+                >
                     <div className="relative -ml-1.5">
                         <div
                             className={
@@ -347,10 +356,10 @@ const ContractTimelineCard = ({
                     return (
                         <div 
                             key={event.id || index} 
-                            className="absolute top-1/2 -translate-y-1/2 group" 
+                            className="absolute top-1/2 z-[2] -translate-y-1/2 group" 
                             style={{ left: `calc(24px + ((100% - 48px) * ${eventPercent / 100}))` }}
                         >
-                            <div className={`w-5 h-5 rounded-full ${bgColor} border-2 ${borderColor} flex items-center justify-center -ml-2.5 z-0 cursor-pointer relative`}>
+                            <div className={`w-5 h-5 rounded-full ${bgColor} border-2 ${borderColor} flex items-center justify-center -ml-2.5 cursor-pointer relative`}>
                                 {isRenewal ? (
                                     <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                                 ) : isProcessed ? (
