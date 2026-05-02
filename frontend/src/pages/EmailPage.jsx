@@ -3,13 +3,52 @@
 // Scadenza letta da KeePass (entry.times.expiryTime); riga in rosso se scaduta
 // Barra spazio occupato sotto ogni riga email (dati da IMAP QUOTA)
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Loader, MessageCircle, Eye, EyeOff, HardDrive, RefreshCw, AlertTriangle, Clock, Activity, HelpCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  Loader,
+  MessageCircle,
+  Eye,
+  EyeOff,
+  HardDrive,
+  RefreshCw,
+  AlertTriangle,
+  Clock,
+  Activity,
+  ArrowLeft
+} from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import EmailIntroCard from '../components/EmailIntroCard';
 import SectionNavMenu from '../components/SectionNavMenu';
+import {
+  HUB_PAGE_BG,
+  HUB_SURFACE,
+  hexToRgba,
+  normalizeHex,
+  getStoredTechHubAccent
+} from '../utils/techHubAccent';
 
-const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onCompanyChange, currentUser, onOpenTicket, onNavigateOffice, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura, onNavigateSpeedTest, onNavigateVpn, onNavigateHome }) => {
+const EmailPage = ({
+  onClose,
+  getAuthHeader,
+  selectedCompanyId: initialCompanyId,
+  onCompanyChange,
+  currentUser,
+  onOpenTicket,
+  onNavigateOffice,
+  onNavigateAntiVirus,
+  onNavigateDispositiviAziendali,
+  onNavigateNetworkMonitoring,
+  onNavigateMappatura,
+  onNavigateSpeedTest,
+  onNavigateVpn,
+  onNavigateHome,
+  /** Dentro Hub tecnico (area centrale): niente overlay full-screen. */
+  embedded = false,
+  /** Accordo col CommAgentDashboard: pulsante «Panoramica Hub». */
+  closeEmbedded,
+  accentHex: accentHexProp
+}) => {
+  const accent = useMemo(() => normalizeHex(accentHexProp) || getStoredTechHubAccent(), [accentHexProp]);
   const isCliente = currentUser?.ruolo === 'cliente';
   const showAssistenzaButton = isCliente && typeof onOpenTicket === 'function';
   const showPasswordColumn = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin' || (currentUser?.ruolo === 'cliente' && currentUser?.admin_companies && currentUser.admin_companies.length > 0);
@@ -365,57 +404,117 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
   const quotaCritical = quotaEntries.filter(q => q.status === 'critical').length;
   const quotaWarning = quotaEntries.filter(q => q.status === 'warning').length;
 
+  const onEmbeddedBack = () => {
+    if (typeof closeEmbedded === 'function') closeEmbedded();
+    else if (typeof onClose === 'function') onClose();
+  };
+
+  const rootClassName = embedded
+    ? 'flex flex-1 min-h-0 flex-col overflow-hidden rounded-2xl border border-white/[0.08] font-sans'
+    : 'fixed inset-0 bg-gray-50 z-[100] flex flex-col font-sans w-full h-full overflow-hidden';
+
+  const rootEmbeddedStyle = useMemo(
+    () =>
+      embedded
+        ? {
+            backgroundColor: HUB_PAGE_BG,
+            ['--hub-accent']: accent,
+            ['--hub-accent-border']: hexToRgba(accent, 0.48)
+          }
+        : undefined,
+    [embedded, accent]
+  );
+
+  const embeddedBackBtnStyle = useMemo(
+    () => ({
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: '8px 12px',
+      borderRadius: 12,
+      border: '1px solid rgba(255,255,255,0.12)',
+      background: 'rgba(0,0,0,0.28)',
+      color: 'rgba(255,255,255,0.82)',
+      cursor: 'pointer',
+      fontSize: 13,
+      fontWeight: 600,
+      flexShrink: 0
+    }),
+    []
+  );
+
+  const selectCls = embedded
+    ? 'rounded-md px-3 py-1.5 text-sm outline-none bg-white/[0.08] text-white border border-white/15 focus:ring-2 focus:ring-[color:var(--hub-accent)]'
+    : 'border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none';
+
   return (
-    <div className="fixed inset-0 bg-gray-50 z-[100] flex flex-col font-sans w-full h-full overflow-hidden">
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
-        <div className="flex items-center gap-4">
-          <SectionNavMenu
-            currentPage="email"
-            onNavigateHome={onNavigateHome || onClose}
-            onNavigateOffice={onNavigateOffice}
-            onNavigateEmail={null}
-            onNavigateAntiVirus={onNavigateAntiVirus}
-            onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
-            onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
-            onNavigateMappatura={onNavigateMappatura}
-            onNavigateSpeedTest={onNavigateSpeedTest}
-            onNavigateVpn={onNavigateVpn}
-            currentUser={currentUser}
-            selectedCompanyId={selectedCompanyId}
-          />
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Email</h1>
-            <p className="text-sm text-gray-600">{companyName || 'Seleziona un\'azienda'}</p>
+    <div className={rootClassName} style={rootEmbeddedStyle}>
+      <div
+        className={
+          embedded
+            ? 'flex shrink-0 items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3 z-10'
+            : 'bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10'
+        }
+        style={embedded ? { backgroundColor: HUB_SURFACE } : undefined}
+      >
+        <div className={`flex min-w-0 items-center ${embedded ? 'gap-3' : 'gap-4'}`}>
+          {embedded ? (
+            <button type="button" onClick={onEmbeddedBack} style={embeddedBackBtnStyle}>
+              <ArrowLeft size={18} aria-hidden />
+              Panoramica Hub
+            </button>
+          ) : (
+            <SectionNavMenu
+              currentPage="email"
+              onNavigateHome={onNavigateHome || onClose}
+              onNavigateOffice={onNavigateOffice}
+              onNavigateEmail={null}
+              onNavigateAntiVirus={onNavigateAntiVirus}
+              onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
+              onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
+              onNavigateMappatura={onNavigateMappatura}
+              onNavigateSpeedTest={onNavigateSpeedTest}
+              onNavigateVpn={onNavigateVpn}
+              currentUser={currentUser}
+              selectedCompanyId={selectedCompanyId}
+            />
+          )}
+          <div className="min-w-0">
+            <h1 className={`font-bold truncate ${embedded ? 'text-lg text-white' : 'text-xl text-gray-900'}`}>Email</h1>
+            <p className={`truncate ${embedded ? 'text-xs text-white/55' : 'text-sm text-gray-600'}`}>{companyName || 'Seleziona un\'azienda'}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-3">
           {/* Scan button + quota info - solo per tecnici con azienda selezionata */}
           {isTecnico && selectedCompanyValid && companyName && items.length > 0 && (
             <div className="flex items-center gap-2">
-              {/* Mini stats */}
               {quotaCount > 0 && (
-                <div className="flex items-center gap-2 text-xs text-gray-400 mr-1">
+                <div className={`mr-1 flex flex-wrap items-center gap-2 text-xs ${embedded ? 'text-white/42' : 'text-gray-400'}`}>
                   <Clock size={12} />
                   <span>{formatScanTime(lastScanTime) || 'Mai'}</span>
                   {quotaCritical > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">
+                    <span className={`rounded-full px-1.5 py-0.5 font-medium ${embedded ? 'bg-red-500/20 text-red-300' : 'bg-red-100 text-red-600'}`}>
                       {quotaCritical} critico
                     </span>
                   )}
                   {quotaWarning > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-600 font-medium">
+                    <span className={`rounded-full px-1.5 py-0.5 font-medium ${embedded ? 'bg-amber-500/20 text-amber-200' : 'bg-amber-100 text-amber-600'}`}>
                       {quotaWarning} att.
                     </span>
                   )}
                 </div>
               )}
               <button
+                type="button"
                 onClick={handleScan}
                 disabled={scanning}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all shadow-sm
-                  ${scanning
-                    ? 'bg-blue-50 text-blue-500 cursor-not-allowed border border-blue-200'
-                    : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'}`}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium shadow-sm transition-all ${
+                  scanning
+                    ? embedded
+                      ? 'cursor-not-allowed border border-white/12 bg-white/5 text-blue-300/70'
+                      : 'cursor-not-allowed border border-blue-200 bg-blue-50 text-blue-500'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
+                }`}
                 title="Scansiona lo spazio delle caselle email via IMAP"
               >
                 <RefreshCw size={13} className={scanning ? 'animate-spin' : ''} />
@@ -425,7 +524,7 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
           )}
           {!loadingCompanies && (isCliente ? !!selectedCompanyId : true) && (
             <select
-              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              className={selectCls}
               value={selectedCompanyId || ''}
               onChange={async (e) => {
                 const newCompanyId = e.target.value || null;
@@ -453,8 +552,8 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-7xl mx-auto w-full">
+      <div className={embedded ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'flex-1 overflow-y-auto p-6'}>
+        <div className={embedded ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-5 md:px-5' : 'max-w-7xl mx-auto w-full'} style={embedded ? { backgroundColor: '#f3f4f6' } : undefined}>
           {loadingCompanies && (
             <div className="flex justify-center items-center py-12">
               <Loader size={32} className="animate-spin text-blue-600 mr-3" />

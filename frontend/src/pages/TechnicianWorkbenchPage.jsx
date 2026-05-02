@@ -37,6 +37,7 @@ import {
 import { fetchImportantAlertsForHub } from '../utils/importantAlertsFeed';
 import HubContractsActiveCard from '../components/hub/HubContractsActiveCard';
 import CommAgentDashboard from '../components/CommAgentDashboard';
+import EmailPage from './EmailPage';
 import {
   TECH_HUB_ACCENT_PALETTE,
   STORAGE_KEY_TECH_HUB_ACCENT,
@@ -488,6 +489,10 @@ export default function TechnicianWorkbenchPage({
   onOpenContractsList,
   notify = () => {},
   selectedCompanyId = null,
+  /** Allineamento alla selezione aziendale globale (es. modulo Email nell’Hub). */
+  onGloballyCompanyChange = null,
+  /** Precompila Nuovo ticket (come EmailPage full-screen in App). */
+  onOpenTicketWithPrefill = null,
   /** Handler condivisi con CommAgentDashboard (nav verso altri moduli → chiude l’Hub). */
   commAgentNav = {}
 }) {
@@ -500,8 +505,8 @@ export default function TechnicianWorkbenchPage({
   const [navToolsOpen, setNavToolsOpen] = useState(true);
   const [navProjectsOpen, setNavProjectsOpen] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
-  /** Centro Hub: panoramica a griglia oppure modulo Comunicazioni integrato. */
-  const [hubCenterView, setHubCenterView] = useState(/** @type {'overview' | 'comunicazioni'} */ ('overview'));
+  /** Centro Hub: panoramica a griglia oppure modulo integrato (Comunicazioni, Email). */
+  const [hubCenterView, setHubCenterView] = useState(/** @type {'overview' | 'comunicazioni' | 'email'} */ ('overview'));
   const userMenuRef = useRef(null);
   const accentPickerRef = useRef(null);
   const minMd = useMinMd();
@@ -712,7 +717,7 @@ export default function TechnicianWorkbenchPage({
           />
           <SidebarLink railMode={railMode} icon={TicketHomeIcon} label="Ticket" onClick={() => onNavigateHome?.()} />
           <SidebarLink railMode={railMode} icon={Building2} label="Office" onClick={() => nav?.onOpenOffice?.()} />
-          <SidebarLink railMode={railMode} icon={Mail} label="Email" onClick={() => nav?.onOpenEmail?.()} />
+          <SidebarLink railMode={railMode} icon={Mail} label="Email" onClick={() => setHubCenterView('email')} />
           <SidebarLink railMode={railMode} icon={Shield} label="Anti-Virus" onClick={() => nav?.onOpenAntiVirus?.()} />
           <SidebarLink railMode={railMode} icon={Eye} label="L-Sight" onClick={() => nav?.onOpenLSight?.()} />
           <SidebarLink railMode={railMode} icon={Monitor} label="Dispositivi aziendali" onClick={() => nav?.onOpenDispositivi?.()} />
@@ -787,7 +792,11 @@ export default function TechnicianWorkbenchPage({
                 <span className="text-white/45">Hub tecnico</span>
                 <span className="text-white/25"> / </span>
                 <span className="font-medium text-white/90">
-                  {hubCenterView === 'comunicazioni' ? 'Comunicazioni' : 'Panoramica'}
+                  {hubCenterView === 'comunicazioni'
+                    ? 'Comunicazioni'
+                    : hubCenterView === 'email'
+                      ? 'Email'
+                      : 'Panoramica'}
                 </span>
               </div>
             </div>
@@ -854,12 +863,31 @@ export default function TechnicianWorkbenchPage({
 
           <div
             className={
-              hubCenterView === 'comunicazioni'
+              hubCenterView === 'comunicazioni' || hubCenterView === 'email'
                 ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-2 md:px-5 md:pb-5'
                 : 'min-h-0 flex-1 overflow-y-auto p-4 md:p-5'
             }
           >
-            {hubCenterView === 'comunicazioni' ? (
+            {hubCenterView === 'email' ? (
+              <EmailPage
+                embedded
+                accentHex={accentHex}
+                closeEmbedded={() => setHubCenterView('overview')}
+                getAuthHeader={getAuthHeader}
+                selectedCompanyId={selectedCompanyId}
+                onCompanyChange={onGloballyCompanyChange ?? undefined}
+                currentUser={currentUser}
+                onOpenTicket={onOpenTicketWithPrefill ?? undefined}
+                onNavigateOffice={() => nav?.onOpenOffice?.()}
+                onNavigateAntiVirus={() => nav?.onOpenAntiVirus?.()}
+                onNavigateDispositiviAziendali={() => nav?.onOpenDispositivi?.()}
+                onNavigateNetworkMonitoring={() => nav?.onOpenNetwork?.()}
+                onNavigateMappatura={() => nav?.onOpenMappatura?.()}
+                onNavigateSpeedTest={() => nav?.onOpenSpeedTest?.()}
+                onNavigateVpn={() => nav?.onOpenVpn?.()}
+                onNavigateHome={() => setHubCenterView('overview')}
+              />
+            ) : hubCenterView === 'comunicazioni' ? (
               <CommAgentDashboard
                 embedded
                 accentHex={accentHex}
@@ -915,7 +943,7 @@ export default function TechnicianWorkbenchPage({
                       label="Email"
                       subtitle="Apri modulo"
                       accent={accentHex}
-                      onClick={() => nav?.onOpenEmail?.()}
+                      onClick={() => setHubCenterView('email')}
                       className="col-span-1"
                     />
                     <ModuleLaunchCard
