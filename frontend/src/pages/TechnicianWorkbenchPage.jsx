@@ -188,7 +188,7 @@ function TicketHubStatCard({ icon: Icon, title, count, accentHex, stateKey, onOp
 
   if (!active) {
     return (
-      <div className={`rounded-2xl border border-white/[0.08] p-4 text-left ${muted ? '' : ''}`} style={surfaceStyle}>
+      <div className="rounded-2xl border border-white/[0.08] p-4 text-left" style={surfaceStyle}>
         {body}
       </div>
     );
