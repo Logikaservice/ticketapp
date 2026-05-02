@@ -114,36 +114,36 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
               style={{ ...hubTheme, colorScheme: 'dark' }}
             >
                 <div
-                  className="flex shrink-0 items-center justify-between border-b px-6 py-5 text-white"
+                  className="flex shrink-0 items-center justify-between border-b px-5 py-3.5 text-white"
                   style={techHubAccentHeaderGradientStyle(dashboardAccentHex)}
                 >
                     <div>
-                        <h2 className="flex items-center gap-2 text-2xl font-bold">
-                          <FileText size={26} aria-hidden />
+                        <h2 className="flex items-center gap-2 text-xl font-bold">
+                          <FileText size={22} aria-hidden />
                           Lista contratti attivi
                         </h2>
-                        <p className="mt-1 text-sm text-white/88">
+                        <p className="mt-0.5 text-xs leading-snug text-white/82">
                           Cerca, filtra e gestisci i contratti dall&apos;Hub tecnico (stesso tema colore dell&apos;Hub).
                         </p>
                     </div>
                     <button
                       type="button"
                       onClick={onClose}
-                      className="rounded-xl bg-white/20 p-2 transition hover:bg-white/30"
+                      className="rounded-xl bg-white/20 p-1.5 transition hover:bg-white/30"
                       aria-label="Chiudi"
                     >
-                        <X size={24} className="text-white" aria-hidden />
+                        <X size={22} className="text-white" aria-hidden />
                     </button>
                 </div>
 
-                <div className="flex shrink-0 flex-col gap-4 border-b border-white/10 bg-[color:var(--hub-surface)] p-4">
-                    <div className="flex gap-4">
+                <div className="flex shrink-0 flex-col gap-2.5 border-b border-white/10 bg-[color:var(--hub-surface)] px-4 py-3">
+                    <div className="flex gap-3">
                         <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/38" size={20} />
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-white/38" size={18} />
                             <input
                                 type="text"
                                 placeholder="Cerca per titolo, cliente o azienda..."
-                                className={`w-full rounded-xl py-2 pl-10 pr-4 hover:border-[color:var(--td-accent)] ${inputFieldDark}`}
+                                className={`w-full rounded-lg py-1.5 pl-9 pr-3 text-sm hover:border-[color:var(--td-accent)] ${inputFieldDark}`}
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                             />
@@ -151,23 +151,23 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
                         <button
                             type="button"
                             onClick={() => setShowFilters(!showFilters)}
-                            className={`flex items-center gap-2 rounded-xl border px-4 py-2 transition ${
+                            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition ${
                               showFilters || filterStatus !== 'all' || filterDateFrom || filterDateTo
                                 ? 'border-[color:var(--td-accent)] bg-[color:var(--td-soft-strong)] text-[color:var(--td-accent)]'
                                 : 'border-white/12 bg-white/[0.06] text-white/88 hover:border-[color:var(--td-accent)] hover:bg-[color:var(--td-soft)]'
                             }`}
                         >
-                            <Filter size={18} />
+                            <Filter size={16} />
                             Filtri
                         </button>
                         <button
                             type="button"
                             onClick={fetchContracts}
                             disabled={loading}
-                            className="flex items-center gap-2 rounded-xl border border-white/12 bg-white/[0.06] px-4 py-2 text-white/85 transition hover:border-[color:var(--td-accent)] hover:bg-[color:var(--td-soft)] disabled:opacity-50"
+                            className="flex items-center gap-1.5 rounded-lg border border-white/12 bg-white/[0.06] px-3 py-1.5 text-sm text-white/85 transition hover:border-[color:var(--td-accent)] hover:bg-[color:var(--td-soft)] disabled:opacity-50"
                             title="Aggiorna lista"
                         >
-                            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+                            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                         </button>
                     </div>
 
@@ -227,7 +227,7 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
                     )}
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto bg-[color:var(--hub-page)] p-6">
+                <div className="min-h-0 flex-1 overflow-y-auto bg-[color:var(--hub-page)] px-4 py-3">
                     {loading ? (
                         <div className="flex justify-center py-10">
                           <div
@@ -255,11 +255,11 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
                             )}
                         </div>
                     ) : (
-                        <div className="space-y-6">
+                        <div className="space-y-3">
                             {filtered.map(contract => (
                                 <div key={contract.id} className="relative">
                                     {/* Etichetta Cliente con Pulsante Elimina */}
-                                    <div className="mb-2 ml-1 flex items-center justify-between text-sm font-bold text-white/86">
+                                    <div className="mb-1 ml-0.5 flex items-center justify-between text-xs font-bold text-white/86">
                                         <div className="flex items-center gap-2">
                                             <div className="h-2 w-2 shrink-0 rounded-full bg-[color:var(--td-accent)]" aria-hidden />
                                             {contract.client_name || contract.azienda || 'Cliente Sconosciuto'}
@@ -268,14 +268,14 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
                                             onClick={() => handleDelete(contract.id, contract.title)}
                                             disabled={deletingId === contract.id}
                                             type="button"
-                                            className="flex items-center gap-2 rounded-lg bg-red-500/15 px-3 py-1.5 text-sm text-red-400 transition-colors hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                                            className="flex items-center gap-1.5 rounded-md bg-red-500/15 px-2 py-1 text-[11px] text-red-400 transition-colors hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-50"
                                             title="Disattiva contratto"
                                         >
                                             <Trash2 size={14} />
                                             {deletingId === contract.id ? 'Eliminazione...' : 'Elimina'}
                                         </button>
                                     </div>
-                                    <ContractTimelineCard contract={contract} variant="hub" />
+                                    <ContractTimelineCard contract={contract} variant="hub" compact />
                                 </div>
                             ))}
                         </div>

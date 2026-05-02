@@ -7,7 +7,9 @@ const ContractTimelineCard = ({
     getAuthHeader,
     onEdit,
     /** 'light': dashboard chiara • 'hub': superficie scura (--hub-surface) come nell'Hub tecnico */
-    variant = 'light'
+    variant = 'light',
+    /** Layout più stretto (es. lista contratti nel modale Hub) */
+    compact = false
 }) => {
     const [showFilesMenu, setShowFilesMenu] = useState(false);
     
@@ -89,21 +91,26 @@ const ContractTimelineCard = ({
     // Find the first non-processed event for yellow color (solo tra gli eventi visibili)
     const firstNonProcessedIndex = visibleEvents.findIndex(e => !e.is_processed);
     const isHub = variant === 'hub';
+    const isCompact = compact;
+    const tlPadPx = isCompact ? 16 : 24;
+    const tlPadTotal = tlPadPx * 2;
 
     return (
         <div
             className={
                 isHub
-                    ? 'relative rounded-lg border border-white/10 bg-[color:var(--hub-surface)] p-5'
-                    : 'relative rounded-lg border border-gray-200 bg-white p-5'
+                    ? `relative rounded-lg border border-white/10 bg-[color:var(--hub-surface)] ${isCompact ? 'p-3' : 'p-5'}`
+                    : `relative rounded-lg border border-gray-200 bg-white ${isCompact ? 'p-3' : 'p-5'}`
             }
         >
             {/* Header */}
-            <div className="flex justify-between items-start mb-5">
+            <div className={`flex justify-between items-start ${isCompact ? 'mb-2' : 'mb-5'}`}>
                 <div>
                     <h3
                         className={
-                            isHub ? 'mb-1 text-lg font-bold text-white/90' : 'mb-1 text-lg font-bold text-gray-800'
+                            isHub
+                                ? `mb-0.5 font-bold text-white/90 ${isCompact ? 'text-base' : 'text-lg'}`
+                                : `mb-1 font-bold text-gray-800 ${isCompact ? 'text-base' : 'text-lg'}`
                         }
                     >
                         {contract.title}
@@ -115,12 +122,12 @@ const ContractTimelineCard = ({
                     )}
                 </div>
                 <div className="text-right">
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className={`flex flex-wrap items-center justify-end gap-1.5 ${isCompact ? 'mb-0' : 'mb-2'}`}>
                         <div
                             className={
                                 isHub
-                                    ? 'inline-block rounded-full border border-teal-400/35 bg-teal-500/15 px-3 py-1 text-xs font-medium text-teal-100'
-                                    : 'inline-block rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-medium text-teal-700'
+                                    ? `inline-block rounded-full border border-teal-400/35 bg-teal-500/15 font-medium text-teal-100 ${isCompact ? 'px-2 py-0.5 text-[11px]' : 'px-3 py-1 text-xs'}`
+                                    : `inline-block rounded-full border border-teal-200 bg-teal-50 font-medium text-teal-700 ${isCompact ? 'px-2 py-0.5 text-[11px]' : 'px-3 py-1 text-xs'}`
                             }
                         >
                             {contract.billing_frequency === 'monthly' ? 'Mensile' :
@@ -130,7 +137,7 @@ const ContractTimelineCard = ({
                         </div>
                         {contract.end_date && (
                             <span
-                                className={`text-xs font-medium ${isHub ? 'text-white/55' : 'text-gray-600'}`}
+                                className={`font-medium ${isHub ? 'text-white/55' : 'text-gray-600'} ${isCompact ? 'text-[11px]' : 'text-xs'}`}
                             >
                                 Scadenza: {formatDate(contract.end_date)}
                             </span>
@@ -146,7 +153,7 @@ const ContractTimelineCard = ({
                                 }
                                 title="Modifica contratto"
                             >
-                                <Edit size={16} />
+                                <Edit size={isCompact ? 14 : 16} />
                             </button>
                         )}
                         {/* Allegati - spostato qui */}
@@ -183,7 +190,7 @@ const ContractTimelineCard = ({
                                         }
                                         title={`${files.length} allegato${files.length !== 1 ? 'i' : ''}`}
                                     >
-                                        <Paperclip size={16} />
+                                        <Paperclip size={isCompact ? 14 : 16} />
                                         {files.length > 1 && (
                                             <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
                                                 {files.length}
@@ -241,37 +248,43 @@ const ContractTimelineCard = ({
             </div>
 
             {/* Timeline Visual */}
-            <div className="relative py-8 mb-5 px-6">
+            <div
+                className={
+                    isCompact ? 'relative mb-2 px-4 py-4' : 'relative mb-5 px-6 py-8'
+                }
+            >
                 {/* Traccia totale anno (past + future): grigio visibile sopra alla card */}
                 <div
                     aria-hidden
                     className={
                         isHub
-                            ? 'pointer-events-none absolute left-6 right-6 top-1/2 z-0 h-1 -translate-y-1/2 rounded-full bg-zinc-600/65'
-                            : 'pointer-events-none absolute left-6 right-6 top-1/2 z-0 h-1 -translate-y-1/2 rounded-full bg-gray-300'
+                            ? `pointer-events-none absolute top-1/2 z-0 h-1 -translate-y-1/2 rounded-full bg-zinc-600/65 ${isCompact ? 'left-4 right-4' : 'left-6 right-6'}`
+                            : `pointer-events-none absolute top-1/2 z-0 h-1 -translate-y-1/2 rounded-full bg-gray-300 ${isCompact ? 'left-4 right-4' : 'left-6 right-6'}`
                     }
                 />
                 {/* Parte già percorsa (anno → oggi) */}
                 <div
                     aria-hidden
-                    className="pointer-events-none absolute left-6 top-1/2 z-[1] h-1 -translate-y-1/2 rounded-full bg-teal-400 transition-all duration-1000"
-                    style={{ width: `calc((100% - 48px) * ${progress / 100})` }}
+                    className={`pointer-events-none absolute top-1/2 z-[1] h-1 -translate-y-1/2 rounded-full bg-teal-400 transition-all duration-1000 ${isCompact ? 'left-4' : 'left-6'}`}
+                    style={{ width: `calc((100% - ${tlPadTotal}px) * ${progress / 100})` }}
                 />
 
                 {/* Current Point (Today) */}
                 <div
                     className="absolute top-1/2 z-[2] -translate-y-1/2"
-                    style={{ left: `calc(24px + ((100% - 48px) * ${progress / 100}))` }}
+                    style={{ left: `calc(${tlPadPx}px + ((100% - ${tlPadTotal}px) * ${progress / 100}))` }}
                 >
                     <div className="relative -ml-1.5">
                         <div
                             className={
                                 isHub
-                                    ? 'relative z-10 h-3 w-3 rounded-full border-2 border-[color:var(--hub-surface)] bg-teal-500'
-                                    : 'relative z-10 h-3 w-3 rounded-full border-2 border-white bg-teal-500'
+                                    ? `relative z-10 rounded-full border-2 border-[color:var(--hub-surface)] bg-teal-500 ${isCompact ? 'h-2.5 w-2.5' : 'h-3 w-3'}`
+                                    : `relative z-10 rounded-full border-2 border-white bg-teal-500 ${isCompact ? 'h-2.5 w-2.5' : 'h-3 w-3'}`
                             }
                         ></div>
-                        <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-teal-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded whitespace-nowrap">
+                        <div
+                            className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-teal-500 font-semibold text-white ${isCompact ? '-top-5 px-1.5 py-px text-[9px]' : '-top-7 px-2 py-0.5 text-[10px]'}`}
+                        >
                             OGGI
                         </div>
                     </div>
@@ -357,15 +370,17 @@ const ContractTimelineCard = ({
                         <div 
                             key={event.id || index} 
                             className="absolute top-1/2 z-[2] -translate-y-1/2 group" 
-                            style={{ left: `calc(24px + ((100% - 48px) * ${eventPercent / 100}))` }}
+                            style={{ left: `calc(${tlPadPx}px + ((100% - ${tlPadTotal}px) * ${eventPercent / 100}))` }}
                         >
-                            <div className={`w-5 h-5 rounded-full ${bgColor} border-2 ${borderColor} flex items-center justify-center -ml-2.5 cursor-pointer relative`}>
+                            <div
+                                className={`rounded-full ${bgColor} border-2 ${borderColor} flex items-center justify-center cursor-pointer relative ${isCompact ? 'h-4 w-4 -ml-2' : 'h-5 w-5 -ml-2.5'}`}
+                            >
                                 {isRenewal ? (
-                                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                    <div className={`rounded-full bg-blue-500 ${isCompact ? 'h-1.5 w-1.5' : 'h-2 w-2'}`}></div>
                                 ) : isProcessed ? (
-                                    <CheckCircle size={12} className={iconColor} />
+                                    <CheckCircle size={isCompact ? 10 : 12} className={iconColor} />
                                 ) : (
-                                    <AlertCircle size={12} className={iconColor} />
+                                    <AlertCircle size={isCompact ? 10 : 12} className={iconColor} />
                                 )}
                                 {/* Tooltip con importo (solo per eventi non-rinnovo) */}
                                 {!isRenewal && displayAmount && (
@@ -375,11 +390,13 @@ const ContractTimelineCard = ({
                                     </div>
                                 )}
                             </div>
-                            <div className="absolute top-7 left-1/2 -translate-x-1/2 text-center w-32">
-                                <div className={`text-xs font-semibold ${textColor}`}>
+                            <div
+                                className={`absolute left-1/2 -translate-x-1/2 text-center ${isCompact ? 'top-5 w-24' : 'top-7 w-32'}`}
+                            >
+                                <div className={`font-semibold ${textColor} ${isCompact ? 'text-[10px] leading-tight' : 'text-xs'}`}>
                                     {displayDescription}
                                 </div>
-                                <div className={`text-[10px] ${isHub ? 'text-white/45' : 'text-gray-400'}`}>{formatDate(event.event_date)}</div>
+                                <div className={`${isHub ? 'text-white/45' : 'text-gray-400'} ${isCompact ? 'text-[9px]' : 'text-[10px]'}`}>{formatDate(event.event_date)}</div>
                             </div>
                         </div>
                     );
@@ -389,11 +406,11 @@ const ContractTimelineCard = ({
             {/* Bottom Actions */}
             {nextEvent && daysToNextEvent <= 30 && (
                 <div
-                    className={`flex justify-between items-center border-t pt-4 ${isHub ? 'border-white/10' : 'border-gray-200'}`}
+                    className={`flex justify-between items-center border-t ${isCompact ? 'pt-2' : 'pt-4'} ${isHub ? 'border-white/10' : 'border-gray-200'}`}
                 >
-                    <div className="flex gap-4">
+                    <div className={isCompact ? 'flex gap-2' : 'flex gap-4'}>
                         <div
-                            className={`flex items-center gap-2 text-sm ${
+                            className={`flex items-center ${isCompact ? 'gap-1.5 text-xs' : 'gap-2 text-sm'} ${
                                 isHub
                                     ? daysToNextEvent <= 7
                                         ? 'font-medium text-red-400'
@@ -403,7 +420,7 @@ const ContractTimelineCard = ({
                                       : 'text-amber-600'
                             }`}
                         >
-                            <Clock size={16} />
+                            <Clock size={isCompact ? 14 : 16} />
                             <span>Prossima scadenza tra {daysToNextEvent} {daysToNextEvent === 1 ? 'giorno' : 'giorni'}</span>
                         </div>
                     </div>
