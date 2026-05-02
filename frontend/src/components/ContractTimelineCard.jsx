@@ -87,6 +87,26 @@ const ContractTimelineCard = ({
         // Per gli altri eventi, mostra solo se sono nell'anno corrente
         return eventYear === currentYear;
     });
+
+    /** Posizione eventi sul segmento anno (%) + «lane» verticali quando le etichette sarebbero troppo vicine in orizzontale */
+    const eventPercentsForLabels = visibleEvents.map((event) => {
+        const t = new Date(event.event_date).getTime();
+        return ((t - yearStartDate) / (yearEndDate - yearStartDate)) * 100;
+    });
+    const clusterThresholdPct = compact ? 6.25 : 5.75;
+    const labelLaneStridePx = compact ? 14 : 18;
+    const labelBaseOffsetPx = compact ? 26 : 34;
+    const labelLanes = [];
+    for (let i = 0; i < visibleEvents.length; i++) {
+        let lane = 0;
+        for (let j = 0; j < i; j++) {
+            if (Math.abs(eventPercentsForLabels[i] - eventPercentsForLabels[j]) < clusterThresholdPct) {
+                lane = Math.max(lane, labelLanes[j] + 1);
+            }
+        }
+        labelLanes.push(lane);
+    }
+    const maxLabelLane = labelLanes.length ? Math.max(...labelLanes) : 0;
     
     // Find the first non-processed event for yellow color (solo tra gli eventi visibili)
     const firstNonProcessedIndex = visibleEvents.findIndex(e => !e.is_processed);
@@ -250,8 +270,13 @@ const ContractTimelineCard = ({
             {/* Timeline Visual */}
             <div
                 className={
-                    isCompact ? 'relative mb-2 px-4 py-4' : 'relative mb-5 px-6 py-8'
+                    isCompact ? 'relative mb-2 px-4 pt-4' : 'relative mb-5 px-6 pt-8'
                 }
+                style={{
+                    paddingBottom: isCompact
+                        ? `${20 + maxLabelLane * labelLaneStridePx}px`
+                        : `${28 + maxLabelLane * labelLaneStridePx}px`
+                }}
             >
                 {/* Traccia totale anno (past + future): grigio visibile sopra alla card */}
                 <div
@@ -283,7 +308,7 @@ const ContractTimelineCard = ({
                             }
                         ></div>
                         <div
-                            className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-teal-500 font-semibold text-white ${isCompact ? '-top-5 px-1.5 py-px text-[9px]' : '-top-7 px-2 py-0.5 text-[10px]'}`}
+                            className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-teal-500 font-semibold text-white ${isCompact ? '-top-6 px-1.5 py-px text-[9px]' : '-top-8 px-2 py-0.5 text-[10px]'}`}
                         >
                             OGGI
                         </div>
@@ -292,8 +317,8 @@ const ContractTimelineCard = ({
 
                 {/* All Event Points - mostra solo eventi dell'anno corrente */}
                 {visibleEvents.map((event, index) => {
-                    const eventDate = new Date(event.event_date).getTime();
-                    const eventPercent = ((eventDate - yearStartDate) / (yearEndDate - yearStartDate)) * 100;
+                    const eventPercent = eventPercentsForLabels[index];
+                    const lane = labelLanes[index] ?? 0;
                     const isProcessed = event.is_processed === true;
                     const isFirstNonProcessed = index === firstNonProcessedIndex && !isProcessed;
                     
@@ -391,12 +416,19 @@ const ContractTimelineCard = ({
                                 )}
                             </div>
                             <div
-                                className={`absolute left-1/2 -translate-x-1/2 text-center ${isCompact ? 'top-5 w-24' : 'top-7 w-32'}`}
+                                className={`absolute left-1/2 z-[3] -translate-x-1/2 px-0.5 text-center ${isCompact ? 'max-w-[5.5rem]' : 'max-w-[7rem]'}`}
+                                style={{ top: labelBaseOffsetPx + lane * labelLaneStridePx }}
                             >
-                                <div className={`font-semibold ${textColor} ${isCompact ? 'text-[10px] leading-tight' : 'text-xs'}`}>
+                                <div
+                                    className={`font-semibold leading-snug ${textColor} ${isCompact ? 'text-[10px]' : 'text-xs'}`}
+                                >
                                     {displayDescription}
                                 </div>
-                                <div className={`${isHub ? 'text-white/45' : 'text-gray-400'} ${isCompact ? 'text-[9px]' : 'text-[10px]'}`}>{formatDate(event.event_date)}</div>
+                                <div
+                                    className={`mt-0.5 leading-tight ${isHub ? 'text-white/45' : 'text-gray-400'} ${isCompact ? 'text-[9px]' : 'text-[10px]'}`}
+                                >
+                                    {formatDate(event.event_date)}
+                                </div>
                             </div>
                         </div>
                     );
@@ -405,9 +437,7 @@ const ContractTimelineCard = ({
 
             {/* Bottom Actions */}
             {nextEvent && daysToNextEvent <= 30 && (
-                <div
-                    className={`flex justify-between items-center border-t ${isCompact ? 'pt-2' : 'pt-4'} ${isHub ? 'border-white/10' : 'border-gray-200'}`}
-                >
+                <div className={`flex justify-between items-center ${isCompact ? 'pt-2' : 'pt-3'}`}>
                     <div className={isCompact ? 'flex gap-2' : 'flex gap-4'}>
                         <div
                             className={`flex items-center ${isCompact ? 'gap-1.5 text-xs' : 'gap-2 text-sm'} ${
