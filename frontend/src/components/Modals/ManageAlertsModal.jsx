@@ -261,7 +261,7 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 text-gray-100">
           <div>
             <label className={HUB_MODAL_LABEL_CLS}>
               Titolo Avviso <span className="text-red-400">*</span>
@@ -332,7 +332,7 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
                 onClick={() => setShowClientSelector(!showClientSelector)}
                 className={`${HUB_MODAL_FIELD_CLS} flex cursor-pointer items-center justify-between text-left`}
               >
-                <span className={selectedClients.length === 0 ? 'text-white/42' : 'text-white'}>
+                <span className={selectedClients.length === 0 ? 'text-gray-400' : 'text-gray-100'}>
                   {selectedClients.length === 0 
                     ? 'Seleziona clienti...' 
                     : selectedClients.length === users.filter(u => u.ruolo === 'cliente').length
@@ -484,17 +484,20 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
                   onChange={handleFileSelect}
                   className="hidden"
                 />
-                <label htmlFor="fileInput" className="flex cursor-pointer flex-col items-center gap-2">
-                  <Image className="h-8 w-8 text-white/38" aria-hidden />
-                  <span className="text-sm text-white/72">Clicca per selezionare immagini (max 5)</span>
-                  <span className="text-xs text-white/45">JPG, PNG, GIF - Max 5MB per immagine</span>
+                <label
+                  htmlFor="fileInput"
+                  className="flex cursor-pointer flex-col items-center gap-2 text-center text-gray-200"
+                >
+                  <Image className="h-8 w-8 text-gray-400" aria-hidden />
+                  <span className="text-sm text-gray-100">Clicca per selezionare immagini (max 5)</span>
+                  <span className="text-xs text-gray-400">JPG, PNG, GIF - Max 5MB per immagine</span>
                 </label>
               </div>
 
               {/* File selezionati */}
               {selectedFiles.length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-white/75">Nuove immagini selezionate:</h4>
+                  <h4 className="text-sm font-medium text-gray-200">Nuove immagini selezionate:</h4>
                   {selectedFiles.map((file, index) => (
                     <div
                       key={index}
@@ -521,7 +524,7 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
               {/* Allegati esistenti (solo in modifica) */}
               {editingAlert && existingAttachments.length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-white/75">Immagini esistenti:</h4>
+                  <h4 className="text-sm font-medium text-gray-200">Immagini esistenti:</h4>
                   {existingAttachments.map((attachment, index) => (
                     <div
                       key={index}
@@ -561,8 +564,8 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
                   onChange={() => setFormData((prev) => ({ ...prev, isPermanent: true }))}
                   className="h-4 w-4 accent-[color:var(--hub-accent)]"
                 />
-                <label htmlFor="permanent" className="flex items-center gap-2 text-sm text-white/85">
-                  <Clock className="h-4 w-4 text-white/55" aria-hidden />
+                <label htmlFor="permanent" className="flex items-center gap-2 text-sm text-gray-100">
+                  <Clock className="h-4 w-4 text-gray-400" aria-hidden />
                   <span>Avviso permanente</span>
                 </label>
               </div>
@@ -576,8 +579,8 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
                   onChange={() => setFormData((prev) => ({ ...prev, isPermanent: false }))}
                   className="h-4 w-4 accent-[color:var(--hub-accent)]"
                 />
-                <label htmlFor="temporary" className="flex items-center gap-2 text-sm text-white/85">
-                  <Calendar className="h-4 w-4 text-white/55" aria-hidden />
+                <label htmlFor="temporary" className="flex items-center gap-2 text-sm text-gray-100">
+                  <Calendar className="h-4 w-4 text-gray-400" aria-hidden />
                   <span>Avviso temporaneo</span>
                 </label>
                 {!formData.isPermanent && (
@@ -592,7 +595,7 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
                       }
                       className="w-20 rounded-lg border border-white/[0.12] bg-black/[0.28] px-2 py-1 text-sm text-white outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)]"
                     />
-                    <span className="text-sm text-white/55">giorni</span>
+                    <span className="text-sm text-gray-400">giorni</span>
                   </div>
                 )}
               </div>

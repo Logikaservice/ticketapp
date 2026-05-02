@@ -27,12 +27,13 @@ export function hubModalCssVars(accentHex) {
   };
 }
 
-/** Etichetta campo in form modale stile Hub scuro. */
-export const HUB_MODAL_LABEL_CLS = 'mb-1 block text-sm font-medium text-white/78';
+/** Etichetta campo in form modale stile Hub scuro (toni solidi: meglio contrasto su #121212). */
+export const HUB_MODAL_LABEL_CLS =
+  'mb-1 block text-sm font-medium text-gray-200';
 
 /** Input / textarea standard su sfondo Hub. */
 export const HUB_MODAL_FIELD_CLS =
-  'w-full rounded-lg border border-white/[0.12] bg-black/[0.28] px-3 py-2 text-sm text-white placeholder:text-white/38 outline-none transition focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)]';
+  'w-full rounded-lg border border-white/[0.12] bg-black/[0.28] px-3 py-2 text-sm text-gray-100 placeholder:text-gray-400 outline-none transition focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)]';
 
 export const HUB_MODAL_TEXTAREA_CLS = `${HUB_MODAL_FIELD_CLS} min-h-[5rem] resize-y`;
 
@@ -47,7 +48,7 @@ export const HUB_MODAL_NOTICE_INFO =
   'rounded-lg border border-sky-500/35 bg-sky-500/12 p-3 text-sm text-sky-50';
 
 export const HUB_MODAL_NOTICE_NEUTRAL =
-  'rounded-lg border border-white/[0.12] bg-black/[0.22] p-3 text-sm text-white/78';
+  'rounded-lg border border-white/[0.12] bg-black/[0.22] p-3 text-sm text-gray-200';
 
 /**
  * Variabili CSS per moduli allineati all’Hub: accento utente + palette scura base.
