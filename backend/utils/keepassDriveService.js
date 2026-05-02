@@ -13,6 +13,8 @@ class KeepassDriveService {
     /** Buffer KDBX scaricato: riuso tra route Office / Email / MAC (evita download paralleli e 502 da timeout). */
     this.kdbxFileCache = null; // { buffer, modifiedTime, fetchedAt }
     this.kdbxFileFetchPromise = null;
+    /** Coda globale sul parse KDBX: più load paralleli sul DB grande possono esaurire la RAM e far cadere il processo (502 su tutta l'API). */
+    this._kdbxOpenChain = Promise.resolve();
   }
 
   normalizeCompanyName(name) {
@@ -182,6 +184,25 @@ class KeepassDriveService {
   }
 
   /**
+   * Esegue worker(db, fileData) dopo un solo parse KDBX per volta (tutti i worker sono in fila).
+   * fileData è l'oggetto restituito da getKeepassFileData (buffer + modifiedTime da Drive).
+   */
+  async withLoadedKdbx(password, worker) {
+    const task = async () => {
+      const fileData = await this.getKeepassFileData(password);
+      const credentials = new Credentials(ProtectedValue.fromString(password));
+      const db = await Kdbx.load(fileData.buffer.buffer, credentials);
+      return worker(db, fileData);
+    };
+    const p = this._kdbxOpenChain.then(task, task);
+    this._kdbxOpenChain = p.then(
+      () => undefined,
+      () => undefined
+    );
+    return p;
+  }
+
+  /**
    * Normalizza un MAC address per la ricerca (rimuove separatori, uppercase)
    * Gestisce sia formato "00-FD-22-A8-34-2C" che "00:03:2D:52:DC:90"
    */
@@ -232,14 +253,8 @@ class KeepassDriveService {
    */
   async loadMacToTitleMap(password) {
     try {
-      // Scarica il file da Google Drive (con data di modifica)
-      const fileData = await this.getKeepassFileData(password);
-      const fileBuffer = fileData.buffer;
+      return await this.withLoadedKdbx(password, async (db, fileData) => {
       const modifiedTime = fileData.modifiedTime;
-
-      // Carica il file KDBX
-      const credentials = new Credentials(ProtectedValue.fromString(password));
-      const db = await Kdbx.load(fileBuffer.buffer, credentials);
 
       // Crea la mappa MAC -> {title, path}
       const macMap = new Map();
@@ -463,6 +478,7 @@ class KeepassDriveService {
       this.lastFileModifiedTime = modifiedTime;
 
       return macMap;
+      });
     } catch (error) {
       console.error('❌ Errore caricamento mappa MAC->Titolo:', error.message);
       throw error;
@@ -477,14 +493,7 @@ class KeepassDriveService {
    */
   async getAllEntriesByAzienda(password, aziendaName = null) {
     try {
-      const fileData = await this.getKeepassFileData(password);
-      const fileBuffer = fileData.buffer;
-
-      // Carica il file KDBX
-      const credentials = new Credentials(ProtectedValue.fromString(password));
-      const db = await Kdbx.load(fileBuffer.buffer, credentials);
-
-
+      return await this.withLoadedKdbx(password, async (db) => {
       const entries = [];
       const foundAziendeAfterGestione = new Set(); // Raccogli nomi aziende trovate dopo "gestione" per debug
 
@@ -594,6 +603,7 @@ class KeepassDriveService {
       }
 
       return entries;
+      });
     } catch (error) {
       console.error('❌ Errore caricamento entry Keepass:', error.message);
       throw error;
@@ -610,10 +620,7 @@ class KeepassDriveService {
    */
   async getEmailStructureByAzienda(password, aziendaName) {
     try {
-      const fileData = await this.getKeepassFileData(password);
-      const credentials = new Credentials(ProtectedValue.fromString(password));
-      const db = await Kdbx.load(fileData.buffer.buffer, credentials);
-
+      return await this.withLoadedKdbx(password, async (db) => {
       const result = [];
 
       // Recupera i gruppi figli compatibile con tutte le versioni di kdbxweb
@@ -730,6 +737,7 @@ class KeepassDriveService {
       }
 
       return result;
+      });
     } catch (error) {
       console.error('❌ Errore getEmailStructureByAzienda:', error.message);
       throw error;
@@ -747,9 +755,7 @@ class KeepassDriveService {
   async getEmailEntryPassword(password, aziendaName, params = {}) {
     try {
       const { title = '', username = '', url = '', divider = '' } = params;
-      const fileData = await this.getKeepassFileData(password);
-      const credentials = new Credentials(ProtectedValue.fromString(password));
-      const db = await Kdbx.load(fileData.buffer.buffer, credentials);
+      return await this.withLoadedKdbx(password, async (db) => {
 
       const findEmailGroup = (group, path = '') => {
         const name = group.name || 'Root';
@@ -817,6 +823,7 @@ class KeepassDriveService {
       let pw = findEntry(emailGroup, '');
       if (pw !== undefined && pw !== null) return pw;
       return null;
+      });
     } catch (error) {
       console.error('❌ Errore getEmailEntryPassword:', error.message);
       throw error;
@@ -833,13 +840,11 @@ class KeepassDriveService {
    * @returns {Array<{aziendaName, title, username, url, divider, expires, daysLeft}>}
    */
   async getEmailUpcomingExpiriesAll(password, aziendeNames, now, limit) {
-    const results = [];
     const aziendeSet = new Set((aziendeNames || []).map(a => (a || '').trim().toLowerCase()).filter(Boolean));
-    if (aziendeSet.size === 0) return results;
+    if (aziendeSet.size === 0) return [];
 
-    const fileData = await this.getKeepassFileData(password);
-    const credentials = new Credentials(ProtectedValue.fromString(password));
-    const db = await Kdbx.load(fileData.buffer.buffer, credentials);
+    return this.withLoadedKdbx(password, async (db) => {
+    const results = [];
 
     const extractEntry = (entry, divider = '') => {
       const titleF = entry.fields && entry.fields['Title'];
@@ -944,6 +949,7 @@ class KeepassDriveService {
       });
     }
     return results;
+    });
   }
 
   /**
@@ -954,13 +960,7 @@ class KeepassDriveService {
    */
   async getOfficeData(password, aziendaName) {
     try {
-      const fileData = await this.getKeepassFileData(password);
-      const fileBuffer = fileData.buffer;
-
-      // Carica il file KDBX
-      const credentials = new Credentials(ProtectedValue.fromString(password));
-      const db = await Kdbx.load(fileBuffer.buffer, credentials);
-
+      return await this.withLoadedKdbx(password, async (db) => {
       let officeTitle = null;
       const officeFiles = []; // Array per contenere TUTTE le entry trovate nel gruppo Office
 
@@ -1153,6 +1153,7 @@ class KeepassDriveService {
         title: officeTitle,
         files: processedFiles
       };
+      });
     } catch (error) {
       console.error('❌ Errore ricerca Office in Keepass:', error.message);
       throw error;
@@ -1169,9 +1170,7 @@ class KeepassDriveService {
   async getOfficeEntryPassword(password, aziendaName, params = {}) {
     try {
       const { title = '', username = '' } = params;
-      const fileData = await this.getKeepassFileData(password);
-      const credentials = new Credentials(ProtectedValue.fromString(password));
-      const db = await Kdbx.load(fileData.buffer.buffer, credentials);
+      return await this.withLoadedKdbx(password, async (db) => {
 
       const normalize = (s) => (s || '').trim();
       const titleN = normalize(title);
@@ -1218,6 +1217,7 @@ class KeepassDriveService {
         if (pw !== undefined && pw !== null) return pw;
       }
       return null;
+      });
     } catch (error) {
       console.error('❌ Errore getOfficeEntryPassword:', error.message);
       throw error;
@@ -1358,10 +1358,7 @@ class KeepassDriveService {
       const normalizedMac = this.normalizeMacForSearch(macAddress);
       if (!normalizedMac) return null;
 
-      const fileData = await this.getKeepassFileData(password);
-      const credentials = new Credentials(ProtectedValue.fromString(password));
-      const db = await Kdbx.load(fileData.buffer.buffer, credentials);
-
+      return await this.withLoadedKdbx(password, async (db) => {
       let result = null;
       const processGroup = (group) => {
         if (group.entries && group.entries.length > 0) {
@@ -1403,6 +1400,7 @@ class KeepassDriveService {
         }
       }
       return result;
+      });
     } catch (error) {
       console.error('❌ getCredentialsByMac KeePass:', error.message);
       return null;
