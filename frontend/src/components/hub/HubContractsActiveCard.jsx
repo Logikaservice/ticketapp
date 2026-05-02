@@ -7,9 +7,13 @@ import {
   buildMonthlyContractHistogram
 } from '../../utils/contractHubStats';
 
-const COL_VERDE = '#22c55e';
-const COL_ARANCIO = '#fb923c';
-const COL_GRIGIO = '#94a3b8';
+/** Una tonalità verde/arancio per chip KPI, barre e legenda (leggermente scure, leggibili su sfondo Hub). */
+const COL_VERDE = '#15803d';
+const COL_ARANCIO = '#c2410c';
+const COL_GRIGIO = '#64748b';
+
+const KPI_TEXT_GREEN = '#bbf7d0';
+const KPI_TEXT_ORANGE = '#fed7aa';
 
 /** @param {{ backgroundColor: string, accentHex: string }} p */
 export default function HubContractsActiveCard({
@@ -226,8 +230,6 @@ export default function HubContractsActiveCard({
                     fill={fill}
                     opacity={hh > 0 ? 1 : 0.12}
                     className={hh > 0 ? 'cursor-pointer transition hover:opacity-90' : ''}
-                    stroke={hh > 0 ? hexToRgba(accentHex, 0.5) : 'transparent'}
-                    strokeWidth={hh > 0 ? 0.7 : 0}
                     onMouseEnter={showMonthTip}
                     onMouseMove={showMonthTip}
                   />
@@ -326,21 +328,44 @@ function ticksFor(maxY) {
 function KpiChip({ label, value, accent, tone, muted }) {
   const base = 'rounded-xl border px-3 py-1.5 ';
   let style = {};
-  let cls =
-    `${base}${muted ? 'border-white/[0.06]' : 'border-white/[0.1]'} `;
-  cls += muted ? 'text-white/42' : 'text-white';
+  let cls = `${base} `;
 
-  if (accent) {
-    style = { borderColor: hexToRgba(accent, 0.45), boxShadow: `0 0 0 1px ${hexToRgba(accent, 0.12)} inset` };
+  if (muted) {
+    cls += 'border-white/[0.06] text-white/42 ';
+  } else if (accent) {
+    cls += ' ';
+    style = {
+      borderColor: hexToRgba(accent, 0.45),
+      boxShadow: `0 0 0 1px ${hexToRgba(accent, 0.12)} inset`,
+      color: '#fafafa'
+    };
+  } else if (tone === 'green') {
+    cls += ' ';
+    style = {
+      borderColor: hexToRgba(COL_VERDE, 0.4),
+      backgroundColor: hexToRgba(COL_VERDE, 0.22),
+      color: KPI_TEXT_GREEN
+    };
+  } else if (tone === 'orange') {
+    cls += ' ';
+    style = {
+      borderColor: hexToRgba(COL_ARANCIO, 0.42),
+      backgroundColor: hexToRgba(COL_ARANCIO, 0.2),
+      color: KPI_TEXT_ORANGE
+    };
+  } else if (tone === 'gray') {
+    cls += ' ';
+    style = {
+      borderColor: hexToRgba(COL_GRIGIO, 0.35),
+      backgroundColor: hexToRgba(COL_GRIGIO, 0.2),
+      color: '#e2e8f0'
+    };
+  } else {
+    cls += 'border-white/[0.1] text-white ';
   }
-  if (tone === 'green')
-    cls += ' border-green-700/35 bg-green-500/15 text-green-200';
-  else if (tone === 'orange')
-    cls += ' border-orange-600/35 bg-orange-500/14 text-orange-200';
-  else if (tone === 'gray') cls += ' border-slate-500/30 bg-slate-600/25 text-slate-200';
 
   return (
-    <div className={`${cls} min-w-[5.75rem]`} style={accent ? style : undefined}>
+    <div className={`${cls} min-w-[5.75rem]`} style={Object.keys(style).length ? style : undefined}>
       <div className="text-[10px] font-bold uppercase tracking-wider text-white/45">{label}</div>
       <div className="text-xl font-extrabold tabular-nums leading-tight">{value}</div>
     </div>
