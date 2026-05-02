@@ -29,7 +29,9 @@ import {
   Info,
   AlertTriangle,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  FileText,
+  PlayCircle
 } from 'lucide-react';
 import { fetchImportantAlertsForHub } from '../utils/importantAlertsFeed';
 
@@ -143,6 +145,64 @@ function ModuleLaunchCard({ icon: Icon, label, subtitle, accent, onClick, classN
       </div>
       <div className="text-sm font-semibold text-white">{label}</div>
       {subtitle && <div className="mt-1 text-xs text-white/45">{subtitle}</div>}
+    </button>
+  );
+}
+
+/**
+ * Stat ticket allineata alla Dashboard (icone FileText / PlayCircle, conteggi stessi ticket tecnico globali).
+ * Con conteggio 0: neutra come le altre card Hub, non cliccabile.
+ */
+function TicketHubStatCard({ icon: Icon, title, count, accentHex, stateKey, onOpenTicketState }) {
+  const active = Boolean(count > 0);
+  const body = (
+    <>
+      <div
+        className={`mb-3 inline-flex rounded-xl p-2.5 transition ${
+          active ? '' : 'bg-white/[0.06]'
+        }`}
+        style={active ? { backgroundColor: hexToRgba(accentHex, 0.14) } : undefined}
+      >
+        <Icon
+          size={22}
+          className="shrink-0"
+          style={{ color: active ? accentHex : 'rgba(255,255,255,0.38)' }}
+        />
+      </div>
+      <div className={`text-[11px] font-semibold uppercase tracking-widest ${active ? 'text-white/50' : 'text-white/32'}`}>
+        Ticket · interventi
+      </div>
+      <div className="mt-0.5 text-sm font-semibold text-white/90">{title}</div>
+      <div
+        className={`mt-3 text-5xl font-extrabold leading-none tabular-nums md:text-[3.25rem] ${
+          active ? '' : 'text-white/[0.28]'
+        }`}
+        style={active ? { color: accentHex } : undefined}
+      >
+        {count}
+      </div>
+    </>
+  );
+
+  const surfaceStyle = { backgroundColor: SURFACE };
+
+  if (!active) {
+    return (
+      <div className={`rounded-2xl border border-white/[0.08] p-4 text-left ${muted ? '' : ''}`} style={surfaceStyle}>
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={`rounded-2xl border border-white/[0.08] p-4 text-left transition hover:bg-white/[0.04] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)]`}
+      style={surfaceStyle}
+      onClick={() => onOpenTicketState?.(stateKey)}
+      aria-label={`${title}: ${count}. Apri elenco ticket per questo stato`}
+    >
+      {body}
     </button>
   );
 }
@@ -445,7 +505,9 @@ export default function TechnicianWorkbenchPage({
   onOpenSettings,
   nav,
   getAuthHeader,
-  alertsRefreshTrigger = 0
+  alertsRefreshTrigger = 0,
+  tickets = [],
+  onOpenTicketState
 }) {
   const [accentHex, setAccentHex] = useState(loadStoredAccent);
   const [hubImportantAlerts, setHubImportantAlerts] = useState([]);
@@ -534,6 +596,14 @@ export default function TechnicianWorkbenchPage({
 
   const hubHoverIconBtn =
     'rounded-xl border border-transparent text-white/45 transition hover:bg-white/[0.06] hover:text-[color:var(--hub-accent)] hover:[border-color:var(--hub-accent-border)]';
+
+  const hubTicketCounts = useMemo(() => {
+    const list = Array.isArray(tickets) ? tickets : [];
+    return {
+      aperto: list.filter((t) => t.stato === 'aperto').length,
+      in_lavorazione: list.filter((t) => t.stato === 'in_lavorazione').length
+    };
+  }, [tickets]);
 
   return (
     <div className="fixed inset-0 z-[70] flex min-h-0 flex-col md:flex-row" style={accentStyle}>
@@ -798,6 +868,25 @@ export default function TechnicianWorkbenchPage({
               className="grid auto-rows-[minmax(112px,auto)] grid-cols-12 gap-3"
               style={{ minHeight: 'min(70vh, 640px)' }}
             >
+              <div className="col-span-12 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <TicketHubStatCard
+                  icon={FileText}
+                  title="Aperti"
+                  count={hubTicketCounts.aperto}
+                  accentHex={accentHex}
+                  stateKey="aperto"
+                  onOpenTicketState={onOpenTicketState}
+                />
+                <TicketHubStatCard
+                  icon={PlayCircle}
+                  title="In lavorazione"
+                  count={hubTicketCounts.in_lavorazione}
+                  accentHex={accentHex}
+                  stateKey="in_lavorazione"
+                  onOpenTicketState={onOpenTicketState}
+                />
+              </div>
+
               {/* Quattro tasselli piccoli = una fascia unificata */}
               <div className="col-span-12 grid grid-cols-2 gap-3 md:grid-cols-4">
                 <ModuleLaunchCard

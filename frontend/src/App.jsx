@@ -3667,6 +3667,12 @@ export default function TicketApp() {
         {showTechnicianWorkbench && currentUser?.ruolo === 'tecnico' && (
           <TechnicianWorkbenchPage
             currentUser={currentUser}
+            tickets={tickets}
+            onOpenTicketState={(state) => {
+              setDashboardTargetState(state || 'aperto');
+              setShowTechnicianWorkbench(false);
+              setShowDashboard(false);
+            }}
             getAuthHeader={getAuthHeader}
             alertsRefreshTrigger={alertsRefreshTrigger}
             onNavigateHome={() => { setShowTechnicianWorkbench(false); setShowDashboard(true); }}
