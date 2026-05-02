@@ -97,8 +97,13 @@ function NavGroup({ title, open, onToggle, children, railMode }) {
   );
 }
 
-function SidebarLink({ icon: Icon, label, onClick, nested, railMode }) {
+function SidebarLink({ icon: Icon, label, onClick, nested, railMode, active = false, accentHex }) {
   const iconSz = railMode ? 20 : nested ? 16 : 18;
+  const onAccent = readableOnAccent(accentHex);
+  const activeStyle = active
+    ? { backgroundColor: accentHex, color: onAccent }
+    : undefined;
+
   if (railMode) {
     return (
       <button
@@ -106,9 +111,23 @@ function SidebarLink({ icon: Icon, label, onClick, nested, railMode }) {
         onClick={onClick}
         title={label}
         aria-label={label}
-        className="group mx-auto flex w-full max-w-[3rem] items-center justify-center rounded-xl border border-transparent py-2.5 text-white/80 transition hover:bg-white/[0.06] hover:text-[color:var(--hub-accent)] hover:[border-color:var(--hub-accent-border)]"
+        aria-current={active ? 'page' : undefined}
+        className={`group mx-auto flex w-full max-w-[3rem] items-center justify-center rounded-xl border border-transparent py-2.5 transition ${
+          active
+            ? 'shadow-sm hover:brightness-105'
+            : 'text-white/80 hover:bg-white/[0.06] hover:text-[color:var(--hub-accent)] hover:[border-color:var(--hub-accent-border)]'
+        }`}
+        style={activeStyle}
       >
-        <Icon size={iconSz} className="shrink-0 text-white/50 transition group-hover:text-[color:var(--hub-accent)]" />
+        <Icon
+          size={iconSz}
+          className={
+            active
+              ? 'shrink-0'
+              : 'shrink-0 text-white/50 transition group-hover:text-[color:var(--hub-accent)]'
+          }
+          style={active ? { color: onAccent } : undefined}
+        />
       </button>
     );
   }
@@ -116,13 +135,22 @@ function SidebarLink({ icon: Icon, label, onClick, nested, railMode }) {
     <button
       type="button"
       onClick={onClick}
-      className={`group flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left text-sm text-white/80 transition hover:bg-white/[0.05] hover:text-[color:var(--hub-accent)] hover:[border-color:var(--hub-accent-border)] ${
-        nested ? 'pl-6 text-[13px] text-white/70' : ''
-      }`}
+      aria-current={active ? 'page' : undefined}
+      className={`group flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left text-sm transition ${
+        active
+          ? 'font-semibold shadow-sm hover:brightness-105'
+          : 'text-white/80 hover:bg-white/[0.05] hover:text-[color:var(--hub-accent)] hover:[border-color:var(--hub-accent-border)]'
+      } ${nested && !active ? 'pl-6 text-[13px] text-white/70' : nested ? 'pl-6 text-[13px]' : ''}`}
+      style={activeStyle}
     >
       <Icon
         size={iconSz}
-        className="shrink-0 text-white/45 transition group-hover:text-[color:var(--hub-accent)]"
+        className={
+          active
+            ? 'shrink-0'
+            : 'shrink-0 text-white/45 transition group-hover:text-[color:var(--hub-accent)]'
+        }
+        style={active ? { color: onAccent } : undefined}
       />
       {label}
     </button>
@@ -653,17 +681,75 @@ export default function TechnicianWorkbenchPage({
             railMode={railMode}
             icon={LayoutGrid}
             label="Hub tecnico"
+            accentHex={accentHex}
+            active={hubCenterView === 'overview'}
             onClick={() => setHubCenterView('overview')}
           />
-          <SidebarLink railMode={railMode} icon={TicketHomeIcon} label="Ticket" onClick={() => onNavigateHome?.()} />
-          <SidebarLink railMode={railMode} icon={Building2} label="Office" onClick={() => setHubCenterView('office')} />
-          <SidebarLink railMode={railMode} icon={Mail} label="Email" onClick={() => setHubCenterView('email')} />
-          <SidebarLink railMode={railMode} icon={Shield} label="Anti-Virus" onClick={() => nav?.onOpenAntiVirus?.()} />
-          <SidebarLink railMode={railMode} icon={Eye} label="L-Sight" onClick={() => nav?.onOpenLSight?.()} />
-          <SidebarLink railMode={railMode} icon={Monitor} label="Dispositivi aziendali" onClick={() => nav?.onOpenDispositivi?.()} />
-          <SidebarLink railMode={railMode} icon={Gauge} label="Speed Test" onClick={() => nav?.onOpenSpeedTest?.()} />
-          <SidebarLink railMode={railMode} icon={Wifi} label="Monitoraggio rete" onClick={() => nav?.onOpenNetwork?.()} />
-          <SidebarLink railMode={railMode} icon={MapPin} label="Mappatura" onClick={() => nav?.onOpenMappatura?.()} />
+          <SidebarLink
+            railMode={railMode}
+            icon={TicketHomeIcon}
+            label="Ticket"
+            accentHex={accentHex}
+            onClick={() => onNavigateHome?.()}
+          />
+          <SidebarLink
+            railMode={railMode}
+            icon={Building2}
+            label="Office"
+            accentHex={accentHex}
+            active={hubCenterView === 'office'}
+            onClick={() => setHubCenterView('office')}
+          />
+          <SidebarLink
+            railMode={railMode}
+            icon={Mail}
+            label="Email"
+            accentHex={accentHex}
+            active={hubCenterView === 'email'}
+            onClick={() => setHubCenterView('email')}
+          />
+          <SidebarLink
+            railMode={railMode}
+            icon={Shield}
+            label="Anti-Virus"
+            accentHex={accentHex}
+            onClick={() => nav?.onOpenAntiVirus?.()}
+          />
+          <SidebarLink
+            railMode={railMode}
+            icon={Eye}
+            label="L-Sight"
+            accentHex={accentHex}
+            onClick={() => nav?.onOpenLSight?.()}
+          />
+          <SidebarLink
+            railMode={railMode}
+            icon={Monitor}
+            label="Dispositivi aziendali"
+            accentHex={accentHex}
+            onClick={() => nav?.onOpenDispositivi?.()}
+          />
+          <SidebarLink
+            railMode={railMode}
+            icon={Gauge}
+            label="Speed Test"
+            accentHex={accentHex}
+            onClick={() => nav?.onOpenSpeedTest?.()}
+          />
+          <SidebarLink
+            railMode={railMode}
+            icon={Wifi}
+            label="Monitoraggio rete"
+            accentHex={accentHex}
+            onClick={() => nav?.onOpenNetwork?.()}
+          />
+          <SidebarLink
+            railMode={railMode}
+            icon={MapPin}
+            label="Mappatura"
+            accentHex={accentHex}
+            onClick={() => nav?.onOpenMappatura?.()}
+          />
 
           <div className={railMode ? 'w-full pt-2' : 'pt-2'}>
             <NavGroup railMode={railMode} title="Comunicazioni" open={navToolsOpen} onToggle={() => setNavToolsOpen((o) => !o)}>
@@ -672,6 +758,8 @@ export default function TechnicianWorkbenchPage({
                 nested
                 icon={Monitor}
                 label="Agent comunicazioni"
+                accentHex={accentHex}
+                active={hubCenterView === 'comm-agent-manager'}
                 onClick={() => setHubCenterView('comm-agent-manager')}
               />
               <SidebarLink
@@ -679,6 +767,8 @@ export default function TechnicianWorkbenchPage({
                 nested
                 icon={Bell}
                 label="Invia comunicazione"
+                accentHex={accentHex}
+                active={hubCenterView === 'comunicazioni'}
                 onClick={() => setHubCenterView('comunicazioni')}
               />
             </NavGroup>
@@ -686,10 +776,38 @@ export default function TechnicianWorkbenchPage({
 
           <div className={railMode ? 'w-full pt-2' : 'pt-2'}>
             <NavGroup railMode={railMode} title="Altri progetti" open={navProjectsOpen} onToggle={() => setNavProjectsOpen((o) => !o)}>
-              <SidebarLink railMode={railMode} nested icon={Calendar} label="Orari e Turni" onClick={() => nav?.onOpenOrari?.()} />
-              <SidebarLink railMode={railMode} nested icon={Volume2} label="Vivaldi" onClick={() => nav?.onOpenVivaldi?.()} />
-              <SidebarLink railMode={railMode} nested icon={Monitor} label="PackVision" onClick={() => nav?.onOpenPackVision?.()} />
-              <SidebarLink railMode={railMode} nested icon={Layers} label="VPN" onClick={() => nav?.onOpenVpn?.()} />
+              <SidebarLink
+                railMode={railMode}
+                nested
+                icon={Calendar}
+                label="Orari e Turni"
+                accentHex={accentHex}
+                onClick={() => nav?.onOpenOrari?.()}
+              />
+              <SidebarLink
+                railMode={railMode}
+                nested
+                icon={Volume2}
+                label="Vivaldi"
+                accentHex={accentHex}
+                onClick={() => nav?.onOpenVivaldi?.()}
+              />
+              <SidebarLink
+                railMode={railMode}
+                nested
+                icon={Monitor}
+                label="PackVision"
+                accentHex={accentHex}
+                onClick={() => nav?.onOpenPackVision?.()}
+              />
+              <SidebarLink
+                railMode={railMode}
+                nested
+                icon={Layers}
+                label="VPN"
+                accentHex={accentHex}
+                onClick={() => nav?.onOpenVpn?.()}
+              />
             </NavGroup>
           </div>
         </nav>
