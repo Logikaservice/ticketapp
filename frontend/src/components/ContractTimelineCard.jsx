@@ -1,7 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import { Download, FileText, Clock, AlertCircle, CheckCircle, Edit, Paperclip } from 'lucide-react';
 
-const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) => {
+const ContractTimelineCard = ({
+    contract,
+    currentUser,
+    getAuthHeader,
+    onEdit,
+    /** 'light': dashboard chiara • 'hub': superficie scura (--hub-surface) come nell'Hub tecnico */
+    variant = 'light'
+}) => {
     const [showFilesMenu, setShowFilesMenu] = useState(false);
     
     if (!contract) return null;
@@ -81,33 +88,62 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
     
     // Find the first non-processed event for yellow color (solo tra gli eventi visibili)
     const firstNonProcessedIndex = visibleEvents.findIndex(e => !e.is_processed);
+    const isHub = variant === 'hub';
 
     return (
-        <div className="bg-white border border-gray-200 rounded-lg p-5 relative">
+        <div
+            className={
+                isHub
+                    ? 'relative rounded-lg border border-white/10 bg-[color:var(--hub-surface)] p-5'
+                    : 'relative rounded-lg border border-gray-200 bg-white p-5'
+            }
+        >
             {/* Header */}
             <div className="flex justify-between items-start mb-5">
                 <div>
-                    <h3 className="text-lg font-bold text-gray-800 mb-1">{contract.title}</h3>
+                    <h3
+                        className={
+                            isHub ? 'mb-1 text-lg font-bold text-white/90' : 'mb-1 text-lg font-bold text-gray-800'
+                        }
+                    >
+                        {contract.title}
+                    </h3>
                     {contract.client_name && currentUser?.ruolo === 'tecnico' && (
-                        <p className="text-gray-400 text-xs mt-1">Cliente: {contract.client_name}</p>
+                        <p className={`text-xs mt-1 ${isHub ? 'text-white/45' : 'text-gray-400'}`}>
+                            Cliente: {contract.client_name}
+                        </p>
                     )}
                 </div>
                 <div className="text-right">
                     <div className="flex items-center gap-2 mb-2">
-                        <div className="bg-teal-50 border border-teal-200 text-teal-700 px-3 py-1 rounded-full text-xs font-medium inline-block">
+                        <div
+                            className={
+                                isHub
+                                    ? 'inline-block rounded-full border border-teal-400/35 bg-teal-500/15 px-3 py-1 text-xs font-medium text-teal-100'
+                                    : 'inline-block rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-medium text-teal-700'
+                            }
+                        >
                             {contract.billing_frequency === 'monthly' ? 'Mensile' :
                                 contract.billing_frequency === 'quarterly' ? 'Trimestrale' :
                                     contract.billing_frequency === 'semiannual' ? 'Semestrale' :
                                     contract.billing_frequency === 'annual' ? 'Annuale' : 'Personalizzata'}
                         </div>
                         {contract.end_date && (
-                            <span className="text-xs text-gray-600 font-medium">Scadenza: {formatDate(contract.end_date)}</span>
+                            <span
+                                className={`text-xs font-medium ${isHub ? 'text-white/55' : 'text-gray-600'}`}
+                            >
+                                Scadenza: {formatDate(contract.end_date)}
+                            </span>
                         )}
                         {/* Edit button (only for technicians) - spostato qui */}
                         {currentUser?.ruolo === 'tecnico' && onEdit && (
                             <button
                                 onClick={() => onEdit(contract)}
-                                className="p-1.5 hover:bg-blue-50 rounded transition-colors text-blue-600 hover:text-blue-700"
+                                className={
+                                    isHub
+                                        ? 'rounded p-1.5 text-[color:var(--td-accent)] transition-colors hover:bg-white/10'
+                                        : 'rounded p-1.5 text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700'
+                                }
                                 title="Modifica contratto"
                             >
                                 <Edit size={16} />
@@ -140,7 +176,11 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
                                 <div className="relative">
                                     <button
                                         onClick={() => setShowFilesMenu(!showFilesMenu)}
-                                        className="p-1.5 hover:bg-gray-100 rounded transition-colors text-gray-600 hover:text-gray-700 relative"
+                                        className={
+                                            isHub
+                                                ? 'relative rounded p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white/85'
+                                                : 'relative rounded p-1.5 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-700'
+                                        }
                                         title={`${files.length} allegato${files.length !== 1 ? 'i' : ''}`}
                                     >
                                         <Paperclip size={16} />
@@ -160,7 +200,13 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
                                             ></div>
                                             
                                             {/* Menu dropdown */}
-                                            <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-[200px] py-1">
+                                            <div
+                                                className={
+                                                    isHub
+                                                        ? 'absolute right-0 top-full z-20 mt-2 min-w-[200px] rounded-lg border border-white/15 bg-[color:var(--hub-surface)] py-1 shadow-lg'
+                                                        : 'absolute right-0 top-full z-20 mt-2 min-w-[200px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg'
+                                                }
+                                            >
                                                 {files.map((file, index) => {
                                                     const filePath = typeof file === 'string' ? file : file.path;
                                                     const fileName = typeof file === 'string' 
@@ -173,9 +219,13 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
                                                                 window.open(filePath.startsWith('http') ? filePath : `${apiUrl}${filePath}`, '_blank');
                                                                 setShowFilesMenu(false);
                                                             }}
-                                                            className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-50 text-left text-sm text-gray-700 transition-colors"
+                                                            className={
+                                                                isHub
+                                                                    ? 'flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-white/85 transition-colors hover:bg-white/10'
+                                                                    : 'flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50'
+                                                            }
                                                         >
-                                                            <Download size={14} className="text-gray-400" />
+                                                            <Download size={14} className={isHub ? 'text-white/45' : 'text-gray-400'} />
                                                             <span className="truncate flex-1">{fileName}</span>
                                                         </button>
                                                     );
@@ -193,13 +243,25 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
             {/* Timeline Visual */}
             <div className="relative py-8 mb-5 px-6">
                 {/* Line */}
-                <div className="absolute top-1/2 left-6 right-6 h-1 bg-gray-200 rounded-full -translate-y-1/2"></div>
+                <div
+                    className={
+                        isHub
+                            ? 'absolute left-6 right-6 top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/12'
+                            : 'absolute left-6 right-6 top-1/2 h-1 -translate-y-1/2 rounded-full bg-gray-200'
+                    }
+                ></div>
                 <div className="absolute top-1/2 left-6 h-1 bg-teal-400 rounded-full -translate-y-1/2 transition-all duration-1000" style={{ width: `calc((100% - 48px) * ${progress / 100})` }}></div>
 
                 {/* Current Point (Today) */}
                 <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `calc(24px + ((100% - 48px) * ${progress / 100}))` }}>
                     <div className="relative -ml-1.5">
-                        <div className="w-3 h-3 rounded-full bg-teal-500 border-2 border-white z-10 relative"></div>
+                        <div
+                            className={
+                                isHub
+                                    ? 'relative z-10 h-3 w-3 rounded-full border-2 border-[color:var(--hub-surface)] bg-teal-500'
+                                    : 'relative z-10 h-3 w-3 rounded-full border-2 border-white bg-teal-500'
+                            }
+                        ></div>
                         <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-teal-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded whitespace-nowrap">
                             OGGI
                         </div>
@@ -220,7 +282,29 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
                     let iconColor = 'text-gray-500';
                     const isRenewal = event.event_type === 'renewal' || event.type === 'renewal';
                     
-                    if (isRenewal) {
+                    if (isHub) {
+                        if (isRenewal) {
+                            borderColor = 'border-blue-400';
+                            bgColor = 'bg-blue-500/20';
+                            textColor = 'text-blue-200';
+                            iconColor = 'text-blue-300';
+                        } else if (isProcessed) {
+                            borderColor = 'border-emerald-400';
+                            bgColor = 'bg-emerald-500/18';
+                            textColor = 'text-emerald-200';
+                            iconColor = 'text-emerald-300';
+                        } else if (isFirstNonProcessed) {
+                            borderColor = 'border-amber-400';
+                            bgColor = 'bg-amber-500/18';
+                            textColor = 'text-amber-200';
+                            iconColor = 'text-amber-300';
+                        } else {
+                            borderColor = 'border-white/35';
+                            bgColor = 'bg-white/10';
+                            textColor = 'text-zinc-300';
+                            iconColor = 'text-zinc-400';
+                        }
+                    } else if (isRenewal) {
                         borderColor = 'border-blue-500';
                         bgColor = 'bg-blue-50';
                         textColor = 'text-blue-700';
@@ -286,7 +370,7 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
                                 <div className={`text-xs font-semibold ${textColor}`}>
                                     {displayDescription}
                                 </div>
-                                <div className="text-[10px] text-gray-400">{formatDate(event.event_date)}</div>
+                                <div className={`text-[10px] ${isHub ? 'text-white/45' : 'text-gray-400'}`}>{formatDate(event.event_date)}</div>
                             </div>
                         </div>
                     );
@@ -295,9 +379,21 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
 
             {/* Bottom Actions */}
             {nextEvent && daysToNextEvent <= 30 && (
-                <div className="flex justify-between items-center border-t border-gray-200 pt-4">
+                <div
+                    className={`flex justify-between items-center border-t pt-4 ${isHub ? 'border-white/10' : 'border-gray-200'}`}
+                >
                     <div className="flex gap-4">
-                        <div className={`flex items-center gap-2 text-sm ${daysToNextEvent <= 7 ? 'text-red-600 font-medium' : 'text-amber-600'}`}>
+                        <div
+                            className={`flex items-center gap-2 text-sm ${
+                                isHub
+                                    ? daysToNextEvent <= 7
+                                        ? 'font-medium text-red-400'
+                                        : 'text-amber-400'
+                                    : daysToNextEvent <= 7
+                                      ? 'font-medium text-red-600'
+                                      : 'text-amber-600'
+                            }`}
+                        >
                             <Clock size={16} />
                             <span>Prossima scadenza tra {daysToNextEvent} {daysToNextEvent === 1 ? 'giorno' : 'giorni'}</span>
                         </div>

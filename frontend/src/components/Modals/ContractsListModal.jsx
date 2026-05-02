@@ -275,7 +275,7 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
                                             {deletingId === contract.id ? 'Eliminazione...' : 'Elimina'}
                                         </button>
                                     </div>
-                                    <ContractTimelineCard contract={contract} />
+                                    <ContractTimelineCard contract={contract} variant="hub" />
                                 </div>
                             ))}
                         </div>
