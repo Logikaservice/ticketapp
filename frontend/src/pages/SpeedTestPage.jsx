@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
+import { hexToRgba, normalizeHex, getStoredTechHubAccent } from '../utils/techHubAccent';
 
 /** Riempimento arco ping (indipendente dalla soglia colore). */
 function getPingPct(ping) {
@@ -830,6 +831,11 @@ const SpeedTestPage = ({
   onNavigateMappatura,
   onNavigateDispositiviAziendali,
   onNavigateVpn,
+  /** Opzionale: navigazione LSight dalla tendina moduli quando non embedded. */
+  onNavigateLSight,
+  embedded = false,
+  closeEmbedded,
+  accentHex: accentHexProp,
   selectedCompanyId
 }) => {
   const [overview, setOverview] = useState([]);
@@ -855,6 +861,100 @@ const SpeedTestPage = ({
   /** Aggiorna il calcolo di “X min fa” senza cambiare i dati API (evita testo congelato vs rientro pagina). */
   const [heartbeatTick, setHeartbeatTick] = useState(0);
   const pageScrollRef = useRef(null);
+  const accent = useMemo(() => normalizeHex(accentHexProp) || getStoredTechHubAccent(), [accentHexProp]);
+  const onEmbeddedHubBack = useCallback(() => {
+    if (typeof closeEmbedded === 'function') closeEmbedded();
+    else onNavigateHome?.();
+  }, [closeEmbedded, onNavigateHome]);
+
+  const embeddedBackBtnStyle = useMemo(
+    () => ({
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: '8px 12px',
+      borderRadius: 12,
+      border: '1px solid rgba(255,255,255,0.12)',
+      background: 'rgba(0,0,0,0.28)',
+      color: 'rgba(255,255,255,0.82)',
+      cursor: 'pointer',
+      fontSize: 13,
+      fontWeight: 600,
+      flexShrink: 0
+    }),
+    []
+  );
+
+  const embeddedOuterStyle = useMemo(
+    () => ({
+      ...styles.page,
+      position: 'relative',
+      inset: 'unset',
+      flex: '1 1 0%',
+      minHeight: 0,
+      height: '100%',
+      width: '100%',
+      maxHeight: '100%',
+      zIndex: 1,
+      borderRadius: 16,
+      border: '1px solid rgba(255,255,255,0.08)',
+      ['--hub-accent']: accent,
+      ['--hub-accent-border']: hexToRgba(accent, 0.48)
+    }),
+    [embedded, accent]
+  );
+
+  const speedNavOrBack = useMemo(() => {
+    if (embedded) {
+      return (
+        <button type="button" onClick={onEmbeddedHubBack} style={embeddedBackBtnStyle}>
+          <ArrowLeft size={18} aria-hidden />
+          Panoramica Hub
+        </button>
+      );
+    }
+    return (
+      <SectionNavMenu
+        currentPage="speedtest"
+        onNavigateHome={onNavigateHome}
+        onNavigateOffice={onNavigateOffice}
+        onNavigateEmail={onNavigateEmail}
+        onNavigateAntiVirus={onNavigateAntiVirus}
+        onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
+        onNavigateMappatura={onNavigateMappatura}
+        onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
+        onNavigateVpn={onNavigateVpn}
+        onNavigateLSight={onNavigateLSight}
+        currentUser={currentUser}
+        selectedCompanyId={selectedCompanyId}
+      />
+    );
+  }, [
+    embedded,
+    onEmbeddedHubBack,
+    embeddedBackBtnStyle,
+    embedded,
+    onNavigateHome,
+    onNavigateOffice,
+    onNavigateEmail,
+    onNavigateAntiVirus,
+    onNavigateNetworkMonitoring,
+    onNavigateMappatura,
+    onNavigateDispositiviAziendali,
+    onNavigateVpn,
+    onNavigateLSight,
+    currentUser,
+    selectedCompanyId
+  ]);
+
+  const headerIconBoxStyle = useMemo(() => {
+    if (!embedded) return styles.headerIcon;
+    return {
+      ...styles.headerIcon,
+      background: `linear-gradient(135deg, ${hexToRgba(accent, 0.95)}, ${hexToRgba(accent, 0.35)})`
+    };
+  }, [embedded, accent]);
+
   useEffect(() => {
     const id = window.setInterval(() => setHeartbeatTick((n) => n + 1), 30000);
     return () => window.clearInterval(id);
@@ -1375,25 +1475,13 @@ const SpeedTestPage = ({
     );
     const publicIpStabLabel = publicIpStabilityParen(publicIpStabilityDetail);
 
-    return createPortal(
-      <div style={styles.page} ref={pageScrollRef}>
+    const detailMarkup = (
+      <div style={embedded ? embeddedOuterStyle : styles.page} ref={pageScrollRef}>
         {/* Intestazione */}
         <div style={styles.header}>
           <div style={styles.headerLeft}>
-            <SectionNavMenu
-              currentPage="speedtest"
-              onNavigateHome={onNavigateHome}
-              onNavigateOffice={onNavigateOffice}
-              onNavigateEmail={onNavigateEmail}
-              onNavigateAntiVirus={onNavigateAntiVirus}
-              onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
-              onNavigateMappatura={onNavigateMappatura}
-              onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
-              onNavigateVpn={onNavigateVpn}
-              currentUser={currentUser}
-              selectedCompanyId={selectedCompanyId}
-            />
-            <div style={styles.headerIcon}>
+            {speedNavOrBack}
+            <div style={headerIconBoxStyle}>
               <Gauge size={20} color="white" />
             </div>
             <div>
@@ -1938,31 +2026,20 @@ const SpeedTestPage = ({
 
         {/* CSS animazione spin */}
         <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-      </div>,
-      document.body
+      </div>
     );
+
+    return embedded ? detailMarkup : createPortal(detailMarkup, document.body);
   }
 
   // VISTA PANORAMICA
-  return createPortal(
-    <div style={styles.page} ref={pageScrollRef}>
+  const overviewMarkup = (
+    <div style={embedded ? embeddedOuterStyle : styles.page} ref={pageScrollRef}>
       {/* Intestazione */}
       <div style={styles.header}>
         <div style={styles.headerLeft}>
-          <SectionNavMenu
-            currentPage="speedtest"
-            onNavigateHome={onNavigateHome}
-            onNavigateOffice={onNavigateOffice}
-            onNavigateEmail={onNavigateEmail}
-            onNavigateAntiVirus={onNavigateAntiVirus}
-            onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
-            onNavigateMappatura={onNavigateMappatura}
-            onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
-            onNavigateVpn={onNavigateVpn}
-            currentUser={currentUser}
-            selectedCompanyId={selectedCompanyId}
-          />
-          <div style={styles.headerIcon}>
+          {speedNavOrBack}
+          <div style={headerIconBoxStyle}>
             <Gauge size={20} color="white" />
           </div>
           <div>
@@ -2130,9 +2207,10 @@ const SpeedTestPage = ({
 
       {/* CSS animazione spin */}
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-    </div>,
-    document.body
+    </div>
   );
+
+  return embedded ? overviewMarkup : createPortal(overviewMarkup, document.body);
 };
 
 export default SpeedTestPage;

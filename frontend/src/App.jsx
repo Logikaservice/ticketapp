@@ -270,6 +270,8 @@ export default function TicketApp() {
   const [hubEmbedAntiVirusKick, setHubEmbedAntiVirusKick] = useState(0);
   /** Dispositivi aziendali nel centro Hub (stesso schema). */
   const [hubEmbedDispositiviKick, setHubEmbedDispositiviKick] = useState(0);
+  /** Speed Test nel centro Hub (solo tecnici/admin). */
+  const [hubEmbedSpeedtestKick, setHubEmbedSpeedtestKick] = useState(0);
 
   const [dispositiviAziendaliHighlightMac, setDispositiviAziendaliHighlightMac] = useState(null);
   const [showDeviceAnalysisStandalone, setShowDeviceAnalysisStandalone] = useState(false);
@@ -373,13 +375,15 @@ export default function TicketApp() {
         viewName === 'office' ||
         viewName === 'email' ||
         viewName === 'antivirus' ||
-        viewName === 'dispositivi-aziendali'
+        viewName === 'dispositivi-aziendali' ||
+        (viewName === 'speedtest' && (currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin'))
       ) {
         handleOpenTechnicianWorkbench();
         if (viewName === 'office') setHubEmbedOfficeKick((n) => n + 1);
         else if (viewName === 'email') setHubEmbedEmailKick((n) => n + 1);
         else if (viewName === 'antivirus') setHubEmbedAntiVirusKick((n) => n + 1);
-        else setHubEmbedDispositiviKick((n) => n + 1);
+        else if (viewName === 'dispositivi-aziendali') setHubEmbedDispositiviKick((n) => n + 1);
+        else setHubEmbedSpeedtestKick((n) => n + 1);
         return;
       }
     }
@@ -539,6 +543,30 @@ export default function TicketApp() {
       setShowCommAgentManager(false);
       setShowVpnManager(false);
       setHubEmbedDispositiviKick((n) => n + 1);
+      return;
+    }
+    if (
+      hubEmbedFromToken &&
+      view === 'speedtest' &&
+      (currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin')
+    ) {
+      setShowDeviceAnalysisStandalone(false);
+      setShowTechnicianWorkbench(true);
+      setShowDashboard(false);
+      setShowMappatura(false);
+      setShowNetworkMonitoring(false);
+      setShowLSight(false);
+      setShowLSightSession(false);
+      setShowAntiVirus(false);
+      setShowFlottaPC(false);
+      setShowSpeedTest(false);
+      setShowPackVision(false);
+      setShowOrariTurni(false);
+      setShowVivaldi(false);
+      setShowCommAgent(false);
+      setShowCommAgentManager(false);
+      setShowVpnManager(false);
+      setHubEmbedSpeedtestKick((n) => n + 1);
       return;
     }
 
@@ -848,6 +876,16 @@ export default function TicketApp() {
   };
 
   const handleOpenSpeedTest = () => {
+    const canSpeed =
+      currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
+    const openInHub =
+      canSpeed &&
+      (mountsTicketHubUser(currentUser) || mountsTicketHubFromRole(getRuoloFromStoredToken()));
+    if (openInHub) {
+      handleOpenTechnicianWorkbench();
+      setHubEmbedSpeedtestKick((n) => n + 1);
+      return;
+    }
     setShowTechnicianWorkbench(false);
     setShowSpeedTest(true);
     setShowDashboard(false);
@@ -1008,6 +1046,7 @@ export default function TicketApp() {
       setHubEmbedOfficeKick(0);
       setHubEmbedAntiVirusKick(0);
       setHubEmbedDispositiviKick(0);
+      setHubEmbedSpeedtestKick(0);
     }
   }, [showTechnicianWorkbench]);
 
@@ -3902,6 +3941,7 @@ export default function TicketApp() {
             hubEmbedOfficeKick={hubEmbedOfficeKick}
             hubEmbedAntiVirusKick={hubEmbedAntiVirusKick}
             hubEmbedDispositiviKick={hubEmbedDispositiviKick}
+            hubEmbedSpeedtestKick={hubEmbedSpeedtestKick}
             dispositiviHighlightMac={dispositiviAziendaliHighlightMac}
           />
         )}
@@ -4601,7 +4641,7 @@ export default function TicketApp() {
           getAuthHeader={getAuthHeader}
           onNavigateHome={() => { setShowSpeedTest(false); setShowDashboard(true); }}
           onNavigateOffice={handleOpenOffice}
-            onNavigateLSight={handleOpenLSight}
+          onNavigateLSight={handleOpenLSight}
           onNavigateEmail={handleOpenEmail}
           onNavigateAntiVirus={handleOpenAntiVirus}
           onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}

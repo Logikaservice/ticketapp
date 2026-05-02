@@ -39,6 +39,16 @@ export const HUB_MODULE_META = {
     category: 'Moduli',
     defaultPlacement: { col: 7, row: 2, w: 1, h: 1 }
   },
+  'launch-dispositivi': {
+    label: 'Dispositivi',
+    category: 'Moduli',
+    defaultPlacement: { col: 5, row: 7, w: 3, h: 1 }
+  },
+  'launch-speedtest': {
+    label: 'Speed test',
+    category: 'Moduli',
+    defaultPlacement: { col: 1, row: 8, w: 2, h: 1 }
+  },
   contracts: {
     label: 'Contratti attivi',
     category: 'KPI',

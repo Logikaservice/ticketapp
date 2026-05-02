@@ -14,7 +14,9 @@ import {
   RotateCcw,
   Layers,
   Building2,
-  LayoutGrid
+  LayoutGrid,
+  Monitor,
+  Gauge
 } from 'lucide-react';
 import { hexToRgba } from '../../utils/techHubAccent';
 import HubContractsActiveCard from './HubContractsActiveCard';
@@ -198,6 +200,8 @@ export default function HubOverviewSection({
     saveHubLayout(layoutUserKey, hubLayout);
   }, [hubLayout, layoutUserKey]);
 
+  const hubCanSpeedTest = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
+
   const handleDragStart = (e, id) => {
     if (!hubLayoutEditMode || !isTechnician) return;
     dragIdRef.current = id;
@@ -357,6 +361,30 @@ export default function HubOverviewSection({
             onClick={() => setHubCenterView?.('antivirus')}
             subdued={veil}
             suppressInteraction={suppressInteraction}
+          />
+        );
+      case 'launch-dispositivi':
+        return (
+          <ModuleLaunchCard
+            icon={Monitor}
+            label="Dispositivi"
+            subtitle="Parco macchine"
+            accent={accentHex}
+            onClick={() => setHubCenterView?.('dispositivi')}
+            subdued={veil}
+            suppressInteraction={suppressInteraction}
+          />
+        );
+      case 'launch-speedtest':
+        return (
+          <ModuleLaunchCard
+            icon={Gauge}
+            label="Speed test"
+            subtitle={hubCanSpeedTest ? 'Velocità linea' : 'Solo tecnici'}
+            accent={accentHex}
+            onClick={hubCanSpeedTest ? () => setHubCenterView?.('speedtest') : undefined}
+            subdued={veil || !hubCanSpeedTest}
+            suppressInteraction={suppressInteraction || !hubCanSpeedTest}
           />
         );
       case 'launch-office':

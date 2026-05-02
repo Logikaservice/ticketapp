@@ -41,6 +41,7 @@ import EmailPage from './EmailPage';
 import OfficePage from './OfficePage';
 import AntiVirusPage from './AntiVirusPage';
 import DispositiviAziendaliPage from './DispositiviAziendaliPage';
+import SpeedTestPage from './SpeedTestPage';
 import {
   TECH_HUB_ACCENT_PALETTE,
   STORAGE_KEY_TECH_HUB_ACCENT,
@@ -432,6 +433,7 @@ export default function TechnicianWorkbenchPage({
   /** Anti-Virus integrato nell’Hub (kick da App / hash). */
   hubEmbedAntiVirusKick = 0,
   hubEmbedDispositiviKick = 0,
+  hubEmbedSpeedtestKick = 0,
   dispositiviHighlightMac = null
 }) {
   const [accentHex, setAccentHex] = useState(getStoredTechHubAccent);
@@ -445,9 +447,10 @@ export default function TechnicianWorkbenchPage({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   /** Centro Hub: panoramica a griglia oppure modulo integrato (Comunicazioni, Email, Anti-Virus…). */
   const [hubCenterView, setHubCenterView] = useState(
-    /** @type {'overview' | 'comunicazioni' | 'comm-agent-manager' | 'email' | 'office' | 'antivirus' | 'dispositivi' | 'contratti' | 'avvisi'} */ ('overview')
+    /** @type {'overview' | 'comunicazioni' | 'comm-agent-manager' | 'email' | 'office' | 'antivirus' | 'dispositivi' | 'speedtest' | 'contratti' | 'avvisi'} */ ('overview')
   );
   const isTechnician = currentUser?.ruolo === 'tecnico';
+  const canSpeedTest = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
   const hubLayoutUserKey = currentUser?.id ?? currentUser?.email ?? '';
 
   /** Carica subito dal localStorage: se lo facessimo solo in useEffect, il figlio salverebbe il default e cancellerebbe il salvataggio. */
@@ -488,6 +491,10 @@ export default function TechnicianWorkbenchPage({
   useEffect(() => {
     if (hubEmbedDispositiviKick > 0) setHubCenterView('dispositivi');
   }, [hubEmbedDispositiviKick]);
+
+  useEffect(() => {
+    if (hubEmbedSpeedtestKick > 0 && canSpeedTest) setHubCenterView('speedtest');
+  }, [hubEmbedSpeedtestKick, canSpeedTest]);
 
   const userMenuRef = useRef(null);
   const accentPickerRef = useRef(null);
@@ -745,13 +752,16 @@ export default function TechnicianWorkbenchPage({
             active={hubCenterView === 'dispositivi'}
             onClick={() => setHubCenterView('dispositivi')}
           />
-          <SidebarLink
-            railMode={railMode}
-            icon={Gauge}
-            label="Speed Test"
-            accentHex={accentHex}
-            onClick={() => nav?.onOpenSpeedTest?.()}
-          />
+          {canSpeedTest && (
+            <SidebarLink
+              railMode={railMode}
+              icon={Gauge}
+              label="Speed Test"
+              accentHex={accentHex}
+              active={hubCenterView === 'speedtest'}
+              onClick={() => setHubCenterView('speedtest')}
+            />
+          )}
           <SidebarLink
             railMode={railMode}
             icon={Wifi}
@@ -884,6 +894,8 @@ export default function TechnicianWorkbenchPage({
                             ? 'Anti-Virus'
                             : hubCenterView === 'dispositivi'
                               ? 'Dispositivi aziendali'
+                              : hubCenterView === 'speedtest'
+                              ? 'Speed Test'
                               : hubCenterView === 'contratti'
                                 ? 'Contratti attivi'
                                 : hubCenterView === 'avvisi'
@@ -976,6 +988,7 @@ export default function TechnicianWorkbenchPage({
               hubCenterView === 'office' ||
               hubCenterView === 'antivirus' ||
               hubCenterView === 'dispositivi' ||
+              hubCenterView === 'speedtest' ||
               hubCenterView === 'contratti' ||
               hubCenterView === 'avvisi'
                 ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-2 md:px-5 md:pb-5'
@@ -1017,7 +1030,7 @@ export default function TechnicianWorkbenchPage({
                 onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
                 onNavigateNetworkMonitoring={() => nav?.onOpenNetwork?.()}
                 onNavigateMappatura={() => nav?.onOpenMappatura?.()}
-                onNavigateSpeedTest={() => nav?.onOpenSpeedTest?.()}
+                onNavigateSpeedTest={canSpeedTest ? () => setHubCenterView('speedtest') : undefined}
                 onNavigateVpn={() => nav?.onOpenVpn?.()}
                 onNavigateHome={() => setHubCenterView('overview')}
               />
@@ -1036,7 +1049,7 @@ export default function TechnicianWorkbenchPage({
                 onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
                 onNavigateNetworkMonitoring={() => nav?.onOpenNetwork?.()}
                 onNavigateMappatura={() => nav?.onOpenMappatura?.()}
-                onNavigateSpeedTest={() => nav?.onOpenSpeedTest?.()}
+                onNavigateSpeedTest={canSpeedTest ? () => setHubCenterView('speedtest') : undefined}
                 onNavigateVpn={() => nav?.onOpenVpn?.()}
                 onNavigateHome={() => setHubCenterView('overview')}
               />
@@ -1059,7 +1072,7 @@ export default function TechnicianWorkbenchPage({
                 onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
                 onNavigateNetworkMonitoring={() => nav?.onOpenNetwork?.()}
                 onNavigateMappatura={() => nav?.onOpenMappatura?.()}
-                onNavigateSpeedTest={() => nav?.onOpenSpeedTest?.()}
+                onNavigateSpeedTest={canSpeedTest ? () => setHubCenterView('speedtest') : undefined}
                 onNavigateVpn={() => nav?.onOpenVpn?.()}
                 onNavigateLSight={() => nav?.onOpenLSight?.()}
                 onNavigateHome={() => setHubCenterView('overview')}
@@ -1083,12 +1096,30 @@ export default function TechnicianWorkbenchPage({
                 onNavigateAntiVirus={() => setHubCenterView('antivirus')}
                 onNavigateNetworkMonitoring={() => nav?.onOpenNetwork?.()}
                 onNavigateMappatura={() => nav?.onOpenMappatura?.()}
-                onNavigateSpeedTest={() => nav?.onOpenSpeedTest?.()}
+                onNavigateSpeedTest={canSpeedTest ? () => setHubCenterView('speedtest') : undefined}
                 onNavigateVpn={() => nav?.onOpenVpn?.()}
                 onNavigateLSight={() => nav?.onOpenLSight?.()}
                 onNavigateHome={() => setHubCenterView('overview')}
                 onNavigateCommAgent={() => setHubCenterView('comunicazioni')}
                 onNavigateCommAgentManager={() => setHubCenterView('comm-agent-manager')}
+              />
+            ) : hubCenterView === 'speedtest' && canSpeedTest ? (
+              <SpeedTestPage
+                embedded
+                accentHex={accentHex}
+                closeEmbedded={() => setHubCenterView('overview')}
+                currentUser={currentUser}
+                getAuthHeader={getAuthHeader}
+                selectedCompanyId={selectedCompanyId}
+                onNavigateHome={() => setHubCenterView('overview')}
+                onNavigateOffice={() => setHubCenterView('office')}
+                onNavigateEmail={() => setHubCenterView('email')}
+                onNavigateAntiVirus={() => setHubCenterView('antivirus')}
+                onNavigateNetworkMonitoring={() => nav?.onOpenNetwork?.()}
+                onNavigateMappatura={() => nav?.onOpenMappatura?.()}
+                onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
+                onNavigateVpn={() => nav?.onOpenVpn?.()}
+                onNavigateLSight={() => nav?.onOpenLSight?.()}
               />
             ) : hubCenterView === 'comunicazioni' ? (
               <CommAgentDashboard
@@ -1104,7 +1135,9 @@ export default function TechnicianWorkbenchPage({
                 onNavigateAntiVirus={() => setHubCenterView('antivirus')}
                 onNavigateNetworkMonitoring={commAgentNav.onNavigateNetworkMonitoring}
                 onNavigateMappatura={commAgentNav.onNavigateMappatura}
-                onNavigateSpeedTest={commAgentNav.onNavigateSpeedTest}
+                onNavigateSpeedTest={
+                  canSpeedTest ? () => setHubCenterView('speedtest') : commAgentNav.onNavigateSpeedTest
+                }
                 onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
                 onNavigateCommAgentManager={() => setHubCenterView('comm-agent-manager')}
                 onNavigateVpn={commAgentNav.onNavigateVpn}
@@ -1123,7 +1156,9 @@ export default function TechnicianWorkbenchPage({
                 onNavigateAntiVirus={() => setHubCenterView('antivirus')}
                 onNavigateNetworkMonitoring={commAgentNav.onNavigateNetworkMonitoring}
                 onNavigateMappatura={commAgentNav.onNavigateMappatura}
-                onNavigateSpeedTest={commAgentNav.onNavigateSpeedTest}
+                onNavigateSpeedTest={
+                  canSpeedTest ? () => setHubCenterView('speedtest') : commAgentNav.onNavigateSpeedTest
+                }
                 onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
                 onNavigateVpn={commAgentNav.onNavigateVpn}
               />
