@@ -13,37 +13,10 @@ import {
     hexToRgba,
     readableOnAccent,
     getStoredTechHubAccent,
-    HUB_PAGE_BG,
-    HUB_SURFACE,
+    buildCommHubMessagingTheme,
     lightenHex,
     darkenHex
 } from '../utils/techHubAccent';
-
-/** Palette allineata all’Hub tecnico (stesso sfondo, superfici, accento utente). */
-function buildCommHubTheme(accentHex) {
-    const accent = normalizeHex(accentHex) || getStoredTechHubAccent();
-    return {
-        accent,
-        page: HUB_PAGE_BG,
-        surface: HUB_SURFACE,
-        well: 'rgba(0,0,0,0.28)',
-        border: 'rgba(255,255,255,0.08)',
-        borderMid: 'rgba(255,255,255,0.12)',
-        label: 'rgba(255,255,255,0.42)',
-        labelHi: 'rgba(255,255,255,0.55)',
-        text: 'rgba(255,255,255,0.92)',
-        textSoft: 'rgba(255,255,255,0.78)',
-        muted: 'rgba(255,255,255,0.38)',
-        tabInactive: 'rgba(255,255,255,0.4)',
-        accentSoft: hexToRgba(accent, 0.14),
-        accentSoft2: hexToRgba(accent, 0.1),
-        accentBorder: hexToRgba(accent, 0.48),
-        iconTileBg: hexToRgba(accent, 0.14),
-        btnPrimaryBg: accent,
-        btnPrimaryFg: readableOnAccent(accent),
-        sendDisabled: 'rgba(255,255,255,0.22)'
-    };
-}
 
 const CommAgentDashboard = ({
     currentUser,
@@ -65,7 +38,7 @@ const CommAgentDashboard = ({
     /** Accento tema (coerente con Hub); default da localStorage come l’Hub. */
     accentHex: accentHexProp
 }) => {
-    const th = useMemo(() => buildCommHubTheme(accentHexProp), [accentHexProp]);
+    const th = useMemo(() => buildCommHubMessagingTheme(accentHexProp), [accentHexProp]);
     // State
     const [activeTab, setActiveTab] = useState('send');
     const [agents, setAgents] = useState([]);
@@ -369,6 +342,29 @@ const CommAgentDashboard = ({
                             </p>
                         </div>
                     </div>
+                    {embedded && typeof onNavigateCommAgentManager === 'function' && (
+                        <button
+                            type="button"
+                            onClick={() => onNavigateCommAgentManager()}
+                            style={{
+                                flexShrink: 0,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                padding: '8px 12px',
+                                borderRadius: 12,
+                                border: `1px solid ${hexToRgba(th.accent, 0.45)}`,
+                                background: th.accentSoft2,
+                                color: th.accent,
+                                cursor: 'pointer',
+                                fontSize: 12,
+                                fontWeight: 700
+                            }}
+                        >
+                            <Monitor size={16} aria-hidden />
+                            Agent comunicazioni
+                        </button>
+                    )}
                 </div>
 
                 {/* Tab Bar */}

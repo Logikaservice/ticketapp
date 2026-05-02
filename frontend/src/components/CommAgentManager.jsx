@@ -1,16 +1,44 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-    X, Users, Monitor, Building2, Mail, Download, RefreshCw,
-    Trash2, Bell, Plus, Search, CheckCircle, Clock, WifiOff
+    Users,
+    Monitor,
+    Building2,
+    Mail,
+    Download,
+    RefreshCw,
+    Trash2,
+    Plus,
+    Search,
+    CheckCircle,
+    Clock,
+    ArrowLeft
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import SectionNavMenu from './SectionNavMenu';
+import { buildCommHubMessagingTheme } from '../utils/techHubAccent';
 
-const CommAgentManager = ({ 
-    currentUser, closeModal, notify,
-    selectedCompanyId, onNavigateHome, onNavigateOffice, onNavigateEmail, 
-    onNavigateAntiVirus, onNavigateNetworkMonitoring, onNavigateMappatura, 
-    onNavigateSpeedTest, onNavigateDispositiviAziendali, onNavigateVpn
+const TAB_DEFS = [
+    { id: 'agents', label: 'Agent Esistenti', icon: Monitor },
+    { id: 'create', label: 'Crea Agent', icon: Plus }
+];
+
+const CommAgentManager = ({
+    currentUser,
+    closeModal,
+    notify,
+    selectedCompanyId,
+    onNavigateHome,
+    onNavigateOffice,
+    onNavigateEmail,
+    onNavigateAntiVirus,
+    onNavigateNetworkMonitoring,
+    onNavigateMappatura,
+    onNavigateSpeedTest,
+    onNavigateDispositiviAziendali,
+    onNavigateVpn,
+    /** Incorporato nell’Hub tecnico (area centrale), stessi colori di Comunicazioni. */
+    embedded = false,
+    accentHex: accentHexProp
 }) => {
     const [activeTab, setActiveTab] = useState('agents');
     const [agents, setAgents] = useState([]);
@@ -20,23 +48,29 @@ const CommAgentManager = ({
     const [selectedAzienda, setSelectedAzienda] = useState('');
     const [downloadingId, setDownloadingId] = useState(null);
 
+    const th = useMemo(() => buildCommHubMessagingTheme(accentHexProp), [accentHexProp]);
+
     const getHeaders = useCallback(() => {
         const token = localStorage.getItem('authToken');
-        return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+        return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
     }, []);
 
     const fetchAgents = useCallback(async () => {
         try {
             const res = await fetch(buildApiUrl('/api/comm-agent/agents'), { headers: getHeaders() });
             if (res.ok) setAgents(await res.json());
-        } catch (err) { console.error('Errore fetch comm agents:', err); }
+        } catch (err) {
+            console.error('Errore fetch comm agents:', err);
+        }
     }, [getHeaders]);
 
     const fetchClients = useCallback(async () => {
         try {
             const res = await fetch(buildApiUrl('/api/comm-agent/clients'), { headers: getHeaders() });
             if (res.ok) setClients(await res.json());
-        } catch (err) { console.error('Errore fetch clients:', err); }
+        } catch (err) {
+            console.error('Errore fetch clients:', err);
+        }
     }, [getHeaders]);
 
     useEffect(() => {
@@ -48,7 +82,8 @@ const CommAgentManager = ({
         if (!window.confirm(`Eliminare l'agent su "${machineName}"? L'agent smetterà di funzionare.`)) return;
         try {
             const res = await fetch(buildApiUrl(`/api/comm-agent/agents/${agentId}`), {
-                method: 'DELETE', headers: getHeaders()
+                method: 'DELETE',
+                headers: getHeaders()
             });
             if (res.ok) {
                 notify?.('Agent eliminato', 'success');
@@ -56,7 +91,9 @@ const CommAgentManager = ({
             } else {
                 notify?.('Errore eliminazione agent', 'error');
             }
-        } catch (err) { notify?.('Errore di rete', 'error'); }
+        } catch (err) {
+            notify?.('Errore di rete', 'error');
+        }
     };
 
     const handleDownload = async (userId, userEmail) => {
@@ -72,21 +109,21 @@ const CommAgentManager = ({
         }
     };
 
-    // Aziende uniche dagli agent
-    const aziende = [...new Set(agents.map(a => a.azienda).filter(Boolean))].sort();
+    const aziende = [...new Set(agents.map((a) => a.azienda).filter(Boolean))].sort();
 
-    const filteredAgents = agents.filter(a => {
+    const filteredAgents = agents.filter((a) => {
         const matchAzienda = !selectedAzienda || a.azienda === selectedAzienda;
         const q = searchQuery.toLowerCase();
-        const matchSearch = !q || (a.machine_name || '').toLowerCase().includes(q)
-            || (a.email || '').toLowerCase().includes(q)
-            || (a.azienda || '').toLowerCase().includes(q)
-            || (a.nome || '').toLowerCase().includes(q)
-            || (a.cognome || '').toLowerCase().includes(q);
+        const matchSearch =
+            !q ||
+            (a.machine_name || '').toLowerCase().includes(q) ||
+            (a.email || '').toLowerCase().includes(q) ||
+            (a.azienda || '').toLowerCase().includes(q) ||
+            (a.nome || '').toLowerCase().includes(q) ||
+            (a.cognome || '').toLowerCase().includes(q);
         return matchAzienda && matchSearch;
     });
 
-    // Raggruppa clients per azienda
     const clientsByAzienda = clients.reduce((acc, c) => {
         const az = c.azienda || 'Senza azienda';
         if (!acc[az]) acc[az] = [];
@@ -96,18 +133,565 @@ const CommAgentManager = ({
 
     const filteredClients = Object.entries(clientsByAzienda).filter(([az]) => {
         const q = searchQuery.toLowerCase();
-        return !q || az.toLowerCase().includes(q) || clientsByAzienda[az].some(c =>
-            (c.email || '').toLowerCase().includes(q) || (c.nome || '').toLowerCase().includes(q)
+        return (
+            !q ||
+            az.toLowerCase().includes(q) ||
+            clientsByAzienda[az].some(
+                (c) =>
+                    (c.email || '').toLowerCase().includes(q) || (c.nome || '').toLowerCase().includes(q)
+            )
         );
     });
 
-    const onlineCount = agents.filter(a => a.status === 'online' || a.real_status === 'online').length;
+    const onlineCount = agents.filter((a) => a.status === 'online' || a.real_status === 'online').length;
+
+    const accentShellVars = {
+        ['--hub-accent']: th.accent,
+        ['--hub-accent-border']: th.accentBorder,
+        ['--hub-accent-soft']: th.accentSoft
+    };
+
+    const outerEmbedded = {
+        position: 'relative',
+        flex: 1,
+        minHeight: 0,
+        zIndex: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        background: th.page,
+        overflow: 'hidden',
+        borderRadius: 16,
+        border: `1px solid ${th.border}`,
+        ...accentShellVars
+    };
+
+    const hubBackBtn = {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '8px 12px',
+        borderRadius: 12,
+        border: `1px solid ${th.borderMid}`,
+        background: th.well,
+        color: th.textSoft,
+        cursor: 'pointer',
+        fontSize: 13,
+        fontWeight: 600,
+        flexShrink: 0
+    };
+
+    if (embedded) {
+        return (
+            <div style={outerEmbedded}>
+                <div
+                    style={{
+                        width: '100%',
+                        height: '100%',
+                        minHeight: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        color: th.text
+                    }}
+                >
+                    <div
+                        style={{
+                            padding: '12px 16px',
+                            background: th.surface,
+                            borderBottom: `1px solid ${th.border}`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 12,
+                            flexShrink: 0
+                        }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                            <button type="button" onClick={() => closeModal?.()} style={hubBackBtn}>
+                                <ArrowLeft size={18} aria-hidden />
+                                Panoramica Hub
+                            </button>
+                            <div
+                                style={{
+                                    width: 36,
+                                    height: 36,
+                                    borderRadius: 14,
+                                    background: th.iconTileBg,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                }}
+                            >
+                                <Monitor size={20} color={th.accent} />
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: th.text }}>
+                                    Crea / Visualizza Agent
+                                </h2>
+                                <p style={{ margin: '2px 0 0', color: th.label, fontSize: 11 }}>
+                                    {agents.length} agent registrati • {onlineCount} online
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        style={{
+                            display: 'flex',
+                            padding: '0 12px',
+                            background: th.well,
+                            borderBottom: `1px solid ${th.border}`,
+                            gap: 4,
+                            flexShrink: 0
+                        }}
+                    >
+                        {TAB_DEFS.map((tab) => {
+                            const TabIcon = tab.icon;
+                            const active = activeTab === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    type="button"
+                                    onClick={() => {
+                                        setActiveTab(tab.id);
+                                        setSearchQuery('');
+                                        setSelectedAzienda('');
+                                    }}
+                                    style={{
+                                        padding: '11px 18px',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 8,
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        background: active ? th.accentSoft : 'transparent',
+                                        color: active ? th.accent : th.tabInactive,
+                                        borderBottom: active ? `2px solid ${th.accent}` : '2px solid transparent',
+                                        transition: 'all 0.2s',
+                                        borderRadius: '10px 10px 0 0'
+                                    }}
+                                >
+                                    <TabIcon size={15} />
+                                    {tab.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 12,
+                            padding: '12px 16px',
+                            background: th.surface,
+                            borderBottom: `1px solid ${th.border}`,
+                            flexShrink: 0,
+                            flexWrap: 'wrap'
+                        }}
+                    >
+                        <div style={{ position: 'relative', flex: '1 1 200px', minWidth: 0 }}>
+                            <Search
+                                size={15}
+                                style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: th.muted }}
+                            />
+                            <input
+                                type="text"
+                                placeholder={
+                                    activeTab === 'agents'
+                                        ? 'Cerca per nome, email, PC, azienda...'
+                                        : 'Cerca per azienda o email...'
+                                }
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 12px 10px 36px',
+                                    borderRadius: 10,
+                                    fontSize: 13,
+                                    boxSizing: 'border-box',
+                                    background: th.well,
+                                    color: th.textSoft,
+                                    border: `1px solid ${th.borderMid}`,
+                                    outline: 'none'
+                                }}
+                            />
+                        </div>
+                        {activeTab === 'agents' && (
+                            <select
+                                value={selectedAzienda}
+                                onChange={(e) => setSelectedAzienda(e.target.value)}
+                                style={{
+                                    borderRadius: 10,
+                                    padding: '10px 12px',
+                                    fontSize: 13,
+                                    minWidth: 180,
+                                    background: th.well,
+                                    color: th.textSoft,
+                                    border: `1px solid ${th.borderMid}`,
+                                    outline: 'none'
+                                }}
+                            >
+                                <option value="">Tutte le aziende</option>
+                                {aziende.map((az) => (
+                                    <option key={az} value={az}>
+                                        {az}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => {
+                                fetchAgents();
+                                fetchClients();
+                            }}
+                            title="Aggiorna"
+                            style={{
+                                padding: 10,
+                                borderRadius: 10,
+                                border: `1px solid ${th.borderMid}`,
+                                background: th.well,
+                                color: th.muted,
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <RefreshCw size={15} />
+                        </button>
+                    </div>
+
+                    <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 16, background: th.page }}>
+                        {loading ? (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 160, color: th.muted }}>
+                                <RefreshCw size={24} className="mr-3 animate-spin" aria-hidden /> Caricamento…
+                            </div>
+                        ) : activeTab === 'agents' ? (
+                            filteredAgents.length === 0 ? (
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        height: 160,
+                                        gap: 8,
+                                        color: th.muted
+                                    }}
+                                >
+                                    <Monitor size={40} style={{ opacity: 0.35 }} />
+                                    <p style={{ fontWeight: 600, margin: 0 }}>Nessun agent trovato</p>
+                                    <p style={{ fontSize: 13, margin: 0 }}>Scarica e installa l&apos;agent su un PC cliente</p>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    {filteredAgents.map((agent) => {
+                                        const isOnline = agent.status === 'online' || agent.real_status === 'online';
+                                        return (
+                                            <div
+                                                key={agent.id}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 16,
+                                                    padding: 16,
+                                                    borderRadius: 14,
+                                                    border: `1px solid ${th.borderMid}`,
+                                                    background: th.surface
+                                                }}
+                                            >
+                                                <div
+                                                    style={{
+                                                        width: 10,
+                                                        height: 10,
+                                                        borderRadius: '50%',
+                                                        flexShrink: 0,
+                                                        background: isOnline ? '#22c55e' : 'rgba(255,255,255,0.25)',
+                                                        boxShadow: isOnline ? '0 0 8px rgba(34,197,94,0.45)' : 'none'
+                                                    }}
+                                                />
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+                                                        <span
+                                                            style={{
+                                                                fontSize: 11,
+                                                                fontFamily: 'monospace',
+                                                                padding: '2px 6px',
+                                                                borderRadius: 6,
+                                                                background: th.well,
+                                                                color: th.labelHi
+                                                            }}
+                                                            title="ID usato nei log backend"
+                                                        >
+                                                            #{agent.id}
+                                                        </span>
+                                                        <span style={{ fontWeight: 600, fontSize: 14, color: th.textSoft }}>
+                                                            {agent.nome} {agent.cognome}
+                                                        </span>
+                                                        <span
+                                                            style={{
+                                                                fontSize: 11,
+                                                                padding: '2px 8px',
+                                                                borderRadius: 999,
+                                                                fontWeight: 600,
+                                                                background: isOnline ? 'rgba(34,197,94,0.18)' : th.well,
+                                                                color: isOnline ? '#86efac' : th.muted
+                                                            }}
+                                                        >
+                                                            {isOnline ? 'Online' : 'Offline'}
+                                                        </span>
+                                                        <span
+                                                            style={{
+                                                                fontSize: 11,
+                                                                padding: '2px 8px',
+                                                                borderRadius: 999,
+                                                                fontWeight: 600,
+                                                                background: th.accentSoft2,
+                                                                color: th.accent
+                                                            }}
+                                                        >
+                                                            v{agent.version || '1.0.0'}
+                                                        </span>
+                                                    </div>
+                                                    <div
+                                                        style={{
+                                                            display: 'flex',
+                                                            flexWrap: 'wrap',
+                                                            gap: 14,
+                                                            marginTop: 6,
+                                                            fontSize: 11,
+                                                            color: th.muted
+                                                        }}
+                                                    >
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                                            <Mail size={11} />
+                                                            {agent.email}
+                                                        </span>
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                                            <Monitor size={11} />
+                                                            {agent.machine_name || 'N/A'}
+                                                        </span>
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                                            <Building2 size={11} />
+                                                            {agent.azienda || 'N/A'}
+                                                        </span>
+                                                        {agent.last_heartbeat && (
+                                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                                                <Clock size={11} />
+                                                                {new Date(agent.last_heartbeat).toLocaleString('it-IT', {
+                                                                    day: '2-digit',
+                                                                    month: '2-digit',
+                                                                    hour: '2-digit',
+                                                                    minute: '2-digit'
+                                                                })}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDelete(agent.id, agent.machine_name || agent.email)}
+                                                    title="Elimina agent"
+                                                    style={{
+                                                        padding: 8,
+                                                        border: 'none',
+                                                        borderRadius: 10,
+                                                        background: 'transparent',
+                                                        color: th.muted,
+                                                        cursor: 'pointer'
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        e.currentTarget.style.color = '#f87171';
+                                                        e.currentTarget.style.background = 'rgba(248,113,113,0.12)';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.currentTarget.style.color = th.muted;
+                                                        e.currentTarget.style.background = 'transparent';
+                                                    }}
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )
+                        ) : filteredClients.length === 0 ? (
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    height: 160,
+                                    gap: 8,
+                                    color: th.muted
+                                }}
+                            >
+                                <Users size={40} style={{ opacity: 0.35 }} />
+                                <p style={{ fontWeight: 600, margin: 0 }}>Nessun cliente trovato</p>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                                <p style={{ fontSize: 13, color: th.muted, margin: 0, lineHeight: 1.5 }}>
+                                    Seleziona un&apos;azienda e scarica il pacchetto Agent Comunicazioni pre-configurato per
+                                    quell&apos;utente. Il pacchetto include già le credenziali di accesso.
+                                </p>
+                                {filteredClients.map(([azienda, users]) => (
+                                    <div
+                                        key={azienda}
+                                        style={{
+                                            borderRadius: 14,
+                                            overflow: 'hidden',
+                                            border: `1px solid ${th.borderMid}`
+                                        }}
+                                    >
+                                        <div
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 8,
+                                                padding: '10px 14px',
+                                                background: th.well,
+                                                borderBottom: `1px solid ${th.border}`
+                                            }}
+                                        >
+                                            <Building2 size={14} color={th.accent} />
+                                            <span style={{ fontWeight: 600, fontSize: 13, color: th.textSoft }}>{azienda}</span>
+                                            <span style={{ fontSize: 11, color: th.muted, marginLeft: 'auto' }}>
+                                                {users.length} {users.length === 1 ? 'utente' : 'utenti'}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            {users.map((user, idx) => {
+                                                const userAgents = agents.filter(
+                                                    (a) => a.user_id === user.id || a.email === user.email
+                                                );
+                                                const hasAgent = userAgents.length > 0;
+                                                return (
+                                                    <div
+                                                        key={user.id}
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: 16,
+                                                            padding: '12px 14px',
+                                                            borderTop: idx ? `1px solid ${th.border}` : 'none',
+                                                            background: th.surface
+                                                        }}
+                                                    >
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                                                                <span style={{ fontWeight: 600, fontSize: 13, color: th.textSoft }}>
+                                                                    {user.nome} {user.cognome}
+                                                                </span>
+                                                                {hasAgent && (
+                                                                    <span
+                                                                        style={{
+                                                                            fontSize: 11,
+                                                                            padding: '2px 8px',
+                                                                            borderRadius: 999,
+                                                                            display: 'inline-flex',
+                                                                            alignItems: 'center',
+                                                                            gap: 4,
+                                                                            background: 'rgba(34,197,94,0.15)',
+                                                                            color: '#86efac'
+                                                                        }}
+                                                                    >
+                                                                        <CheckCircle size={10} /> Agent attivo
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div
+                                                                style={{
+                                                                    fontSize: 11,
+                                                                    color: th.muted,
+                                                                    marginTop: 4,
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 4
+                                                                }}
+                                                            >
+                                                                <Mail size={10} /> {user.email}
+                                                            </div>
+                                                            {userAgents.length > 0 && (
+                                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                                                                    {userAgents.map((a) => {
+                                                                        const online = a.status === 'online' || a.real_status === 'online';
+                                                                        return (
+                                                                            <span
+                                                                                key={a.id}
+                                                                                style={{
+                                                                                    display: 'inline-flex',
+                                                                                    alignItems: 'center',
+                                                                                    gap: 4,
+                                                                                    fontSize: 11,
+                                                                                    padding: '2px 8px',
+                                                                                    borderRadius: 999,
+                                                                                    border: `1px solid ${th.borderMid}`,
+                                                                                    fontFamily: 'monospace',
+                                                                                    color: online ? '#86efac' : th.muted,
+                                                                                    background: th.well
+                                                                                }}
+                                                                            >
+                                                                                <Monitor size={10} />
+                                                                                {a.machine_name || 'PC sconosciuto'}
+                                                                                <span
+                                                                                    style={{
+                                                                                        width: 6,
+                                                                                        height: 6,
+                                                                                        borderRadius: '50%',
+                                                                                        marginLeft: 2,
+                                                                                        background: online ? '#22c55e' : 'rgba(255,255,255,0.35)'
+                                                                                    }}
+                                                                                />
+                                                                            </span>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDownload(user.id, user.email)}
+                                                            disabled={downloadingId === user.id}
+                                                            title={`Scarica Agent per ${user.email}`}
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: 8,
+                                                                padding: '8px 12px',
+                                                                borderRadius: 10,
+                                                                border: 'none',
+                                                                fontSize: 12,
+                                                                fontWeight: 700,
+                                                                cursor: downloadingId === user.id ? 'wait' : 'pointer',
+                                                                opacity: downloadingId === user.id ? 0.65 : 1,
+                                                                background: th.btnPrimaryBg,
+                                                                color: th.btnPrimaryFg
+                                                            }}
+                                                        >
+                                                            <Download size={13} />
+                                                            {downloadingId === user.id ? 'Download...' : 'Scarica Agent'}
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="fixed inset-0 z-[60] flex flex-col bg-gray-100 overflow-hidden">
             <div className="bg-white w-full h-full flex flex-col overflow-hidden">
-
-                {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b bg-white shadow-sm">
                     <div className="flex items-center gap-3">
                         <SectionNavMenu
@@ -129,58 +713,73 @@ const CommAgentManager = ({
                         </div>
                         <div>
                             <h2 className="text-xl font-bold text-gray-800">Crea / Visualizza Agent</h2>
-                            <p className="text-gray-500 text-xs">{agents.length} agent registrati • {onlineCount} online</p>
+                            <p className="text-gray-500 text-xs">
+                                {agents.length} agent registrati • {onlineCount} online
+                            </p>
                         </div>
                     </div>
                 </div>
 
-                {/* Tabs */}
                 <div className="flex border-b bg-gray-50">
-                    {[
-                        { id: 'agents', label: 'Agent Esistenti', icon: Monitor },
-                        { id: 'create', label: 'Crea Agent', icon: Plus }
-                    ].map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => { setActiveTab(tab.id); setSearchQuery(''); setSelectedAzienda(''); }}
-                            className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                                activeTab === tab.id
-                                    ? 'border-violet-600 text-violet-700 bg-white'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                            }`}
-                        >
-                            <tab.icon size={15} />
-                            {tab.label}
-                        </button>
-                    ))}
+                    {TAB_DEFS.map((tab) => {
+                        const TabIcon = tab.icon;
+                        return (
+                            <button
+                                key={tab.id}
+                                type="button"
+                                onClick={() => {
+                                    setActiveTab(tab.id);
+                                    setSearchQuery('');
+                                    setSelectedAzienda('');
+                                }}
+                                className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                                    activeTab === tab.id
+                                        ? 'border-violet-600 text-violet-700 bg-white'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                                }`}
+                            >
+                                <TabIcon size={15} />
+                                {tab.label}
+                            </button>
+                        );
+                    })}
                 </div>
 
-                {/* Filtri */}
                 <div className="flex items-center gap-3 px-6 py-3 border-b bg-white">
                     <div className="relative flex-1">
                         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input
                             type="text"
-                            placeholder={activeTab === 'agents' ? 'Cerca per nome, email, PC, azienda...' : 'Cerca per azienda o email...'}
+                            placeholder={
+                                activeTab === 'agents'
+                                    ? 'Cerca per nome, email, PC, azienda...'
+                                    : 'Cerca per azienda o email...'
+                            }
                             value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
+                            onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full pl-9 pr-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none"
                         />
                     </div>
                     {activeTab === 'agents' && (
                         <select
                             value={selectedAzienda}
-                            onChange={e => setSelectedAzienda(e.target.value)}
+                            onChange={(e) => setSelectedAzienda(e.target.value)}
                             className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-violet-500 outline-none min-w-[180px]"
                         >
                             <option value="">Tutte le aziende</option>
-                            {aziende.map(az => (
-                                <option key={az} value={az}>{az}</option>
+                            {aziende.map((az) => (
+                                <option key={az} value={az}>
+                                    {az}
+                                </option>
                             ))}
                         </select>
                     )}
                     <button
-                        onClick={() => { fetchAgents(); fetchClients(); }}
+                        type="button"
+                        onClick={() => {
+                            fetchAgents();
+                            fetchClients();
+                        }}
                         className="p-2 border rounded-lg hover:bg-gray-50 transition text-gray-500"
                         title="Aggiorna"
                     >
@@ -188,7 +787,6 @@ const CommAgentManager = ({
                     </button>
                 </div>
 
-                {/* Contenuto */}
                 <div className="flex-1 overflow-y-auto px-6 py-4">
                     {loading ? (
                         <div className="flex items-center justify-center h-40 text-gray-400">
@@ -199,25 +797,38 @@ const CommAgentManager = ({
                             <div className="flex flex-col items-center justify-center h-40 text-gray-400 gap-2">
                                 <Monitor size={40} className="opacity-30" />
                                 <p className="font-medium">Nessun agent trovato</p>
-                                <p className="text-sm">Scarica e installa l'agent su un PC cliente</p>
+                                <p className="text-sm">Scarica e installa l&apos;agent su un PC cliente</p>
                             </div>
                         ) : (
                             <div className="space-y-2">
-                                {filteredAgents.map(agent => {
+                                {filteredAgents.map((agent) => {
                                     const isOnline = agent.status === 'online' || agent.real_status === 'online';
                                     return (
-                                        <div key={agent.id} className="flex items-center gap-4 p-4 rounded-xl border bg-white hover:border-violet-200 hover:shadow-sm transition-all">
-                                            {/* Status */}
-                                            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${isOnline ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]' : 'bg-gray-300'}`} />
-
-                                            {/* Info */}
+                                        <div
+                                            key={agent.id}
+                                            className="flex items-center gap-4 p-4 rounded-xl border bg-white hover:border-violet-200 hover:shadow-sm transition-all"
+                                        >
+                                            <div
+                                                className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                                                    isOnline ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]' : 'bg-gray-300'
+                                                }`}
+                                            />
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                    <span className="text-xs font-mono bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded" title="ID usato nei log backend">#{agent.id}</span>
+                                                    <span
+                                                        className="text-xs font-mono bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded"
+                                                        title="ID usato nei log backend"
+                                                    >
+                                                        #{agent.id}
+                                                    </span>
                                                     <span className="font-semibold text-gray-800 text-sm">
                                                         {agent.nome} {agent.cognome}
                                                     </span>
-                                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isOnline ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                    <span
+                                                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                                            isOnline ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                                                        }`}
+                                                    >
                                                         {isOnline ? 'Online' : 'Offline'}
                                                     </span>
                                                     <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-medium">
@@ -225,20 +836,33 @@ const CommAgentManager = ({
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-4 mt-1 text-xs text-gray-500 flex-wrap">
-                                                    <span className="flex items-center gap-1"><Mail size={11} />{agent.email}</span>
-                                                    <span className="flex items-center gap-1"><Monitor size={11} />{agent.machine_name || 'N/A'}</span>
-                                                    <span className="flex items-center gap-1"><Building2 size={11} />{agent.azienda || 'N/A'}</span>
+                                                    <span className="flex items-center gap-1">
+                                                        <Mail size={11} />
+                                                        {agent.email}
+                                                    </span>
+                                                    <span className="flex items-center gap-1">
+                                                        <Monitor size={11} />
+                                                        {agent.machine_name || 'N/A'}
+                                                    </span>
+                                                    <span className="flex items-center gap-1">
+                                                        <Building2 size={11} />
+                                                        {agent.azienda || 'N/A'}
+                                                    </span>
                                                     {agent.last_heartbeat && (
                                                         <span className="flex items-center gap-1">
                                                             <Clock size={11} />
-                                                            {new Date(agent.last_heartbeat).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                                            {new Date(agent.last_heartbeat).toLocaleString('it-IT', {
+                                                                day: '2-digit',
+                                                                month: '2-digit',
+                                                                hour: '2-digit',
+                                                                minute: '2-digit'
+                                                            })}
                                                         </span>
                                                     )}
                                                 </div>
                                             </div>
-
-                                            {/* Elimina */}
                                             <button
+                                                type="button"
                                                 onClick={() => handleDelete(agent.id, agent.machine_name || agent.email)}
                                                 className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
                                                 title="Elimina agent"
@@ -250,76 +874,94 @@ const CommAgentManager = ({
                                 })}
                             </div>
                         )
+                    ) : filteredClients.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-40 text-gray-400 gap-2">
+                            <Users size={40} className="opacity-30" />
+                            <p className="font-medium">Nessun cliente trovato</p>
+                        </div>
                     ) : (
-                        /* TAB: Crea Agent */
-                        filteredClients.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-40 text-gray-400 gap-2">
-                                <Users size={40} className="opacity-30" />
-                                <p className="font-medium">Nessun cliente trovato</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                <p className="text-sm text-gray-500">
-                                    Seleziona un'azienda e scarica il pacchetto Agent Comunicazioni pre-configurato per quell'utente.
-                                    Il pacchetto include già le credenziali di accesso.
-                                </p>
-                                {filteredClients.map(([azienda, users]) => (
-                                    <div key={azienda} className="border rounded-xl overflow-hidden">
-                                        <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 border-b">
-                                            <Building2 size={14} className="text-violet-500" />
-                                            <span className="font-semibold text-gray-700 text-sm">{azienda}</span>
-                                            <span className="text-xs text-gray-400 ml-auto">{users.length} {users.length === 1 ? 'utente' : 'utenti'}</span>
-                                        </div>
-                                        <div className="divide-y">
-                                            {users.map(user => {
-                                                const userAgents = agents.filter(a => a.user_id === user.id || a.email === user.email);
-                                                const hasAgent = userAgents.length > 0;
-                                                return (
-                                                    <div key={user.id} className="flex items-center gap-4 px-4 py-3 bg-white hover:bg-gray-50 transition">
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center gap-2 flex-wrap">
-                                                                <span className="font-medium text-gray-800 text-sm">{user.nome} {user.cognome}</span>
-                                                                {hasAgent && (
-                                                                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                                                        <CheckCircle size={10} /> Agent attivo
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
-                                                                <Mail size={10} /> {user.email}
-                                                            </div>
-                                                            {userAgents.length > 0 && (
-                                                                <div className="flex flex-wrap gap-1 mt-1.5">
-                                                                    {userAgents.map(a => {
-                                                                        const online = a.status === 'online' || a.real_status === 'online';
-                                                                        return (
-                                                                            <span key={a.id} className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-mono ${online ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
-                                                                                <Monitor size={10} />
-                                                                                {a.machine_name || 'PC sconosciuto'}
-                                                                                <span className={`w-1.5 h-1.5 rounded-full ml-0.5 ${online ? 'bg-green-500' : 'bg-gray-400'}`} />
-                                                                            </span>
-                                                                        );
-                                                                    })}
-                                                                </div>
+                        <div className="space-y-4">
+                            <p className="text-sm text-gray-500">
+                                Seleziona un&apos;azienda e scarica il pacchetto Agent Comunicazioni pre-configurato per
+                                quell&apos;utente. Il pacchetto include già le credenziali di accesso.
+                            </p>
+                            {filteredClients.map(([azienda, users]) => (
+                                <div key={azienda} className="border rounded-xl overflow-hidden">
+                                    <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 border-b">
+                                        <Building2 size={14} className="text-violet-500" />
+                                        <span className="font-semibold text-gray-700 text-sm">{azienda}</span>
+                                        <span className="text-xs text-gray-400 ml-auto">
+                                            {users.length} {users.length === 1 ? 'utente' : 'utenti'}
+                                        </span>
+                                    </div>
+                                    <div className="divide-y">
+                                        {users.map((user) => {
+                                            const userAgents = agents.filter(
+                                                (a) => a.user_id === user.id || a.email === user.email
+                                            );
+                                            const hasAgent = userAgents.length > 0;
+                                            return (
+                                                <div
+                                                    key={user.id}
+                                                    className="flex items-center gap-4 px-4 py-3 bg-white hover:bg-gray-50 transition"
+                                                >
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <span className="font-medium text-gray-800 text-sm">
+                                                                {user.nome} {user.cognome}
+                                                            </span>
+                                                            {hasAgent && (
+                                                                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                                    <CheckCircle size={10} /> Agent attivo
+                                                                </span>
                                                             )}
                                                         </div>
-                                                        <button
-                                                            onClick={() => handleDownload(user.id, user.email)}
-                                                            disabled={downloadingId === user.id}
-                                                            className="flex items-center gap-2 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white text-xs font-semibold rounded-lg transition shadow-sm"
-                                                            title={`Scarica Agent per ${user.email}`}
-                                                        >
-                                                            <Download size={13} />
-                                                            {downloadingId === user.id ? 'Download...' : 'Scarica Agent'}
-                                                        </button>
+                                                        <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                                                            <Mail size={10} /> {user.email}
+                                                        </div>
+                                                        {userAgents.length > 0 && (
+                                                            <div className="flex flex-wrap gap-1 mt-1.5">
+                                                                {userAgents.map((a) => {
+                                                                    const online = a.status === 'online' || a.real_status === 'online';
+                                                                    return (
+                                                                        <span
+                                                                            key={a.id}
+                                                                            className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-mono ${
+                                                                                online
+                                                                                    ? 'bg-green-50 border-green-200 text-green-700'
+                                                                                    : 'bg-gray-50 border-gray-200 text-gray-500'
+                                                                            }`}
+                                                                        >
+                                                                            <Monitor size={10} />
+                                                                            {a.machine_name || 'PC sconosciuto'}
+                                                                            <span
+                                                                                className={`w-1.5 h-1.5 rounded-full ml-0.5 ${
+                                                                                    online ? 'bg-green-500' : 'bg-gray-400'
+                                                                                }`}
+                                                                            />
+                                                                        </span>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDownload(user.id, user.email)}
+                                                        disabled={downloadingId === user.id}
+                                                        className="flex items-center gap-2 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white text-xs font-semibold rounded-lg transition shadow-sm"
+                                                        title={`Scarica Agent per ${user.email}`}
+                                                    >
+                                                        <Download size={13} />
+                                                        {downloadingId === user.id ? 'Download...' : 'Scarica Agent'}
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
-                                ))}
-                            </div>
-                        )
+                                </div>
+                            ))}
+                        </div>
                     )}
                 </div>
             </div>

@@ -38,6 +38,7 @@ import { fetchImportantAlertsForHub } from '../utils/importantAlertsFeed';
 import HubContractsActiveCard from '../components/hub/HubContractsActiveCard';
 import ImportantAlertsHubEmbedded from '../components/hub/ImportantAlertsHubEmbedded';
 import CommAgentDashboard from '../components/CommAgentDashboard';
+import CommAgentManager from '../components/CommAgentManager';
 import ContractsListModal from '../components/Modals/ContractsListModal';
 import EmailPage from './EmailPage';
 import {
@@ -515,7 +516,7 @@ export default function TechnicianWorkbenchPage({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   /** Centro Hub: panoramica a griglia oppure modulo integrato (Comunicazioni, Email). */
   const [hubCenterView, setHubCenterView] = useState(
-    /** @type {'overview' | 'comunicazioni' | 'email' | 'contratti' | 'avvisi'} */ ('overview')
+    /** @type {'overview' | 'comunicazioni' | 'comm-agent-manager' | 'email' | 'contratti' | 'avvisi'} */ ('overview')
   );
   const userMenuRef = useRef(null);
   const accentPickerRef = useRef(null);
@@ -742,9 +743,15 @@ export default function TechnicianWorkbenchPage({
                 nested
                 icon={Monitor}
                 label="Agent comunicazioni"
-                onClick={() => nav?.onOpenCommAgentManager?.()}
+                onClick={() => setHubCenterView('comm-agent-manager')}
               />
-              <SidebarLink railMode={railMode} nested icon={Bell} label="Invia comunicazione" onClick={() => nav?.onOpenCommAgent?.()} />
+              <SidebarLink
+                railMode={railMode}
+                nested
+                icon={Bell}
+                label="Invia comunicazione"
+                onClick={() => setHubCenterView('comunicazioni')}
+              />
             </NavGroup>
           </div>
 
@@ -804,13 +811,15 @@ export default function TechnicianWorkbenchPage({
                 <span className="font-medium text-white/90">
                   {hubCenterView === 'comunicazioni'
                     ? 'Comunicazioni'
-                    : hubCenterView === 'email'
-                      ? 'Email'
-                      : hubCenterView === 'contratti'
-                        ? 'Contratti attivi'
-                        : hubCenterView === 'avvisi'
-                          ? 'Avvisi importanti'
-                          : 'Panoramica'}
+                    : hubCenterView === 'comm-agent-manager'
+                      ? 'Agent comunicazioni'
+                      : hubCenterView === 'email'
+                        ? 'Email'
+                        : hubCenterView === 'contratti'
+                          ? 'Contratti attivi'
+                          : hubCenterView === 'avvisi'
+                            ? 'Avvisi importanti'
+                            : 'Panoramica'}
                 </span>
               </div>
             </div>
@@ -878,6 +887,7 @@ export default function TechnicianWorkbenchPage({
           <div
             className={
               hubCenterView === 'comunicazioni' ||
+              hubCenterView === 'comm-agent-manager' ||
               hubCenterView === 'email' ||
               hubCenterView === 'contratti' ||
               hubCenterView === 'avvisi'
@@ -940,7 +950,25 @@ export default function TechnicianWorkbenchPage({
                 onNavigateMappatura={commAgentNav.onNavigateMappatura}
                 onNavigateSpeedTest={commAgentNav.onNavigateSpeedTest}
                 onNavigateDispositiviAziendali={commAgentNav.onNavigateDispositiviAziendali}
-                onNavigateCommAgentManager={commAgentNav.onNavigateCommAgentManager}
+                onNavigateCommAgentManager={() => setHubCenterView('comm-agent-manager')}
+                onNavigateVpn={commAgentNav.onNavigateVpn}
+              />
+            ) : hubCenterView === 'comm-agent-manager' ? (
+              <CommAgentManager
+                embedded
+                accentHex={accentHex}
+                currentUser={currentUser}
+                notify={notify}
+                selectedCompanyId={selectedCompanyId}
+                closeModal={() => setHubCenterView('overview')}
+                onNavigateHome={commAgentNav.onNavigateHome ?? onNavigateHome}
+                onNavigateOffice={commAgentNav.onNavigateOffice}
+                onNavigateEmail={commAgentNav.onNavigateEmail}
+                onNavigateAntiVirus={commAgentNav.onNavigateAntiVirus}
+                onNavigateNetworkMonitoring={commAgentNav.onNavigateNetworkMonitoring}
+                onNavigateMappatura={commAgentNav.onNavigateMappatura}
+                onNavigateSpeedTest={commAgentNav.onNavigateSpeedTest}
+                onNavigateDispositiviAziendali={commAgentNav.onNavigateDispositiviAziendali}
                 onNavigateVpn={commAgentNav.onNavigateVpn}
               />
             ) : (

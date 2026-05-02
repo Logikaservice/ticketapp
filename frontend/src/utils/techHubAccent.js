@@ -158,6 +158,34 @@ export function getStoredTechHubAccent() {
 }
 
 /**
+ * Palette per moduli «Comunicazioni» (Centro messaggi + gestione agent) allineata all’Hub tecnico.
+ */
+export function buildCommHubMessagingTheme(accentHex) {
+  const accent = normalizeHex(accentHex) || getStoredTechHubAccent();
+  return {
+    accent,
+    page: HUB_PAGE_BG,
+    surface: HUB_SURFACE,
+    well: 'rgba(0,0,0,0.28)',
+    border: 'rgba(255,255,255,0.08)',
+    borderMid: 'rgba(255,255,255,0.12)',
+    label: 'rgba(255,255,255,0.42)',
+    labelHi: 'rgba(255,255,255,0.55)',
+    text: 'rgba(255,255,255,0.92)',
+    textSoft: 'rgba(255,255,255,0.78)',
+    muted: 'rgba(255,255,255,0.38)',
+    tabInactive: 'rgba(255,255,255,0.4)',
+    accentSoft: hexToRgba(accent, 0.14),
+    accentSoft2: hexToRgba(accent, 0.1),
+    accentBorder: hexToRgba(accent, 0.48),
+    iconTileBg: hexToRgba(accent, 0.14),
+    btnPrimaryBg: accent,
+    btnPrimaryFg: readableOnAccent(accent),
+    sendDisabled: 'rgba(255,255,255,0.22)'
+  };
+}
+
+/**
  * Header modali: sfondo **uniforme** = colore accento salvato dall’Hub (`techHubAccent`).
  * Il testo eredita contrasto tramite {@link readableOnAccent}.
  */
