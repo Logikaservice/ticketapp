@@ -21,7 +21,14 @@ import {
 } from 'lucide-react';
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
-import { hexToRgba, normalizeHex, getStoredTechHubAccent } from '../utils/techHubAccent';
+import {
+  hexToRgba,
+  normalizeHex,
+  getStoredTechHubAccent,
+  HUB_PAGE_BG,
+  HUB_SURFACE,
+  readableOnAccent
+} from '../utils/techHubAccent';
 
 /** Riempimento arco ping (indipendente dalla soglia colore). */
 function getPingPct(ping) {
@@ -589,10 +596,92 @@ const styles = {
   }
 };
 
+/** Stili Speed Test quando è integrato nell’Hub (no slate #0f172a / viola #7c3aed di default). */
+function buildHubSpeedStyles(accentHex) {
+  const a = normalizeHex(accentHex) || getStoredTechHubAccent();
+  const border = 'rgba(255,255,255,0.10)';
+  const borderHover = hexToRgba(a, 0.48);
+  const cardBg = 'rgba(0,0,0,0.22)';
+  const gaugeTrack = 'rgba(255,255,255,0.11)';
+  return {
+    ...styles,
+    page: {
+      ...styles.page,
+      background: HUB_PAGE_BG,
+      color: 'rgba(255,255,255,0.88)'
+    },
+    header: {
+      ...styles.header,
+      background: HUB_SURFACE,
+      borderBottom: `1px solid ${border}`
+    },
+    filterBar: {
+      ...styles.filterBar,
+      borderBottom: `1px solid ${border}`,
+      background: HUB_PAGE_BG
+    },
+    searchInput: {
+      ...styles.searchInput,
+      background: 'rgba(0,0,0,0.28)',
+      border: `1px solid rgba(255,255,255,0.14)`,
+      color: 'rgba(255,255,255,0.9)'
+    },
+    statsBar: { ...styles.statsBar, color: 'rgba(255,255,255,0.42)' },
+    grid: styles.grid,
+    cardOuter: (clickable, speedtestOn, isHovered) => ({
+      ...styles.cardOuter(clickable, speedtestOn, isHovered),
+      background: cardBg,
+      border: `1px solid ${isHovered && clickable ? borderHover : border}`,
+      boxShadow: isHovered && clickable ? `0 10px 32px ${hexToRgba(a, 0.14)}` : 'none'
+    }),
+    cardBody: styles.cardBody,
+    gaugeRing: (pct, colorVar) => ({
+      ...styles.gaugeRing(pct, colorVar),
+      background: `conic-gradient(${colorVar} ${pct}%, ${gaugeTrack} 0)`
+    }),
+    gaugeInner: { ...styles.gaugeInner, background: HUB_SURFACE },
+    detailGaugeRing: (pct, colorVar) => ({
+      ...styles.detailGaugeRing(pct, colorVar),
+      background: `conic-gradient(${colorVar} ${pct}%, ${HUB_SURFACE} 0)`
+    }),
+    detailGaugeInner: { ...styles.detailGaugeInner, background: HUB_PAGE_BG },
+    chartSection: {
+      ...styles.chartSection,
+      background: cardBg,
+      border: `1px solid ${border}`
+    },
+    periodBtn: (active) => {
+      if (!active) {
+        return {
+          ...styles.periodBtn(false),
+          background: 'rgba(0,0,0,0.32)',
+          color: 'rgba(255,255,255,0.45)',
+          border: `1px solid ${border}`
+        };
+      }
+      return {
+        ...styles.periodBtn(true),
+        background: a,
+        color: readableOnAccent(a),
+        border: `1px solid ${hexToRgba(a, 0.55)}`
+      };
+    },
+    backBtnSquare: {
+      ...styles.backBtnSquare,
+      background: 'rgba(255,255,255,0.08)',
+      border: `1px solid rgba(255,255,255,0.12)`,
+      color: 'rgba(255,255,255,0.9)'
+    },
+    toggle: styles.toggle,
+    toggleDot: styles.toggleDot,
+    gaugeWrap: styles.gaugeWrap,
+    detailGaugeWrap: styles.detailGaugeWrap,
+    disabledBadge: styles.disabledBadge
+  };
+}
 
-
-  // === COMPONENTE CARD ===
-  const CompanyCard = React.memo(({ company, lastSeenNowMs, onOpenDetail, onToggle }) => {
+// === COMPONENTE CARD ===
+const CompanyCard = React.memo(({ company, lastSeenNowMs, onOpenDetail, onToggle, palette = styles, ipLinkColor = '#7c3aed' }) => {
     const [hovered, setHovered] = useState(false);
     const enabled = company.speedtest_enabled !== false;
     const agentIdNum = resolveAgentIdFromRow(company);
@@ -626,7 +715,7 @@ const styles = {
     return (
       <div
         style={{
-          ...styles.cardOuter(canOpenDetail, enabled, hovered),
+          ...palette.cardOuter(canOpenDetail, enabled, hovered),
           touchAction: 'manipulation'
         }}
         onClick={canOpenDetail ? openDetail : undefined}
@@ -637,7 +726,7 @@ const styles = {
         aria-label={canOpenDetail ? `Apri dettaglio ${company.azienda_name || company.agent_name || ''}` : 'Card speed test'}
         onKeyDown={canOpenDetail ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(); } } : undefined}
       >
-        <div style={styles.cardBody}>
+        <div style={palette.cardBody}>
           {/* Intestazione (spazio a destra per toggle assoluto) */}
           <div style={{ paddingRight: 60, marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -684,7 +773,7 @@ const styles = {
               <>
                 <Globe size={14} />
                 {company.isp || '—'} &nbsp;·&nbsp;
-                <span style={{ color: '#7c3aed', fontFamily: 'monospace', fontSize: 11 }}>
+                <span style={{ color: ipLinkColor, fontFamily: 'monospace', fontSize: 11 }}>
                   {company.public_ip || '—'}
                   {(() => {
                     const p = publicIpStabilityParen(company.public_ip_stability ?? company.publicIpStability);
@@ -711,9 +800,9 @@ const styles = {
           {/* Gauge */}
           <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', gap: 8 }}>
             <div style={{ textAlign: 'center', flex: 1 }}>
-              <div style={styles.gaugeWrap}>
-                <div style={styles.gaugeRing(enabled && hasData ? pqPing.pct : 0, pqPing.color)} />
-                <div style={styles.gaugeInner}>
+              <div style={palette.gaugeWrap}>
+                <div style={palette.gaugeRing(enabled && hasData ? pqPing.pct : 0, pqPing.color)} />
+                <div style={palette.gaugeInner}>
                   <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
                     {enabled && hasData ? fmtPing(company.ping_ms) : '—'}
                   </span>
@@ -735,9 +824,9 @@ const styles = {
               </div>
             </div>
             <div style={{ textAlign: 'center', flex: 1 }}>
-              <div style={styles.gaugeWrap}>
-                <div style={styles.gaugeRing(enabled && hasData ? dqDown.pct : 0, dqDown.color)} />
-                <div style={styles.gaugeInner}>
+              <div style={palette.gaugeWrap}>
+                <div style={palette.gaugeRing(enabled && hasData ? dqDown.pct : 0, dqDown.color)} />
+                <div style={palette.gaugeInner}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '2px 4px' }}>
                     <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
                       {enabled && hasData ? fmtMbps(company.download_mbps) : '—'}
@@ -757,9 +846,9 @@ const styles = {
               <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.2, lineHeight: 1.25, color: dqDown.color, marginTop: 2, padding: '0 2px' }}>{dqDown.label}</div>
             </div>
             <div style={{ textAlign: 'center', flex: 1 }}>
-              <div style={styles.gaugeWrap}>
-                <div style={styles.gaugeRing(enabled && hasData ? uqUp.pct : 0, uqUp.color)} />
-                <div style={styles.gaugeInner}>
+              <div style={palette.gaugeWrap}>
+                <div style={palette.gaugeRing(enabled && hasData ? uqUp.pct : 0, uqUp.color)} />
+                <div style={palette.gaugeInner}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '2px 4px' }}>
                     <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
                       {enabled && hasData ? fmtMbps(company.upload_mbps) : '—'}
@@ -798,10 +887,10 @@ const styles = {
           onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
           onKeyDown={(e) => e.stopPropagation()}
         >
-          {!enabled && <span style={styles.disabledBadge}>Disattivato</span>}
+          {!enabled && <span style={palette.disabledBadge}>Disattivato</span>}
           <button
             type="button"
-            style={styles.toggle(enabled)}
+            style={palette.toggle(enabled)}
             onClick={(e) => {
               e.stopPropagation();
               e.preventDefault();
@@ -811,12 +900,12 @@ const styles = {
             }}
             title={enabled ? 'Disattiva speed test' : 'Attiva speed test'}
           >
-            <div style={styles.toggleDot(enabled)} />
+            <div style={palette.toggleDot(enabled)} />
           </button>
         </div>
       </div>
     );
-  });
+});
 
 
 
@@ -862,6 +951,83 @@ const SpeedTestPage = ({
   const [heartbeatTick, setHeartbeatTick] = useState(0);
   const pageScrollRef = useRef(null);
   const accent = useMemo(() => normalizeHex(accentHexProp) || getStoredTechHubAccent(), [accentHexProp]);
+  const palette = useMemo(() => (embedded ? buildHubSpeedStyles(accent) : styles), [embedded, accent]);
+  const chartDownloadColor = embedded ? accent : '#7c3aed';
+  const chartUploadColor = embedded ? '#eab308' : '#06b6d4';
+  const ui = useMemo(
+    () =>
+      embedded
+        ? {
+            dayFieldBg: HUB_PAGE_BG,
+            dayFieldBorder: 'rgba(255,255,255,0.14)',
+            btnSecondary: 'rgba(0,0,0,0.38)',
+            btnSecondaryText: 'rgba(255,255,255,0.88)',
+            calOpenBg: accent,
+            calOpenText: readableOnAccent(accent),
+            popoverBg: HUB_SURFACE,
+            popoverBorder: 'rgba(255,255,255,0.12)',
+            calCellEmpty: HUB_PAGE_BG,
+            calCell: 'rgba(0,0,0,0.32)',
+            calCellSelBg: hexToRgba(accent, 0.22),
+            calCellSelBorder: accent,
+            theadBg: HUB_PAGE_BG,
+            tableBorder: 'rgba(255,255,255,0.10)',
+            gridStroke: 'rgba(255,255,255,0.08)',
+            axisLabel: 'rgba(255,255,255,0.40)',
+            stalePopBg: HUB_SURFACE,
+            stalePopBorder: 'rgba(255,255,255,0.12)',
+            staleRowBorder: 'rgba(255,255,255,0.10)',
+            tableCellDown: accent,
+            tableCellUp: chartUploadColor,
+            tableIp: hexToRgba(accent, 0.88),
+            chartTooltipBg: hexToRgba(HUB_SURFACE, 0.97),
+            chartTooltipBorder: 'rgba(255,255,255,0.14)',
+            chartTooltipText: 'rgba(255,255,255,0.92)',
+            chartAxisTitle: 'rgba(255,255,255,0.45)',
+            chartHoverLine: 'rgba(255,255,255,0.22)',
+            calBtnClosedBg: 'rgba(0,0,0,0.32)',
+            resetPeriodBorder: 'rgba(255,255,255,0.18)',
+            resetPeriodText: 'rgba(255,255,255,0.55)',
+            resultLinkColor: accent,
+            backBtnHoverBg: 'rgba(255,255,255,0.12)'
+          }
+        : {
+            dayFieldBg: '#0f172a',
+            dayFieldBorder: '#475569',
+            btnSecondary: '#475569',
+            btnSecondaryText: '#e2e8f0',
+            calOpenBg: '#7c3aed',
+            calOpenText: '#fff',
+            popoverBg: '#1e293b',
+            popoverBorder: '#475569',
+            calCellEmpty: '#0f172a',
+            calCell: '#334155',
+            calCellSelBg: '#5b21b6',
+            calCellSelBorder: '#a78bfa',
+            theadBg: '#0f172a',
+            tableBorder: '#334155',
+            gridStroke: '#1e293b',
+            axisLabel: '#64748b',
+            stalePopBg: '#1e293b',
+            stalePopBorder: '#334155',
+            staleRowBorder: '#334155',
+            tableCellDown: '#c4b5fd',
+            tableCellUp: '#67e8f9',
+            tableIp: '#e9d5ff',
+            chartTooltipBg: 'rgba(15, 23, 42, 0.94)',
+            chartTooltipBorder: '#475569',
+            chartTooltipText: '#e2e8f0',
+            chartAxisTitle: '#94a3b8',
+            chartHoverLine: 'rgba(148, 163, 184, 0.45)',
+            calBtnClosedBg: '#334155',
+            resetPeriodBorder: '#64748b',
+            resetPeriodText: '#94a3b8',
+            resultLinkColor: '#a78bfa',
+            backBtnHoverBg: '#475569'
+          },
+    [embedded, accent, chartUploadColor]
+  );
+
   const onEmbeddedHubBack = useCallback(() => {
     if (typeof closeEmbedded === 'function') closeEmbedded();
     else onNavigateHome?.();
@@ -886,22 +1052,25 @@ const SpeedTestPage = ({
   );
 
   const embeddedOuterStyle = useMemo(
-    () => ({
-      ...styles.page,
-      position: 'relative',
-      inset: 'unset',
-      flex: '1 1 0%',
-      minHeight: 0,
-      height: '100%',
-      width: '100%',
-      maxHeight: '100%',
-      zIndex: 1,
-      borderRadius: 16,
-      border: '1px solid rgba(255,255,255,0.08)',
-      ['--hub-accent']: accent,
-      ['--hub-accent-border']: hexToRgba(accent, 0.48)
-    }),
-    [embedded, accent]
+    () =>
+      embedded
+        ? {
+            ...palette.page,
+            position: 'relative',
+            inset: 'unset',
+            flex: '1 1 0%',
+            minHeight: 0,
+            height: '100%',
+            width: '100%',
+            maxHeight: '100%',
+            zIndex: 1,
+            borderRadius: 16,
+            border: '1px solid rgba(255,255,255,0.08)',
+            ['--hub-accent']: accent,
+            ['--hub-accent-border']: hexToRgba(accent, 0.48)
+          }
+        : null,
+    [embedded, palette, accent]
   );
 
   const speedNavOrBack = useMemo(() => {
@@ -1171,7 +1340,7 @@ const SpeedTestPage = ({
     const maxMbps = Math.max(Math.ceil(Math.max(...downloads, ...uploads) / 10) * 10 + 10, 20);
     const maxPing = Math.max(Math.ceil(Math.max(...pings) / 5) * 5 + 5, 10);
 
-    ctx.strokeStyle = '#1e293b';
+    ctx.strokeStyle = ui.gridStroke;
     ctx.lineWidth = 1;
     const gridLines = 5;
     for (let i = 0; i <= gridLines; i++) {
@@ -1180,7 +1349,7 @@ const SpeedTestPage = ({
       ctx.moveTo(padL, y);
       ctx.lineTo(W - padR, y);
       ctx.stroke();
-      ctx.fillStyle = '#64748b';
+      ctx.fillStyle = ui.axisLabel;
       ctx.font = '11px Inter, sans-serif';
       ctx.textAlign = 'right';
       ctx.fillText(`${Math.round(maxMbps - (maxMbps / gridLines) * i)}`, padL - 8, y + 4);
@@ -1188,7 +1357,7 @@ const SpeedTestPage = ({
       ctx.fillText(`${Math.round(maxPing - (maxPing / gridLines) * i)} ms`, W - padR + 8, y + 4);
     }
 
-    ctx.fillStyle = '#64748b';
+    ctx.fillStyle = ui.axisLabel;
     ctx.textAlign = 'center';
     const n = series.length;
     const xLabel = (idx) => {
@@ -1253,8 +1422,8 @@ const SpeedTestPage = ({
       ctx.restore();
     };
 
-    drawLine(downloads, maxMbps, '#7c3aed', 2.5);
-    drawLine(uploads, maxMbps, '#06b6d4', 2.5);
+    drawLine(downloads, maxMbps, chartDownloadColor, 2.5);
+    drawLine(uploads, maxMbps, chartUploadColor, 2.5);
     drawLine(pings, maxPing, '#22c55e', 2);
 
     // Evidenzia zone di inattività con una fascia semitrasparente e tratteggio.
@@ -1287,7 +1456,7 @@ const SpeedTestPage = ({
       const yUp = padT + cH - (u / maxMbps) * cH;
 
       ctx.save();
-      ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+      ctx.strokeStyle = ui.chartHoverLine;
       ctx.setLineDash([5, 4]);
       ctx.beginPath();
       ctx.moveTo(x, padT);
@@ -1301,8 +1470,8 @@ const SpeedTestPage = ({
         ctx.arc(x, yy, 3.5, 0, Math.PI * 2);
         ctx.fill();
       };
-      dot(yDown, '#7c3aed');
-      dot(yUp, '#06b6d4');
+      dot(yDown, chartDownloadColor);
+      dot(yUp, chartUploadColor);
       dot(yPing, '#22c55e');
 
       const hoverDate = formatDate(series[i]?.test_date);
@@ -1318,15 +1487,15 @@ const SpeedTestPage = ({
       const boxH = 18 + lines.length * 16;
       const boxX = Math.min(Math.max(x + 12, 8), W - boxW - 8);
       const boxY = Math.max(padT + 6, 8);
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
-      ctx.strokeStyle = '#475569';
+      ctx.fillStyle = ui.chartTooltipBg;
+      ctx.strokeStyle = ui.chartTooltipBorder;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.roundRect(boxX, boxY, boxW, boxH, 8);
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = '#e2e8f0';
+      ctx.fillStyle = ui.chartTooltipText;
       lines.forEach((ln, idx) => {
         const yy = boxY + 15 + idx * 16;
         ctx.fillText(ln, boxX + 9, yy);
@@ -1334,7 +1503,7 @@ const SpeedTestPage = ({
       ctx.restore();
     }
 
-    ctx.fillStyle = '#94a3b8';
+    ctx.fillStyle = ui.chartAxisTitle;
     ctx.font = '11px Inter, sans-serif';
     ctx.save();
     ctx.translate(14, padT + cH / 2);
@@ -1348,7 +1517,7 @@ const SpeedTestPage = ({
     ctx.textAlign = 'center';
     ctx.fillText('Ping (ms)', 0, 0);
     ctx.restore();
-  }, [historyFiltered, chartHoverIdx, companyInfo]);
+  }, [historyFiltered, chartHoverIdx, companyInfo, ui, chartDownloadColor, chartUploadColor]);
 
   // Disegna il grafico quando cambiano i dati (serve almeno un segmento)
   useEffect(() => {
@@ -1476,10 +1645,10 @@ const SpeedTestPage = ({
     const publicIpStabLabel = publicIpStabilityParen(publicIpStabilityDetail);
 
     const detailMarkup = (
-      <div style={embedded ? embeddedOuterStyle : styles.page} ref={pageScrollRef}>
+      <div style={embedded ? embeddedOuterStyle : palette.page} ref={pageScrollRef}>
         {/* Intestazione */}
-        <div style={styles.header}>
-          <div style={styles.headerLeft}>
+        <div style={palette.header}>
+          <div style={palette.headerLeft}>
             {speedNavOrBack}
             <div style={headerIconBoxStyle}>
               <Gauge size={20} color="white" />
@@ -1503,10 +1672,14 @@ const SpeedTestPage = ({
                   type="button"
                   aria-label="Torna alla panoramica"
                   title="Torna alla panoramica"
-                  style={styles.backBtnSquare}
+                  style={palette.backBtnSquare}
                   onClick={() => { setSelectedCompany(null); setHistory([]); setCompanyInfo(null); }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = '#475569'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = '#334155'; }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = ui.backBtnHoverBg;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = palette.backBtnSquare.background ?? '';
+                  }}
                 >
                   <ArrowLeft size={22} strokeWidth={2.25} />
                 </button>
@@ -1549,10 +1722,10 @@ const SpeedTestPage = ({
               <span>Speed Test</span>
               <button
                 type="button"
-                style={styles.toggle(enabled)}
+                style={palette.toggle(enabled)}
                 onClick={() => companyInfo && toggleSpeedTest(companyInfo.agent_id, !enabled)}
               >
-                <div style={styles.toggleDot(enabled)} />
+                <div style={palette.toggleDot(enabled)} />
               </button>
             </div>
           </div>
@@ -1574,9 +1747,9 @@ const SpeedTestPage = ({
                         const pq = pingQuality(lastResult.ping_ms);
                         return (
                           <>
-                            <div style={styles.detailGaugeWrap}>
-                              <div style={styles.detailGaugeRing(pq.pct, pq.color)} />
-                              <div style={styles.detailGaugeInner}>
+                            <div style={palette.detailGaugeWrap}>
+                              <div style={palette.detailGaugeRing(pq.pct, pq.color)} />
+                              <div style={palette.detailGaugeInner}>
                                 <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
                                   {fmtPing(lastResult.ping_ms)}
                                 </span>
@@ -1594,9 +1767,9 @@ const SpeedTestPage = ({
                         const dq = downloadQuality(lastResult.download_mbps);
                         return (
                           <>
-                            <div style={styles.detailGaugeWrap}>
-                              <div style={styles.detailGaugeRing(dq.pct, dq.color)} />
-                              <div style={styles.detailGaugeInner}>
+                            <div style={palette.detailGaugeWrap}>
+                              <div style={palette.detailGaugeRing(dq.pct, dq.color)} />
+                              <div style={palette.detailGaugeInner}>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '4px 8px' }}>
                                   <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
                                     {fmtMbps(lastResult.download_mbps)}
@@ -1624,9 +1797,9 @@ const SpeedTestPage = ({
                         const uq = uploadQuality(lastResult.upload_mbps);
                         return (
                           <>
-                            <div style={styles.detailGaugeWrap}>
-                              <div style={styles.detailGaugeRing(uq.pct, uq.color)} />
-                              <div style={styles.detailGaugeInner}>
+                            <div style={palette.detailGaugeWrap}>
+                              <div style={palette.detailGaugeRing(uq.pct, uq.color)} />
+                              <div style={palette.detailGaugeInner}>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '4px 8px' }}>
                                   <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
                                     {fmtMbps(lastResult.upload_mbps)}
@@ -1679,7 +1852,7 @@ const SpeedTestPage = ({
                         href={lastResult.result_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ color: '#a78bfa', fontSize: 14, fontWeight: 600 }}
+                        style={{ color: ui.resultLinkColor, fontSize: 14, fontWeight: 600 }}
                       >
                         Apri pagina risultato speedtest.net →
                       </a>
@@ -1698,12 +1871,12 @@ const SpeedTestPage = ({
 
               {/* Grafico cronologia + tabella ultime misure */}
               {!historyLoading && history.length >= 1 && (
-                <div style={styles.chartSection}>
+                <div style={palette.chartSection}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
                     <h3 style={{ fontSize: 18, fontWeight: 700, color: '#f1f5f9', margin: 0 }}>📈 Cronologia</h3>
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                       {[7, 14, 30, 60].map((d) => (
-                        <button key={d} type="button" style={styles.periodBtn(historyDays === d)} onClick={() => setHistoryDays(d)}>
+                        <button key={d} type="button" style={palette.periodBtn(historyDays === d)} onClick={() => setHistoryDays(d)}>
                           {d}g
                         </button>
                       ))}
@@ -1742,9 +1915,9 @@ const SpeedTestPage = ({
                         width: 118,
                         padding: '8px 10px',
                         borderRadius: 8,
-                        border: '1px solid #475569',
-                        background: '#0f172a',
-                        color: '#e2e8f0',
+                        border: `1px solid ${ui.dayFieldBorder}`,
+                        background: ui.dayFieldBg,
+                        color: ui.btnSecondaryText,
                         fontSize: 13,
                         fontFamily: 'inherit'
                       }}
@@ -1764,8 +1937,8 @@ const SpeedTestPage = ({
                         padding: '8px 14px',
                         borderRadius: 8,
                         border: 'none',
-                        background: '#475569',
-                        color: '#e2e8f0',
+                        background: ui.btnSecondary,
+                        color: ui.btnSecondaryText,
                         fontWeight: 600,
                         fontSize: 13,
                         cursor: 'pointer',
@@ -1795,8 +1968,8 @@ const SpeedTestPage = ({
                         padding: '8px 14px',
                         borderRadius: 8,
                         border: 'none',
-                        background: dayPickerOpen ? '#7c3aed' : '#334155',
-                        color: '#fff',
+                        background: dayPickerOpen ? ui.calOpenBg : ui.calBtnClosedBg,
+                        color: dayPickerOpen ? ui.calOpenText : ui.btnSecondaryText,
                         fontWeight: 600,
                         fontSize: 13,
                         cursor: 'pointer',
@@ -1816,9 +1989,9 @@ const SpeedTestPage = ({
                         style={{
                           padding: '8px 12px',
                           borderRadius: 8,
-                          border: '1px solid #64748b',
+                          border: `1px solid ${ui.resetPeriodBorder}`,
                           background: 'transparent',
-                          color: '#94a3b8',
+                          color: ui.resetPeriodText,
                           fontSize: 12,
                           fontWeight: 600,
                           cursor: 'pointer',
@@ -1837,11 +2010,11 @@ const SpeedTestPage = ({
                           top: '100%',
                           marginTop: 8,
                           width: 288,
-                          background: '#1e293b',
-                          border: '1px solid #475569',
+                          background: ui.popoverBg,
+                          border: `1px solid ${ui.popoverBorder}`,
                           borderRadius: 12,
                           padding: 12,
-                          boxShadow: '0 12px 40px rgba(0,0,0,0.45)'
+                          boxShadow: embedded ? '0 12px 40px rgba(0,0,0,0.55)' : '0 12px 40px rgba(0,0,0,0.45)'
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -1910,9 +2083,9 @@ const SpeedTestPage = ({
                                   style={{
                                     height: 32,
                                     borderRadius: 8,
-                                    border: isSel ? '2px solid #a78bfa' : '1px solid transparent',
-                                    background: !hasData ? '#0f172a' : isSel ? '#5b21b6' : '#334155',
-                                    color: !hasData ? '#475569' : '#f1f5f9',
+                                    border: isSel ? `2px solid ${ui.calCellSelBorder}` : '1px solid transparent',
+                                    background: !hasData ? ui.calCellEmpty : isSel ? ui.calCellSelBg : ui.calCell,
+                                    color: !hasData ? ui.axisLabel : '#f1f5f9',
                                     fontSize: 13,
                                     fontWeight: hasData ? 600 : 400,
                                     cursor: hasData ? 'pointer' : 'not-allowed',
@@ -1940,11 +2113,11 @@ const SpeedTestPage = ({
                     <>
                       <div style={{ display: 'flex', gap: 20, marginBottom: 16, fontSize: 12, color: '#94a3b8', flexWrap: 'wrap' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ width: 20, height: 3, borderRadius: 2, background: '#7c3aed', display: 'inline-block' }} />
+                          <span style={{ width: 20, height: 3, borderRadius: 2, background: chartDownloadColor, display: 'inline-block' }} />
                           DOWNLOAD (Mbps)
                         </span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ width: 20, height: 3, borderRadius: 2, background: '#06b6d4', display: 'inline-block' }} />
+                          <span style={{ width: 20, height: 3, borderRadius: 2, background: chartUploadColor, display: 'inline-block' }} />
                           UPLOAD (Mbps)
                         </span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1987,10 +2160,10 @@ const SpeedTestPage = ({
                       )}
                       . In database restano al massimo <strong>{SPEEDTEST_SERVER_RETENTION_DAYS} giorni</strong> di storico (~720 test a campionamento ogni 2 h).
                     </p>
-                    <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid #334155' }}>
+                    <div style={{ overflowX: 'auto', borderRadius: 10, border: `1px solid ${ui.tableBorder}` }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                         <thead>
-                          <tr style={{ background: '#0f172a', color: '#94a3b8', textAlign: 'left' }}>
+                          <tr style={{ background: ui.theadBg, color: '#94a3b8', textAlign: 'left' }}>
                             <th style={{ padding: '10px 12px', fontWeight: 600 }}>Data / ora</th>
                             <th style={{ padding: '10px 12px', fontWeight: 600 }}>Ping</th>
                             <th style={{ padding: '10px 12px', fontWeight: 600 }}>↓ Mbps</th>
@@ -2001,12 +2174,12 @@ const SpeedTestPage = ({
                         </thead>
                         <tbody>
                           {historyTableRows.map((row) => (
-                            <tr key={row.id} style={{ borderTop: '1px solid #334155' }}>
+                            <tr key={row.id} style={{ borderTop: `1px solid ${ui.tableBorder}` }}>
                               <td style={{ padding: '10px 12px', color: '#e2e8f0', whiteSpace: 'nowrap' }}>{formatDate(row.test_date)}</td>
                               <td style={{ padding: '10px 12px', color: '#e2e8f0' }}>{fmtPing(row.ping_ms)} ms</td>
-                              <td style={{ padding: '10px 12px', color: '#c4b5fd' }}>{fmtMbps(row.download_mbps)}</td>
-                              <td style={{ padding: '10px 12px', color: '#67e8f9' }}>{fmtMbps(row.upload_mbps)}</td>
-                              <td style={{ padding: '10px 12px', color: '#e9d5ff', fontFamily: 'monospace', fontSize: 11 }} title={row.public_ip || ''}>
+                              <td style={{ padding: '10px 12px', color: ui.tableCellDown }}>{fmtMbps(row.download_mbps)}</td>
+                              <td style={{ padding: '10px 12px', color: ui.tableCellUp }}>{fmtMbps(row.upload_mbps)}</td>
+                              <td style={{ padding: '10px 12px', color: ui.tableIp, fontFamily: 'monospace', fontSize: 11 }} title={row.public_ip || ''}>
                                 {row.public_ip || '—'}
                               </td>
                               <td style={{ padding: '10px 12px', color: '#94a3b8', maxWidth: 200 }} title={row.isp || ''}>
@@ -2034,10 +2207,10 @@ const SpeedTestPage = ({
 
   // VISTA PANORAMICA
   const overviewMarkup = (
-    <div style={embedded ? embeddedOuterStyle : styles.page} ref={pageScrollRef}>
+    <div style={embedded ? embeddedOuterStyle : palette.page} ref={pageScrollRef}>
       {/* Intestazione */}
-      <div style={styles.header}>
-        <div style={styles.headerLeft}>
+      <div style={palette.header}>
+        <div style={palette.headerLeft}>
           {speedNavOrBack}
           <div style={headerIconBoxStyle}>
             <Gauge size={20} color="white" />
@@ -2070,7 +2243,7 @@ const SpeedTestPage = ({
       </div>
 
       {/* Barra filtri */}
-      <div style={styles.filterBar}>
+      <div style={palette.filterBar}>
         <div style={{ position: 'relative' }}>
           <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
           <input
@@ -2078,11 +2251,11 @@ const SpeedTestPage = ({
             placeholder="Cerca azienda..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ ...styles.searchInput, paddingLeft: 34 }}
+            style={{ ...palette.searchInput, paddingLeft: 34 }}
           />
         </div>
         <div style={{ position: 'relative', marginLeft: 'auto' }} ref={stalePopoverRef}>
-          <div style={{ ...styles.statsBar, marginLeft: 0 }}>
+          <div style={{ ...palette.statsBar, marginLeft: 0 }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
               {activeCount} attivi
@@ -2125,11 +2298,11 @@ const SpeedTestPage = ({
                 maxWidth: 440,
                 maxHeight: 340,
                 overflowY: 'auto',
-                background: '#1e293b',
-                border: '1px solid #334155',
+                background: ui.stalePopBg,
+                border: `1px solid ${ui.stalePopBorder}`,
                 borderRadius: 12,
                 padding: 12,
-                boxShadow: '0 16px 40px rgba(0,0,0,0.45)',
+                boxShadow: embedded ? '0 16px 40px rgba(0,0,0,0.55)' : '0 16px 40px rgba(0,0,0,0.45)',
                 zIndex: 50
               }}
             >
@@ -2146,7 +2319,7 @@ const SpeedTestPage = ({
                         key={id != null ? `stale-${id}` : `stale-${row.azienda_name}`}
                         style={{
                           padding: '10px 0',
-                          borderBottom: '1px solid #334155',
+                          borderBottom: `1px solid ${ui.staleRowBorder}`,
                           fontSize: 13
                         }}
                       >
@@ -2177,11 +2350,13 @@ const SpeedTestPage = ({
           <p>{searchTerm ? 'Nessuna azienda corrisponde alla ricerca.' : 'Nessun agent configurato. Configura un agent di monitoraggio per iniziare.'}</p>
         </div>
       ) : (
-        <div style={styles.grid}>
+        <div style={palette.grid}>
           {filteredOverview.map((company, idx) => {
             return <CompanyCard 
               key={speedtestRowKey(company)} 
               company={company} 
+              palette={palette}
+              ipLinkColor={embedded ? accent : '#7c3aed'}
               lastSeenNowMs={lastSeenNowMs}
               onOpenDetail={(comp, aId, azId) => {
                 const snapshot = comp.test_date != null && comp.ping_ms != null && !Number.isNaN(Number(comp.ping_ms)) ? { ...comp } : null;
