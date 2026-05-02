@@ -165,7 +165,7 @@ export function maxRowUsed(layout) {
   return m;
 }
 
-export function findFirstFit(layout, w, h, ignoreId = null, maxRowsScan = 48) {
+export function findFirstFit(layout, w, h, ignoreId = null, maxRowsScan = 80) {
   const ww = clampInt(w, 1, HUB_GRID_COLS);
   const hh = clampInt(h, 1, HUB_MAX_ROW_SPAN);
   for (let row = 1; row <= maxRowsScan; row++) {
@@ -175,6 +175,66 @@ export function findFirstFit(layout, w, h, ignoreId = null, maxRowsScan = 48) {
     }
   }
   return { col: 1, row: maxRowUsed(layout) + 1 };
+}
+
+/**
+ * Posizione libera più vicina a (preferCol, preferRow); utile dopo drop con coordinate mouse.
+ */
+export function findNearestFit(
+  layout,
+  w,
+  h,
+  ignoreId = null,
+  preferCol,
+  preferRow,
+  maxRowScan = Math.max(maxRowUsed(layout) + 24, 32)
+) {
+  const ww = clampInt(w, 1, HUB_GRID_COLS);
+  const hh = clampInt(h, 1, HUB_MAX_ROW_SPAN);
+  const pc = clampInt(preferCol, 1, HUB_GRID_COLS);
+  const pr = Math.max(1, parseInt(preferRow, 10) || 1);
+  let best = null;
+  let bestScore = Infinity;
+  const maxCol = HUB_GRID_COLS - ww + 1;
+  const pcClamped = clampInt(pc, 1, maxCol);
+  const endRow = Math.max(maxRowScan, pr + hh + 8);
+  for (let row = 1; row <= endRow; row++) {
+    for (let col = 1; col <= maxCol; col++) {
+      const trial = { col, row, w: ww, h: hh };
+      if (hasCollision(layout, trial, ignoreId)) continue;
+      const dc = Math.abs(col - pcClamped);
+      const dr = Math.abs(row - pr);
+      const score = dc + dr * 2;
+      if (!best || score < bestScore || (score === bestScore && (row < best.row || (row === best.row && col < best.col)))) {
+        bestScore = score;
+        best = { col, row };
+      }
+    }
+  }
+  if (best) return best;
+  return findFirstFit(layout, ww, hh, ignoreId, endRow + 40);
+}
+
+export function swapGridPositions(layout, idA, idB) {
+  if (!idA || !idB || idA === idB) return layout;
+  const next = cloneLayout(layout);
+  const ia = next.findIndex((x) => x.id === idA);
+  const ib = next.findIndex((x) => x.id === idB);
+  if (ia < 0 || ib < 0) return layout;
+  const a = { ...next[ia] };
+  const b = { ...next[ib] };
+  const swapColRow = () => {
+    const tc = a.col;
+    const tr = a.row;
+    a.col = clampInt(b.col, 1, HUB_GRID_COLS - a.w + 1);
+    a.row = Math.max(1, b.row);
+    b.col = clampInt(tc, 1, HUB_GRID_COLS - b.w + 1);
+    b.row = Math.max(1, tr);
+    next[ia] = a;
+    next[ib] = b;
+  };
+  swapColRow();
+  return resolveCollisions(next);
 }
 
 /** Spinge le card in caso di sovrapposizioni (preserva ordine array). */
@@ -215,7 +275,7 @@ export function applyPlacement(layout, id, col, row) {
   item.w = w;
   item.h = h;
   if (hasCollision(next, item, id)) {
-    const fit = findFirstFit(next, w, h, id);
+    const fit = findNearestFit(next, w, h, id, item.col, item.row);
     item.col = fit.col;
     item.row = fit.row;
   }
@@ -234,7 +294,7 @@ export function applyResize(layout, id, w, h) {
   item.h = clampInt(h, 1, HUB_MAX_ROW_SPAN);
   item.col = clampInt(item.col, 1, HUB_GRID_COLS - item.w + 1);
   if (hasCollision(next, item, id)) {
-    const fit = findFirstFit(next, item.w, item.h, id);
+    const fit = findNearestFit(next, item.w, item.h, id, item.col, item.row);
     item.col = fit.col;
     item.row = fit.row;
   }
@@ -274,13 +334,35 @@ export function missingModuleIds(layout) {
   return ALL_MODULE_IDS.filter((id) => !have.has(id));
 }
 
-export function snapDropToCell(clientX, clientY, gridEl, rowHeightPx = 118) {
+const GRID_GAP_PX_APPROX = 12;
+const ROW_MIN_TRACK_PX = 112;
+
+/**
+ * Ancora colonne sulla griglia fissa da 7; le righe seguono il mouse rispetto all’altezza reale
+ * del contenitore così è possibile “andare più in basso” oltre le card lunghe (es. sotto slot).
+ */
+export function snapDropToCell(clientX, clientY, gridEl, layout = null) {
   if (!gridEl) return { col: 1, row: 1 };
   const rect = gridEl.getBoundingClientRect();
   const cw = rect.width / HUB_GRID_COLS;
   const relX = clientX - rect.left;
   const relY = clientY - rect.top;
   const col = clampInt(Math.floor(relX / cw) + 1, 1, HUB_GRID_COLS);
-  const row = Math.max(1, Math.floor(relY / rowHeightPx) + 1);
+
+  const used = layout ? maxRowUsed(layout) : 6;
+  const gridGap = GRID_GAP_PX_APPROX;
+  /** Unità riga più “fine” sullo schermo ⇒ si possono scegliere righe più in basso sotto blocchi alti. */
+  const estimatedRows = Math.max(used + 16, 16);
+  const unitH =
+    estimatedRows > 0
+      ? Math.max((rect.height - gridGap) / estimatedRows, (ROW_MIN_TRACK_PX + gridGap) * 0.45)
+      : ROW_MIN_TRACK_PX + gridGap;
+
+  let row = Math.floor(relY / unitH) + 1;
+  if (layout && rect.height > 24 && relY > rect.height * 0.42) {
+    const deepBoost = Math.floor((relY - rect.height * 0.42) / Math.max(unitH * 0.72, (ROW_MIN_TRACK_PX + gridGap) / 4));
+    row += Math.max(0, deepBoost);
+  }
+  row = clampInt(row, 1, Math.max(used + 50, 40));
   return { col, row };
 }

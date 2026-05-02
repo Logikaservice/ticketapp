@@ -29,7 +29,8 @@ import {
   getDefaultHubLayout,
   snapDropToCell,
   sanitizeLayoutItems,
-  saveHubLayout
+  saveHubLayout,
+  swapGridPositions
 } from '../../utils/hubOverviewLayout';
 
 const SURFACE_LOCAL = '#1E1E1E';
@@ -192,26 +193,61 @@ export default function HubOverviewSection({
   const handleDragStart = (e, id) => {
     if (!hubLayoutEditMode || !isTechnician) return;
     dragIdRef.current = id;
-    e.dataTransfer.setData('text/hub-module', id);
-    e.dataTransfer.effectAllowed = 'move';
+    try {
+      e.dataTransfer.setData('text/plain', id);
+      e.dataTransfer.setData('application/x-hub-slot', id);
+      e.dataTransfer.effectAllowed = 'move';
+    } catch (_) {
+      dragIdRef.current = id;
+    }
   };
 
-  const handleDragOver = (e) => {
+  const handleDragOverZone = (e) => {
     if (!hubLayoutEditMode || !isTechnician) return;
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    try {
+      e.dataTransfer.dropEffect = 'move';
+    } catch (_) {
+      /* ignore */
+    }
   };
 
-  const handleDrop = (e) => {
+  /** Necessario: senza preventDefault sulla tile sottostante il browser non innesca mai il drop */
+  const handleUnifiedDrop = (e) => {
     if (!hubLayoutEditMode || !isTechnician) return;
     e.preventDefault();
-    const id = e.dataTransfer.getData('text/hub-module') || dragIdRef.current;
-    if (!id || !gridRef.current) return;
-    const { col, row } = snapDropToCell(e.clientX, e.clientY, gridRef.current);
-    let next = applyPlacement(hubLayout, id, col, row);
-    next = sanitizeLayoutItems(next);
+    e.stopPropagation();
+
+    let dragId = '';
+    try {
+      dragId =
+        e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('application/x-hub-slot') || '';
+    } catch (_) {
+      dragId = '';
+    }
+    if (!dragId) dragId = dragIdRef.current;
+    if (!dragId || !gridRef.current) {
+      dragIdRef.current = null;
+      return;
+    }
+
+    let droppedOnId = '';
+    try {
+      const host =
+        typeof e.target?.closest === 'function' ? e.target.closest('[data-hub-slot]') : null;
+      droppedOnId = host?.getAttribute?.('data-hub-slot')?.trim?.() ?? '';
+    } catch (_) {
+      droppedOnId = '';
+    }
+
+    if (droppedOnId && droppedOnId !== dragId) {
+      setHubLayout(sanitizeLayoutItems(swapGridPositions(hubLayout, dragId, droppedOnId)));
+    } else {
+      const { col, row } = snapDropToCell(e.clientX, e.clientY, gridRef.current, hubLayout);
+      const next = applyPlacement(hubLayout, dragId, col, row);
+      setHubLayout(sanitizeLayoutItems(next));
+    }
     dragIdRef.current = null;
-    setHubLayout(next);
   };
 
   const restoreDefaults = () => {
@@ -393,13 +429,14 @@ export default function HubOverviewSection({
             gridTemplateColumns: `repeat(${HUB_GRID_COLS}, minmax(0, 1fr))`,
             gridAutoRows: 'minmax(112px, auto)'
           }}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
+          onDragOver={handleDragOverZone}
+          onDrop={handleUnifiedDrop}
         >
           {sorted.map((item) => (
             <div
               key={item.id}
               role="presentation"
+              data-hub-slot={item.id}
               className={`relative min-h-0 outline-none transition-shadow ${
                 hubLayoutEditMode && selectedId === item.id ? 'z-10 shadow-[0_0_0_2px_var(--hub-accent)]' : ''
               }`}
@@ -407,6 +444,8 @@ export default function HubOverviewSection({
                 gridColumn: `${item.col} / span ${item.w}`,
                 gridRow: `${item.row} / span ${item.h}`
               }}
+              onDragOver={handleDragOverZone}
+              onDrop={handleUnifiedDrop}
               onClick={(e) => {
                 if (!hubLayoutEditMode || !isTechnician) return;
                 e.stopPropagation();
@@ -417,10 +456,14 @@ export default function HubOverviewSection({
                 <div
                   className="absolute left-2 top-2 z-20 cursor-grab rounded-lg border border-white/15 bg-black/55 p-1 text-white/70 active:cursor-grabbing"
                   title="Trascina per spostare"
-                  draggable
+                  draggable={hubLayoutEditMode}
+                  data-hub-slot={item.id}
                   onDragStart={(e) => {
                     e.stopPropagation();
                     handleDragStart(e, item.id);
+                  }}
+                  onDragEnd={() => {
+                    dragIdRef.current = null;
                   }}
                 >
                   <GripVertical size={16} />
