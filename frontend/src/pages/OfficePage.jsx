@@ -1018,15 +1018,10 @@ const OfficePage = ({
 
                             return (
                               <div key={`custom-${fieldNumber}`} className={`border-l-4 ${getBorderColor(fieldNumber)} pl-3 py-1`}>
-                                {valueStr ? (
-                                  <p className={ox.pBodySm}>
-                                    <span className="font-semibold">{fieldNumber}.</span> {valueStr}
-                                  </p>
-                                ) : (
-                                  <p className={ox.pMutedSmItalic}>
-                                    <span className="font-semibold">{fieldNumber}.</span> (vuoto)
-                                  </p>
-                                )}
+                                <p className={ox.pBodySm}>
+                                  <span className="font-semibold">{fieldNumber}.</span>
+                                  {valueStr ? <> {valueStr}</> : null}
+                                </p>
                               </div>
                             );
                           })}
