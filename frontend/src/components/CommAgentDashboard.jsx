@@ -9,12 +9,23 @@ import {
 import { buildApiUrl } from '../utils/apiConfig';
 import SectionNavMenu from './SectionNavMenu';
 
-const CommAgentDashboard = ({ 
-    currentUser, closeModal, notify,
-    selectedCompanyId, onNavigateHome, onNavigateOffice, onNavigateEmail, 
-    onNavigateAntiVirus, onNavigateNetworkMonitoring, onNavigateMappatura, 
-    onNavigateSpeedTest, onNavigateDispositiviAziendali, onNavigateCommAgentManager,
-    onNavigateVpn
+const CommAgentDashboard = ({
+    currentUser,
+    closeModal,
+    notify,
+    selectedCompanyId,
+    onNavigateHome,
+    onNavigateOffice,
+    onNavigateEmail,
+    onNavigateAntiVirus,
+    onNavigateNetworkMonitoring,
+    onNavigateMappatura,
+    onNavigateSpeedTest,
+    onNavigateDispositiviAziendali,
+    onNavigateCommAgentManager,
+    onNavigateVpn,
+    /** Se true: niente overlay full-screen; pensato per l’Hub tecnico (area centrale). */
+    embedded = false
 }) => {
     // State
     const [activeTab, setActiveTab] = useState('send');
@@ -183,63 +194,143 @@ const CommAgentDashboard = ({
         }
     };
 
-    return (
-        <div style={{
-            position: 'fixed', inset: 0, zIndex: 60, display: 'flex',
-            flexDirection: 'column',
-            background: '#0f172a',
-            overflow: 'hidden'
-        }}>
-            <div style={{
-                width: '100%', height: '100%',
-                display: 'flex', flexDirection: 'column'
-            }}>
+    const outerShell = embedded
+        ? {
+              position: 'relative',
+              flex: 1,
+              minHeight: 0,
+              zIndex: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              background: '#0f172a',
+              overflow: 'hidden',
+              borderRadius: 16,
+              border: '1px solid rgba(255,255,255,0.08)'
+          }
+        : {
+              position: 'fixed',
+              inset: 0,
+              zIndex: 60,
+              display: 'flex',
+              flexDirection: 'column',
+              background: '#0f172a',
+              overflow: 'hidden'
+          };
 
+    return (
+        <div style={outerShell}>
+            <div
+                style={{
+                    width: '100%',
+                    height: '100%',
+                    minHeight: 0,
+                    display: 'flex',
+                    flexDirection: 'column'
+                }}
+            >
                 {/* Header */}
-                <div style={{
-                    padding: '20px 28px',
-                    background: 'white',
-                    borderBottom: '1px solid #E2E8F0',
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                        <SectionNavMenu
-                            currentPage="comm-agent"
-                            onNavigateHome={onNavigateHome || closeModal}
-                            onNavigateOffice={onNavigateOffice}
-                            onNavigateEmail={onNavigateEmail}
-                            onNavigateAntiVirus={onNavigateAntiVirus}
-                            onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
-                            onNavigateMappatura={onNavigateMappatura}
-                            onNavigateSpeedTest={onNavigateSpeedTest}
-                            onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
-                            onNavigateVpn={onNavigateVpn}
-                            currentUser={currentUser}
-                            selectedCompanyId={selectedCompanyId}
-                        />
-                        <div style={{
-                            width: 44, height: 44, borderRadius: 14,
-                            background: '#EDE9FE', display: 'flex',
-                            alignItems: 'center', justifyContent: 'center'
-                        }}>
-                            <Bell size={24} color="#7C3AED" />
+                <div
+                    style={{
+                        padding: embedded ? '12px 16px' : '20px 28px',
+                        background: embedded ? '#1e293b' : 'white',
+                        borderBottom: embedded ? '1px solid #334155' : '1px solid #E2E8F0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                        flexShrink: 0
+                    }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: embedded ? 10 : 14, minWidth: 0 }}>
+                        {embedded && (
+                            <button
+                                type="button"
+                                onClick={() => closeModal?.()}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    padding: '8px 12px',
+                                    borderRadius: 10,
+                                    border: '1px solid #475569',
+                                    background: '#0f172a',
+                                    color: '#e2e8f0',
+                                    cursor: 'pointer',
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    flexShrink: 0
+                                }}
+                            >
+                                <ArrowLeft size={18} aria-hidden />
+                                Panoramica Hub
+                            </button>
+                        )}
+                        {!embedded && (
+                            <SectionNavMenu
+                                currentPage="comm-agent"
+                                onNavigateHome={onNavigateHome || closeModal}
+                                onNavigateOffice={onNavigateOffice}
+                                onNavigateEmail={onNavigateEmail}
+                                onNavigateAntiVirus={onNavigateAntiVirus}
+                                onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
+                                onNavigateMappatura={onNavigateMappatura}
+                                onNavigateSpeedTest={onNavigateSpeedTest}
+                                onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
+                                onNavigateVpn={onNavigateVpn}
+                                currentUser={currentUser}
+                                selectedCompanyId={selectedCompanyId}
+                            />
+                        )}
+                        <div
+                            style={{
+                                width: embedded ? 36 : 44,
+                                height: embedded ? 36 : 44,
+                                borderRadius: 14,
+                                background: embedded ? 'rgba(124,58,237,0.25)' : '#EDE9FE',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0
+                            }}
+                        >
+                            <Bell size={embedded ? 20 : 24} color="#a78bfa" />
                         </div>
-                        <div>
-                            <h2 style={{ margin: 0, color: '#1F2937', fontSize: 20, fontWeight: 700 }}>
+                        <div style={{ minWidth: 0 }}>
+                            <h2
+                                style={{
+                                    margin: 0,
+                                    color: embedded ? '#f1f5f9' : '#1F2937',
+                                    fontSize: embedded ? 17 : 20,
+                                    fontWeight: 700
+                                }}
+                            >
                                 Centro Comunicazioni
                             </h2>
-                            <p style={{ margin: '2px 0 0', color: '#6B7280', fontSize: 12 }}>
-                                Invia notifiche ai PC dei clienti • {agents.length} agent registrati • {onlineCount} online
+                            <p
+                                style={{
+                                    margin: '2px 0 0',
+                                    color: embedded ? '#94a3b8' : '#6B7280',
+                                    fontSize: 11
+                                }}
+                            >
+                                Invia notifiche ai PC dei clienti • {agents.length} agent registrati • {onlineCount}{' '}
+                                online
                             </p>
                         </div>
                     </div>
                 </div>
 
                 {/* Tab Bar */}
-                <div style={{
-                    display: 'flex', padding: '0 28px',
-                    background: '#1e293b', borderBottom: '1px solid #334155', gap: 4
-                }}>
+                <div
+                    style={{
+                        display: 'flex',
+                        padding: embedded ? '0 12px' : '0 28px',
+                        background: '#1e293b',
+                        borderBottom: '1px solid #334155',
+                        gap: 4,
+                        flexShrink: 0
+                    }}
+                >
                     {[
                         { id: 'send', label: 'Invia Messaggio', icon: <Send size={15} /> },
                         { id: 'agents', label: 'Agent Registrati', icon: <Monitor size={15} /> },
@@ -259,7 +350,7 @@ const CommAgentDashboard = ({
                 </div>
 
                 {/* Content */}
-                <div style={{ flex: 1, overflow: 'auto', padding: 28 }}>
+                <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: embedded ? 16 : 28 }}>
 
                     {/* TAB: Invio Messaggio */}
                     {activeTab === 'send' && (

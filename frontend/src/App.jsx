@@ -3680,6 +3680,23 @@ export default function TicketApp() {
             onOpenContractsList={() => setShowContractsListModal(true)}
             onLogout={handleLogout}
             onOpenSettings={openSettings}
+            notify={notify}
+            selectedCompanyId={globallySelectedCompanyId}
+            commAgentNav={{
+              onNavigateHome: () => {
+                setShowTechnicianWorkbench(false);
+                setShowDashboard(true);
+              },
+              onNavigateOffice: handleOpenOffice,
+              onNavigateEmail: handleOpenEmail,
+              onNavigateAntiVirus: handleOpenAntiVirus,
+              onNavigateNetworkMonitoring: handleOpenNetworkMonitoring,
+              onNavigateMappatura: handleOpenMappatura,
+              onNavigateSpeedTest: handleOpenSpeedTest,
+              onNavigateDispositiviAziendali: handleOpenDispositiviAziendali,
+              onNavigateCommAgentManager: handleOpenCommAgentManager,
+              onNavigateVpn: handleOpenVpnManager
+            }}
             nav={{
               onOpenOffice: handleOpenOffice,
               onOpenEmail: handleOpenEmail,
