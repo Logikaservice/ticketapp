@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect, useState } from 'react';
+import React, { useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import {
   Search,
   Building2,
@@ -42,6 +42,7 @@ import OfficePage from './OfficePage';
 import AntiVirusPage from './AntiVirusPage';
 import DispositiviAziendaliPage from './DispositiviAziendaliPage';
 import SpeedTestPage from './SpeedTestPage';
+import NetworkMonitoringDashboard from '../components/NetworkMonitoringDashboard';
 import {
   TECH_HUB_ACCENT_PALETTE,
   STORAGE_KEY_TECH_HUB_ACCENT,
@@ -434,7 +435,8 @@ export default function TechnicianWorkbenchPage({
   hubEmbedAntiVirusKick = 0,
   hubEmbedDispositiviKick = 0,
   hubEmbedSpeedtestKick = 0,
-  dispositiviHighlightMac = null
+  dispositiviHighlightMac = null,
+  socket = null
 }) {
   const [accentHex, setAccentHex] = useState(getStoredTechHubAccent);
   const [hubImportantAlerts, setHubImportantAlerts] = useState([]);
@@ -447,10 +449,37 @@ export default function TechnicianWorkbenchPage({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   /** Centro Hub: panoramica a griglia oppure modulo integrato (Comunicazioni, Email, Anti-Virus…). */
   const [hubCenterView, setHubCenterView] = useState(
-    /** @type {'overview' | 'comunicazioni' | 'comm-agent-manager' | 'email' | 'office' | 'antivirus' | 'dispositivi' | 'speedtest' | 'contratti' | 'avvisi'} */ ('overview')
+    /** @type {'overview' | 'comunicazioni' | 'comm-agent-manager' | 'email' | 'office' | 'antivirus' | 'dispositivi' | 'network-monitoring' | 'speedtest' | 'contratti' | 'avvisi'} */ ('overview')
   );
   const isTechnician = currentUser?.ruolo === 'tecnico';
   const canSpeedTest = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
+  const canNetworkMonitoring = useMemo(
+    () =>
+      Boolean(
+        currentUser &&
+          (currentUser.ruolo === 'tecnico' ||
+            currentUser.ruolo === 'admin' ||
+            (currentUser.ruolo === 'cliente' &&
+              Array.isArray(currentUser.admin_companies) &&
+              currentUser.admin_companies.length > 0))
+      ),
+    [currentUser]
+  );
+
+  const commAgentNavMerged = useMemo(
+    () => ({
+      ...commAgentNav,
+      onNavigateNetworkMonitoring: canNetworkMonitoring
+        ? () => setHubCenterView('network-monitoring')
+        : commAgentNav.onNavigateNetworkMonitoring
+    }),
+    [commAgentNav, canNetworkMonitoring]
+  );
+
+  const openMonitoringFromHub = useCallback(() => {
+    if (canNetworkMonitoring) setHubCenterView('network-monitoring');
+    else nav?.onOpenNetwork?.();
+  }, [canNetworkMonitoring, nav]);
   const hubLayoutUserKey = currentUser?.id ?? currentUser?.email ?? '';
 
   /** Carica subito dal localStorage: se lo facessimo solo in useEffect, il figlio salverebbe il default e cancellerebbe il salvataggio. */
@@ -762,13 +791,16 @@ export default function TechnicianWorkbenchPage({
               onClick={() => setHubCenterView('speedtest')}
             />
           )}
-          <SidebarLink
-            railMode={railMode}
-            icon={Wifi}
-            label="Monitoraggio rete"
-            accentHex={accentHex}
-            onClick={() => nav?.onOpenNetwork?.()}
-          />
+          {canNetworkMonitoring && (
+            <SidebarLink
+              railMode={railMode}
+              icon={Wifi}
+              label="Monitoraggio rete"
+              accentHex={accentHex}
+              active={hubCenterView === 'network-monitoring'}
+              onClick={() => setHubCenterView('network-monitoring')}
+            />
+          )}
           <SidebarLink
             railMode={railMode}
             icon={MapPin}
@@ -989,6 +1021,7 @@ export default function TechnicianWorkbenchPage({
               hubCenterView === 'antivirus' ||
               hubCenterView === 'dispositivi' ||
               hubCenterView === 'speedtest' ||
+              hubCenterView === 'network-monitoring' ||
               hubCenterView === 'contratti' ||
               hubCenterView === 'avvisi'
                 ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-2 md:px-5 md:pb-5'
@@ -1028,7 +1061,7 @@ export default function TechnicianWorkbenchPage({
                 onNavigateOffice={() => setHubCenterView('office')}
                 onNavigateAntiVirus={() => setHubCenterView('antivirus')}
                 onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
-                onNavigateNetworkMonitoring={() => nav?.onOpenNetwork?.()}
+                onNavigateNetworkMonitoring={openMonitoringFromHub}
                 onNavigateMappatura={() => nav?.onOpenMappatura?.()}
                 onNavigateSpeedTest={canSpeedTest ? () => setHubCenterView('speedtest') : undefined}
                 onNavigateVpn={() => nav?.onOpenVpn?.()}
@@ -1047,7 +1080,7 @@ export default function TechnicianWorkbenchPage({
                 onNavigateEmail={() => setHubCenterView('email')}
                 onNavigateAntiVirus={() => setHubCenterView('antivirus')}
                 onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
-                onNavigateNetworkMonitoring={() => nav?.onOpenNetwork?.()}
+                onNavigateNetworkMonitoring={openMonitoringFromHub}
                 onNavigateMappatura={() => nav?.onOpenMappatura?.()}
                 onNavigateSpeedTest={canSpeedTest ? () => setHubCenterView('speedtest') : undefined}
                 onNavigateVpn={() => nav?.onOpenVpn?.()}
@@ -1070,7 +1103,7 @@ export default function TechnicianWorkbenchPage({
                 onNavigateOffice={() => setHubCenterView('office')}
                 onNavigateEmail={() => setHubCenterView('email')}
                 onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
-                onNavigateNetworkMonitoring={() => nav?.onOpenNetwork?.()}
+                onNavigateNetworkMonitoring={openMonitoringFromHub}
                 onNavigateMappatura={() => nav?.onOpenMappatura?.()}
                 onNavigateSpeedTest={canSpeedTest ? () => setHubCenterView('speedtest') : undefined}
                 onNavigateVpn={() => nav?.onOpenVpn?.()}
@@ -1094,7 +1127,7 @@ export default function TechnicianWorkbenchPage({
                 onNavigateOffice={() => setHubCenterView('office')}
                 onNavigateEmail={() => setHubCenterView('email')}
                 onNavigateAntiVirus={() => setHubCenterView('antivirus')}
-                onNavigateNetworkMonitoring={() => nav?.onOpenNetwork?.()}
+                onNavigateNetworkMonitoring={openMonitoringFromHub}
                 onNavigateMappatura={() => nav?.onOpenMappatura?.()}
                 onNavigateSpeedTest={canSpeedTest ? () => setHubCenterView('speedtest') : undefined}
                 onNavigateVpn={() => nav?.onOpenVpn?.()}
@@ -1115,11 +1148,41 @@ export default function TechnicianWorkbenchPage({
                 onNavigateOffice={() => setHubCenterView('office')}
                 onNavigateEmail={() => setHubCenterView('email')}
                 onNavigateAntiVirus={() => setHubCenterView('antivirus')}
-                onNavigateNetworkMonitoring={() => nav?.onOpenNetwork?.()}
+                onNavigateNetworkMonitoring={openMonitoringFromHub}
                 onNavigateMappatura={() => nav?.onOpenMappatura?.()}
                 onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
                 onNavigateVpn={() => nav?.onOpenVpn?.()}
                 onNavigateLSight={() => nav?.onOpenLSight?.()}
+              />
+            ) : hubCenterView === 'network-monitoring' && canNetworkMonitoring ? (
+              <NetworkMonitoringDashboard
+                embedded
+                accentHex={accentHex}
+                closeEmbedded={() => setHubCenterView('overview')}
+                getAuthHeader={getAuthHeader}
+                socket={socket}
+                initialCompanyId={selectedCompanyId}
+                onCompanyChange={onGloballyCompanyChange ?? undefined}
+                readOnly={
+                  currentUser?.ruolo === 'cliente' &&
+                  !!(currentUser?.admin_companies && currentUser.admin_companies.length > 0)
+                }
+                currentUser={currentUser}
+                onOpenTicket={onOpenTicketWithPrefill ?? undefined}
+                onNavigateOffice={() => setHubCenterView('office')}
+                onNavigateEmail={() => setHubCenterView('email')}
+                onNavigateAntiVirus={() => setHubCenterView('antivirus')}
+                onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
+                onNavigateNetworkMonitoring={null}
+                onNavigateMappatura={() => nav?.onOpenMappatura?.()}
+                onNavigateSpeedTest={canSpeedTest ? () => setHubCenterView('speedtest') : undefined}
+                onNavigateVpn={() => nav?.onOpenVpn?.()}
+                onNavigateLSight={() => nav?.onOpenLSight?.()}
+                onNavigateHome={() => setHubCenterView('overview')}
+                onNavigateToMappatura={(companyId) => {
+                  onGloballyCompanyChange?.(companyId ?? null);
+                  nav?.onOpenMappatura?.();
+                }}
               />
             ) : hubCenterView === 'comunicazioni' ? (
               <CommAgentDashboard
@@ -1129,18 +1192,18 @@ export default function TechnicianWorkbenchPage({
                 notify={notify}
                 selectedCompanyId={selectedCompanyId}
                 closeModal={() => setHubCenterView('overview')}
-                onNavigateHome={commAgentNav.onNavigateHome ?? onNavigateHome}
-                onNavigateOffice={commAgentNav.onNavigateOffice}
-                onNavigateEmail={commAgentNav.onNavigateEmail}
+                onNavigateHome={commAgentNavMerged.onNavigateHome ?? onNavigateHome}
+                onNavigateOffice={commAgentNavMerged.onNavigateOffice}
+                onNavigateEmail={commAgentNavMerged.onNavigateEmail}
                 onNavigateAntiVirus={() => setHubCenterView('antivirus')}
-                onNavigateNetworkMonitoring={commAgentNav.onNavigateNetworkMonitoring}
-                onNavigateMappatura={commAgentNav.onNavigateMappatura}
+                onNavigateNetworkMonitoring={commAgentNavMerged.onNavigateNetworkMonitoring}
+                onNavigateMappatura={commAgentNavMerged.onNavigateMappatura}
                 onNavigateSpeedTest={
-                  canSpeedTest ? () => setHubCenterView('speedtest') : commAgentNav.onNavigateSpeedTest
+                  canSpeedTest ? () => setHubCenterView('speedtest') : commAgentNavMerged.onNavigateSpeedTest
                 }
                 onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
                 onNavigateCommAgentManager={() => setHubCenterView('comm-agent-manager')}
-                onNavigateVpn={commAgentNav.onNavigateVpn}
+                onNavigateVpn={commAgentNavMerged.onNavigateVpn}
               />
             ) : hubCenterView === 'comm-agent-manager' ? (
               <CommAgentManager
@@ -1150,17 +1213,17 @@ export default function TechnicianWorkbenchPage({
                 notify={notify}
                 selectedCompanyId={selectedCompanyId}
                 closeModal={() => setHubCenterView('overview')}
-                onNavigateHome={commAgentNav.onNavigateHome ?? onNavigateHome}
-                onNavigateOffice={commAgentNav.onNavigateOffice}
-                onNavigateEmail={commAgentNav.onNavigateEmail}
+                onNavigateHome={commAgentNavMerged.onNavigateHome ?? onNavigateHome}
+                onNavigateOffice={commAgentNavMerged.onNavigateOffice}
+                onNavigateEmail={commAgentNavMerged.onNavigateEmail}
                 onNavigateAntiVirus={() => setHubCenterView('antivirus')}
-                onNavigateNetworkMonitoring={commAgentNav.onNavigateNetworkMonitoring}
-                onNavigateMappatura={commAgentNav.onNavigateMappatura}
+                onNavigateNetworkMonitoring={commAgentNavMerged.onNavigateNetworkMonitoring}
+                onNavigateMappatura={commAgentNavMerged.onNavigateMappatura}
                 onNavigateSpeedTest={
-                  canSpeedTest ? () => setHubCenterView('speedtest') : commAgentNav.onNavigateSpeedTest
+                  canSpeedTest ? () => setHubCenterView('speedtest') : commAgentNavMerged.onNavigateSpeedTest
                 }
                 onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
-                onNavigateVpn={commAgentNav.onNavigateVpn}
+                onNavigateVpn={commAgentNavMerged.onNavigateVpn}
               />
             ) : (
               <HubOverviewSection

@@ -22,6 +22,7 @@ import { EventBadge, SeverityIndicator } from './EventBadges';
 import MonitoraggioIntroCard from './MonitoraggioIntroCard';
 import SectionNavMenu from './SectionNavMenu';
 import DeviceAnalysisModal from './Modals/DeviceAnalysisModal';
+import { HUB_PAGE_BG, HUB_SURFACE, hexToRgba, normalizeHex, getStoredTechHubAccent } from '../utils/techHubAccent';
 
 /** Switch virtuali (mappatura UniFi): IP fittizio `virtual-…`. Nascosti in Monitoraggio Rete; i record restano in DB. */
 function isVirtualSwitchMonitorRow(device) {
@@ -29,7 +30,32 @@ function isVirtualSwitchMonitorRow(device) {
   return ip.startsWith('virtual-');
 }
 
-const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, onCompanyChange = null, initialCompanyId = null, readOnly = false, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura, onNavigateSpeedTest, onNavigateVpn, onNavigateHome, onOpenTicket = null }) => {
+const NetworkMonitoringDashboard = ({
+  getAuthHeader,
+  socket,
+  initialView = null,
+  onViewReset = null,
+  onClose = null,
+  onNavigateToMappatura = null,
+  onCompanyChange = null,
+  initialCompanyId = null,
+  readOnly = false,
+  currentUser,
+  onNavigateOffice,
+  onNavigateEmail,
+  onNavigateAntiVirus,
+  onNavigateDispositiviAziendali,
+  onNavigateNetworkMonitoring,
+  onNavigateMappatura,
+  onNavigateSpeedTest,
+  onNavigateVpn,
+  onNavigateLSight,
+  onNavigateHome,
+  onOpenTicket = null,
+  embedded = false,
+  closeEmbedded = null,
+  accentHex: accentHexProp = null
+}) => {
   const updateTimeoutRef = useRef(null);
   const [devices, setDevices] = useState([]);
   const [changes, setChanges] = useState([]);
@@ -1687,6 +1713,61 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const selectedCompanyAgentsCount = selectedCompany?.agents_count ?? selectedCompany?.agent_count ?? 0;
   const showEventiDiRete = !readOnly || selectedCompanyAgentsCount > 0;
 
+  const accentEmbedded = useMemo(
+    () => normalizeHex(accentHexProp) || getStoredTechHubAccent(),
+    [accentHexProp]
+  );
+  const onEmbeddedHubBack = useCallback(() => {
+    if (typeof closeEmbedded === 'function') closeEmbedded();
+    else onNavigateHome?.();
+  }, [closeEmbedded, onNavigateHome]);
+  const embeddedBackBtnStyle = useMemo(
+    () => ({
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: '8px 12px',
+      borderRadius: 12,
+      border: '1px solid rgba(255,255,255,0.12)',
+      background: 'rgba(0,0,0,0.28)',
+      color: 'rgba(255,255,255,0.82)',
+      cursor: 'pointer',
+      fontSize: 13,
+      fontWeight: 600,
+      flexShrink: 0
+    }),
+    []
+  );
+  const embeddedRootAccentStyle = useMemo(
+    () =>
+      embedded
+        ? {
+            backgroundColor: HUB_PAGE_BG,
+            ['--hub-accent']: accentEmbedded,
+            ['--hub-accent-border']: hexToRgba(accentEmbedded, 0.48)
+          }
+        : undefined,
+    [embedded, accentEmbedded]
+  );
+
+  const kpiBtnOnline = embedded
+    ? 'rounded-xl border border-white/[0.10] bg-black/[0.22] p-4 text-left w-full shadow-none transition hover:bg-white/[0.06] hover:[border-color:var(--hub-accent-border)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)] cursor-pointer'
+    : 'bg-white rounded-lg shadow p-4 text-left w-full transition hover:shadow-md hover:ring-2 hover:ring-blue-200/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer';
+  const kpiBtnOffline = embedded
+    ? 'rounded-xl border border-white/[0.10] bg-black/[0.22] p-4 text-left w-full shadow-none transition hover:bg-white/[0.06] hover:[border-color:var(--hub-accent-border)] focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/70 cursor-pointer'
+    : 'bg-white rounded-lg shadow p-4 text-left w-full transition hover:shadow-md hover:ring-2 hover:ring-orange-200/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 cursor-pointer';
+  const kpiBtnActivity = embedded
+    ? 'rounded-xl border border-white/[0.10] bg-black/[0.22] p-4 text-left w-full shadow-none transition hover:bg-white/[0.06] hover:[border-color:var(--hub-accent-border)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)] cursor-pointer'
+    : 'bg-white rounded-lg shadow p-4 text-left w-full transition hover:shadow-md hover:ring-2 hover:ring-blue-200/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer';
+  const kpiBoxStatic = embedded
+    ? 'rounded-xl border border-white/[0.10] bg-black/[0.22] p-4 shadow-none'
+    : 'bg-white rounded-lg shadow p-4';
+  const kpiLabelCls = embedded ? 'text-sm text-white/60 mb-1 flex items-center gap-1' : 'text-sm text-gray-600 mb-1 flex items-center gap-1';
+  const kpiSubCls = embedded ? 'text-xs text-white/38 mt-1' : 'text-xs text-gray-500 mt-1';
+
+  const showLegacyStickyHeader = Boolean(onClose) && !embedded;
+  const showControlsInScroll = embedded || !onClose;
+
   // Sezione Controlli (Azienda, Refresh, Mappatura)
   const controlsSection = (
     <>
@@ -1893,6 +1974,20 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   };
 
   if (loading && devices.length === 0) {
+    if (embedded) {
+      return (
+        <div
+          className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.08]"
+          style={embeddedRootAccentStyle}
+          data-network-monitor-root
+        >
+          <div className="flex flex-1 items-center justify-center gap-3 p-8 text-white/70">
+            <Loader className="h-8 w-8 shrink-0 animate-spin" style={{ color: accentEmbedded }} />
+            <span>Caricamento dispositivi...</span>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="fixed inset-0 bg-gray-100 z-50 overflow-y-auto" data-network-monitor-root>
         <div className="p-8 flex items-center justify-center min-h-screen">
@@ -1904,9 +1999,16 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   }
 
   return (
-    <div className="fixed inset-0 bg-gray-100 z-50 overflow-y-auto" data-network-monitor-root>
-      {/* Header Navigazione */}
-      {onClose && (
+    <div
+      data-network-monitor-root
+      style={embedded ? embeddedRootAccentStyle : undefined}
+      className={
+        embedded
+          ? 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.08]'
+          : 'fixed inset-0 bg-gray-100 z-50 overflow-y-auto'
+      }
+    >
+      {showLegacyStickyHeader && (
         <div className="bg-white border-b px-6 py-3 flex justify-between items-center sticky top-0 z-40 shadow-sm">
           <div className="flex items-center gap-4">
             <SectionNavMenu
@@ -1919,13 +2021,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               onNavigateNetworkMonitoring={null}
               onNavigateMappatura={onNavigateMappatura}
               onNavigateSpeedTest={onNavigateSpeedTest}
+              onNavigateLSight={onNavigateLSight}
               onNavigateVpn={onNavigateVpn}
               currentUser={currentUser}
               selectedCompanyId={selectedCompanyId}
             />
             <div className="h-6 w-px bg-gray-300"></div>
             <h1 className="font-bold text-xl text-gray-800">Monitoraggio Rete</h1>
-            {/* Notifiche Agent - spostato a destra del titolo */}
             {getAuthHeader && socket && (
               <AgentNotifications
                 getAuthHeader={getAuthHeader}
@@ -1945,29 +2047,72 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           </div>
         </div>
       )}
-      <div className="p-6 max-w-[95vw] mx-auto">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Menu hamburger rimosso - ora è nel Header principale */}
 
-            {!onClose && (
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                  <Wifi className="w-8 h-8 text-blue-600" />
-                  Monitoraggio Rete
-                </h1>
-                <p className="text-gray-500 mt-1">
-                  {lastUpdate && `Ultimo aggiornamento: ${formatDate(lastUpdate)}`}
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3">
-            {!onClose && controlsSection}
-          </div>
+      {embedded && (
+        <div
+          className="sticky top-0 z-40 flex shrink-0 flex-wrap items-center gap-2 border-b border-white/[0.10] px-3 py-2.5 sm:gap-3 sm:px-4"
+          style={{ backgroundColor: HUB_SURFACE }}
+        >
+          <button type="button" onClick={onEmbeddedHubBack} style={embeddedBackBtnStyle} aria-label="Torna alla panoramica Hub">
+            <ArrowLeft size={20} aria-hidden />
+          </button>
+          <SectionNavMenu
+            embedded
+            currentPage="network"
+            onNavigateHome={onEmbeddedHubBack}
+            onNavigateOffice={onNavigateOffice}
+            onNavigateEmail={onNavigateEmail}
+            onNavigateAntiVirus={onNavigateAntiVirus}
+            onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
+            onNavigateNetworkMonitoring={null}
+            onNavigateMappatura={onNavigateMappatura}
+            onNavigateSpeedTest={onNavigateSpeedTest}
+            onNavigateLSight={onNavigateLSight}
+            onNavigateVpn={onNavigateVpn}
+            currentUser={currentUser}
+            selectedCompanyId={selectedCompanyId}
+          />
+          <div className="hidden h-6 w-px bg-white/15 sm:block" aria-hidden />
+          <h1 className="text-base font-bold text-white/90">Monitoraggio Rete</h1>
+          {getAuthHeader && socket ? (
+            <div className="flex items-center [&_button]:border-white/[0.12] [&_button]:bg-black/25 [&_button]:text-white/75">
+              <AgentNotifications getAuthHeader={getAuthHeader} socket={socket} onOpenNetworkMonitoring={null} />
+            </div>
+          ) : null}
+          {readOnly ? (
+            <div className="ml-auto flex items-center gap-2 rounded-lg border border-amber-500/35 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-100">
+              <Eye size={14} aria-hidden />
+              Modalità visualizzazione
+            </div>
+          ) : null}
         </div>
+      )}
+
+      <div className={embedded ? 'flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#eaeaea]' : ''}>
+        <div className="mx-auto max-w-[95vw] p-6">
+          {showControlsInScroll && (
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                {!onClose && !embedded && (
+                  <div>
+                    <h1 className="flex items-center gap-3 text-3xl font-bold text-gray-900">
+                      <Wifi className="h-8 w-8 shrink-0 text-blue-600" />
+                      Monitoraggio Rete
+                    </h1>
+                    <p className="mt-1 text-gray-500">
+                      {lastUpdate && `Ultimo aggiornamento: ${formatDate(lastUpdate)}`}
+                    </p>
+                  </div>
+                )}
+                {embedded && lastUpdate ? (
+                  <p className="text-sm text-gray-600">Ultimo aggiornamento: {formatDate(lastUpdate)}</p>
+                ) : null}
+              </div>
+              {!showLegacyStickyHeader ? (
+                <div className="flex flex-wrap items-center gap-3">{controlsSection}</div>
+              ) : null}
+            </div>
+          )}
 
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
@@ -2502,15 +2647,15 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               e.stopPropagation();
               setAgentStatPopoverMode((prev) => (prev === 'online' ? null : 'online'));
             }}
-            className="bg-white rounded-lg shadow p-4 text-left w-full transition hover:shadow-md hover:ring-2 hover:ring-blue-200/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer"
+            className={kpiBtnOnline}
             title="Agent connessi — clic per l'elenco"
           >
-            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+            <div className={kpiLabelCls}>
               <ServerIcon size={16} className="text-blue-600" />
               Agent Online
             </div>
             <div className="text-3xl font-bold text-blue-600">{stats.agentsOnline}</div>
-            <div className="text-xs text-gray-500 mt-1">di {stats.agentsTotal} totali</div>
+            <div className={kpiSubCls}>di {stats.agentsTotal} totali</div>
           </button>
           <button
             type="button"
@@ -2519,43 +2664,37 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               e.stopPropagation();
               setAgentStatPopoverMode((prev) => (prev === 'offline' ? null : 'offline'));
             }}
-            className="bg-white rounded-lg shadow p-4 text-left w-full transition hover:shadow-md hover:ring-2 hover:ring-orange-200/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 cursor-pointer"
+            className={kpiBtnOffline}
             title="Agent non in contatto — clic per l'elenco"
           >
-            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+            <div className={kpiLabelCls}>
               <WifiOff size={16} className="text-orange-600" />
               Agent Offline
             </div>
             <div className="text-3xl font-bold text-orange-600">{stats.agentsOffline}</div>
-            <div className="text-xs text-gray-500 mt-1">di {stats.agentsTotal} totali</div>
+            <div className={kpiSubCls}>di {stats.agentsTotal} totali</div>
           </button>
           <button
             type="button"
             onClick={scrollToEventiReteSection}
-            className="bg-white rounded-lg shadow p-4 text-left w-full transition hover:shadow-md hover:ring-2 hover:ring-blue-200/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer"
+            className={kpiBtnActivity}
             title="Vai alla sezione Eventi di Rete"
           >
-            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+            <div className={kpiLabelCls}>
               <Activity size={16} className="text-blue-600" />
               Cambiamenti (Oggi)
             </div>
             <div className="text-3xl font-bold text-blue-600">{stats.recentChanges}</div>
           </button>
-          <div
-            className="bg-white rounded-lg shadow p-4"
-            title="Dispositivi di rete rilevati come raggiungibili"
-          >
-            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+          <div className={kpiBoxStatic} title="Dispositivi di rete rilevati come raggiungibili">
+            <div className={kpiLabelCls}>
               <CheckCircle size={16} className="text-green-600" />
               Dispositivi Online
             </div>
             <div className="text-3xl font-bold text-green-600">{stats.online}</div>
           </div>
-          <div
-            className="bg-white rounded-lg shadow p-4"
-            title="Dispositivi di rete non raggiungibili o segnalati offline"
-          >
-            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+          <div className={kpiBoxStatic} title="Dispositivi di rete non raggiungibili o segnalati offline">
+            <div className={kpiLabelCls}>
               <WifiOff size={16} className="text-red-600" />
               Dispositivi Offline
             </div>
@@ -3955,6 +4094,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           </div>,
           document.body
         )}
+        </div>
       </div>
     </div>
   );

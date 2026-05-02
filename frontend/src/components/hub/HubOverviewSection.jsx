@@ -201,6 +201,12 @@ export default function HubOverviewSection({
   }, [hubLayout, layoutUserKey]);
 
   const hubCanSpeedTest = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
+  const hubCanNetworkMonitoring =
+    currentUser?.ruolo === 'tecnico' ||
+    currentUser?.ruolo === 'admin' ||
+    (currentUser?.ruolo === 'cliente' &&
+      Array.isArray(currentUser?.admin_companies) &&
+      currentUser.admin_companies.length > 0);
 
   const handleDragStart = (e, id) => {
     if (!hubLayoutEditMode || !isTechnician) return;
@@ -331,12 +337,14 @@ export default function HubOverviewSection({
         return (
           <ModuleLaunchCard
             icon={Wifi}
-            label="Monitoraggio"
-            subtitle="Stato rete"
+            label="Monitoraggio rete"
+            subtitle={hubCanNetworkMonitoring ? 'Apri nel centro Hub' : 'Non disponibile'}
             accent={accentHex}
-            onClick={() => nav?.onOpenNetwork?.()}
-            subdued={veil}
-            suppressInteraction={suppressInteraction}
+            onClick={
+              hubCanNetworkMonitoring ? () => setHubCenterView?.('network-monitoring') : () => nav?.onOpenNetwork?.()
+            }
+            subdued={veil || !hubCanNetworkMonitoring}
+            suppressInteraction={suppressInteraction || !hubCanNetworkMonitoring}
           />
         );
       case 'launch-comms':

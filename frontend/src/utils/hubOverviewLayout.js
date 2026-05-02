@@ -25,7 +25,7 @@ export const HUB_MODULE_META = {
     defaultPlacement: { col: 1, row: 2, w: 2, h: 1 }
   },
   'launch-network': {
-    label: 'Monitoraggio',
+    label: 'Monitoraggio rete',
     category: 'Moduli',
     defaultPlacement: { col: 3, row: 2, w: 2, h: 1 }
   },

@@ -3943,6 +3943,7 @@ export default function TicketApp() {
             hubEmbedDispositiviKick={hubEmbedDispositiviKick}
             hubEmbedSpeedtestKick={hubEmbedSpeedtestKick}
             dispositiviHighlightMac={dispositiviAziendaliHighlightMac}
+            socket={socket}
           />
         )}
 
