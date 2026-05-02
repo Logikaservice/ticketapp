@@ -68,7 +68,13 @@ async function fetchEmailExpirySyntheticAlerts(getAuthHeader) {
     id: `email-expiry-${String(e.aziendaName || '').replace(/[^a-z0-9]/gi, '-')}-${String(e.username || e.title || '').replace(/[^a-z0-9]/gi, '-')}`,
     title: 'Email in scadenza',
     body: `${e.aziendaName || ''} – ${e.username || ''} – scade il ${formatDate(e.expires)} (tra ${e.daysLeft ?? '?'} giorni)`,
-    level: 'warning'
+    level: 'warning',
+    isEmailExpiry: true,
+    aziendaName: e.aziendaName,
+    username: e.username,
+    emailTitle: e.title,
+    expires: e.expires,
+    daysLeft: e.daysLeft
   }));
 }
 

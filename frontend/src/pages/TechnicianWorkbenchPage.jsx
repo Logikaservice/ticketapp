@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { fetchImportantAlertsForHub } from '../utils/importantAlertsFeed';
 import HubContractsActiveCard from '../components/hub/HubContractsActiveCard';
+import ImportantAlertsHubEmbedded from '../components/hub/ImportantAlertsHubEmbedded';
 import CommAgentDashboard from '../components/CommAgentDashboard';
 import ContractsListModal from '../components/Modals/ContractsListModal';
 import EmailPage from './EmailPage';
@@ -495,7 +496,11 @@ export default function TechnicianWorkbenchPage({
   /** Precompila Nuovo ticket (come EmailPage full-screen in App). */
   onOpenTicketWithPrefill = null,
   /** Handler condivisi con CommAgentDashboard (nav verso altri moduli → chiude l’Hub). */
-  commAgentNav = {}
+  commAgentNav = {},
+  /** Apre il modal nuovo ticket precompilato da un avviso (stesso handler della dashboard). */
+  onCreateTicketFromAlert = null,
+  /** Incrementa `alertsRefreshTrigger` in App per ricaricare gli avvisi Hub. */
+  onRefreshHubAlerts = null
 }) {
   const [accentHex, setAccentHex] = useState(getStoredTechHubAccent);
   const [hubImportantAlerts, setHubImportantAlerts] = useState([]);
@@ -508,7 +513,7 @@ export default function TechnicianWorkbenchPage({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   /** Centro Hub: panoramica a griglia oppure modulo integrato (Comunicazioni, Email). */
   const [hubCenterView, setHubCenterView] = useState(
-    /** @type {'overview' | 'comunicazioni' | 'email' | 'contratti'} */ ('overview')
+    /** @type {'overview' | 'comunicazioni' | 'email' | 'contratti' | 'avvisi'} */ ('overview')
   );
   const userMenuRef = useRef(null);
   const accentPickerRef = useRef(null);
@@ -801,7 +806,9 @@ export default function TechnicianWorkbenchPage({
                       ? 'Email'
                       : hubCenterView === 'contratti'
                         ? 'Contratti attivi'
-                        : 'Panoramica'}
+                        : hubCenterView === 'avvisi'
+                          ? 'Avvisi importanti'
+                          : 'Panoramica'}
                 </span>
               </div>
             </div>
@@ -868,12 +875,25 @@ export default function TechnicianWorkbenchPage({
 
           <div
             className={
-              hubCenterView === 'comunicazioni' || hubCenterView === 'email' || hubCenterView === 'contratti'
+              hubCenterView === 'comunicazioni' ||
+              hubCenterView === 'email' ||
+              hubCenterView === 'contratti' ||
+              hubCenterView === 'avvisi'
                 ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-2 md:px-5 md:pb-5'
                 : 'min-h-0 flex-1 overflow-y-auto p-4 md:p-5'
             }
           >
-            {hubCenterView === 'contratti' ? (
+            {hubCenterView === 'avvisi' ? (
+              <ImportantAlertsHubEmbedded
+                accentHex={accentHex}
+                alerts={hubImportantAlerts}
+                loading={hubImportantAlertsLoading}
+                currentUser={currentUser}
+                onBack={() => setHubCenterView('overview')}
+                onCreateTicketFromAlert={onCreateTicketFromAlert ?? undefined}
+                onRefreshHubAlerts={onRefreshHubAlerts ?? undefined}
+              />
+            ) : hubCenterView === 'contratti' ? (
               <ContractsListModal
                 embedded
                 accentHex={accentHex}
@@ -1058,9 +1078,9 @@ export default function TechnicianWorkbenchPage({
               <button
                 type="button"
                 className={`${hubTinyIconBtn} p-1.5`}
-                title="Apri la dashboard Ticket (avvisi completi)"
-                aria-label="Vai alla dashboard Ticket con gli avvisi"
-                onClick={() => onNavigateHome?.()}
+                title="Apri tutti gli avvisi nel centro Hub"
+                aria-label="Apri elenco completo degli avvisi importanti nell’hub"
+                onClick={() => setHubCenterView('avvisi')}
               >
                 <ChevronsRight size={17} aria-hidden />
               </button>

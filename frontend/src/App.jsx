@@ -3775,6 +3775,8 @@ export default function TicketApp() {
             selectedCompanyId={globallySelectedCompanyId}
             onGloballyCompanyChange={setShowGloballySelectedCompanyId}
             onOpenTicketWithPrefill={openNewTicketWithData}
+            onCreateTicketFromAlert={handleCreateTicketFromAlert}
+            onRefreshHubAlerts={() => setAlertsRefreshTrigger((n) => n + 1)}
             commAgentNav={{
               onNavigateHome: () => {
                 setShowTechnicianWorkbench(false);
