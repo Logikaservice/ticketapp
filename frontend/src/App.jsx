@@ -60,6 +60,46 @@ const INITIAL_NEW_CLIENT_DATA = {
   isAdmin: false
 };
 
+/** Ruolo da JWT salvato (valido / non scaduto), utile prima che `currentUser` sia in stato. */
+function getRuoloFromStoredToken() {
+  try {
+    const t = localStorage.getItem('authToken');
+    if (!t) return null;
+    const parts = t.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1]));
+    if (typeof payload.exp !== 'number' || payload.exp <= Date.now() / 1000) return null;
+    return payload.ruolo || null;
+  } catch {
+    return null;
+  }
+}
+
+const FULL_SCREEN_HASH_VIEWS_EXCEPT_TECH_HUB = new Set([
+  'mappatura',
+  'network-monitoring',
+  'antivirus',
+  'dispositivi-aziendali',
+  'speedtest',
+  'email',
+  'office',
+  'lsight',
+  'lsight-session',
+  'vpn'
+]);
+
+/** Per tecnico: home predefinita = Hub quando non è richiesta un’altra vista full-screen nell’hash. */
+function shouldOpenTechHubAsHomeFromUrl() {
+  if (getRuoloFromStoredToken() !== 'tecnico') return false;
+  const h = (typeof window !== 'undefined' && window.location.hash ? window.location.hash : '')
+    .replace(/^#/, '')
+    .toLowerCase();
+  if (!h || h === 'tech-hub') return true;
+  if (FULL_SCREEN_HASH_VIEWS_EXCEPT_TECH_HUB.has(h)) return false;
+  if (h.startsWith('device-analysis')) return false;
+  return false;
+}
+
 export default function TicketApp() {
   const [users, setUsers] = useState([]);
   const [tickets, setTickets] = useState([]);
@@ -204,7 +244,8 @@ export default function TicketApp() {
   }); // Speed Test Dashboard (#speedtest)
   const [showTechnicianWorkbench, setShowTechnicianWorkbench] = useState(() => {
     const h = (typeof window !== 'undefined' && window.location.hash ? window.location.hash : '').replace(/^#/, '').toLowerCase();
-    return h === 'tech-hub';
+    if (h === 'tech-hub') return true;
+    return shouldOpenTechHubAsHomeFromUrl();
   });
   const [dispositiviAziendaliHighlightMac, setDispositiviAziendaliHighlightMac] = useState(null);
   const [showDeviceAnalysisStandalone, setShowDeviceAnalysisStandalone] = useState(false);
@@ -234,6 +275,7 @@ export default function TicketApp() {
     const h = (typeof window !== 'undefined' && window.location.hash ? window.location.hash : '').replace(/^#/, '').toLowerCase();
     const fullHashViews = ['mappatura', 'network-monitoring', 'antivirus', 'dispositivi-aziendali', 'speedtest', 'email', 'office', 'lsight', 'lsight-session', 'device-analysis', 'vpn', 'tech-hub'];
     if (h && (fullHashViews.includes(h) || h.startsWith('device-analysis'))) return false;
+    if (shouldOpenTechHubAsHomeFromUrl()) return false;
     return true;
   });
 
@@ -350,7 +392,12 @@ export default function TicketApp() {
       const fullHashViews = ['mappatura', 'network-monitoring', 'antivirus', 'dispositivi-aziendali', 'speedtest', 'email', 'office', 'lsight', 'lsight-session', 'device-analysis', 'vpn', 'tech-hub'];
       const hashIsFullView = h && (fullHashViews.includes(h) || h.startsWith('device-analysis'));
       if (!hashIsFullView) {
-        setShowDashboard(true);
+        if (getRuoloFromStoredToken() === 'tecnico') {
+          setShowTechnicianWorkbench(true);
+          setShowDashboard(false);
+        } else {
+          setShowDashboard(true);
+        }
       }
       setShowOrariTurni(false);
       setShowVivaldi(false);
@@ -435,12 +482,34 @@ export default function TicketApp() {
       setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowFlottaPC(false); setShowOffice(false); setShowSpeedTest(false);
     } else if (view !== 'device-analysis') {
       setShowDeviceAnalysisStandalone(false);
-      setShowDashboard(true); setShowMappatura(false); setShowNetworkMonitoring(false);
-      setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setShowFlottaPC(false);
-      setShowSpeedTest(false);
-      setShowLSight(false);
-      setShowLSightSession(false);
-      setShowVpnManager(false);
+      const landingHub = getRuoloFromStoredToken() === 'tecnico';
+      if (landingHub) {
+        setShowTechnicianWorkbench(true);
+        setShowDashboard(false);
+        setShowMappatura(false);
+        setShowNetworkMonitoring(false);
+        setShowAntiVirus(false);
+        setShowEmail(false);
+        setShowOffice(false);
+        setShowFlottaPC(false);
+        setShowSpeedTest(false);
+        setShowLSight(false);
+        setShowLSightSession(false);
+        setShowVpnManager(false);
+      } else {
+        setShowTechnicianWorkbench(false);
+        setShowDashboard(true);
+        setShowMappatura(false);
+        setShowNetworkMonitoring(false);
+        setShowAntiVirus(false);
+        setShowEmail(false);
+        setShowOffice(false);
+        setShowFlottaPC(false);
+        setShowSpeedTest(false);
+        setShowLSight(false);
+        setShowLSightSession(false);
+        setShowVpnManager(false);
+      }
     }
   };
 
@@ -870,10 +939,10 @@ export default function TicketApp() {
       // Dopo il login, verifica se c'è un dominio richiesto e mostra la gestione orari se necessario
       // Per Vivaldi, la dashboard è sempre la schermata principale
     } else {
-      // Per tutti gli altri domini (incluso vivaldi), mostra la dashboard
       setShowDashboard(true);
       setShowOrariTurni(false);
       setShowVivaldi(false);
+      setShowTechnicianWorkbench(false);
     }
   }, [isLoggedIn]);
 
@@ -1135,29 +1204,30 @@ export default function TicketApp() {
 
       // Verifica se c'è un dominio richiesto (orari/turni)
       const savedDomain = localStorage.getItem('requestedDomain');
-      const hashView = (window.location.hash || '').replace(/^#/, '').trim();
+      const hashView = ((window.location.hash || '').replace(/^#/, '').trim() || '').toLowerCase();
       const urlView = getViewFromUrl();
 
       if (savedDomain === 'orari' || savedDomain === 'turni') {
         // Se c'è un dominio richiesto, mostra la gestione orari
         setShowDashboard(false);
         setShowOrariTurni(true);
-      } else if (hashView && ['office', 'email', 'mappatura', 'antivirus', 'dispositivi-aziendali', 'network-monitoring'].includes(hashView)) {
-        // Dopo F5: ripristina la vista dall'hash (#office, #email, ecc.) invece di tornare alla dashboard
+      } else if (hashView) {
+        // Ripristino da hash (#tech-hub, #mappatura, ecc.)
         applyHashToState(window.location.hash);
       } else if (urlView && urlView !== 'dashboard') {
-        // Dopo F5: ripristina la vista dal param ?view= invece di tornare alla dashboard
         setShowDashboard(true);
         applyViewFromUrl(urlView);
+      } else if (currentUser?.ruolo === 'tecnico' || getRuoloFromStoredToken() === 'tecnico') {
+        setShowTechnicianWorkbench(true);
+        setShowDashboard(false);
       } else {
-        // Altrimenti mostra la dashboard
         setShowDashboard(true);
       }
 
       // NON resettare modalState se contiene keepassCredentials (preservato dall'URL)
       // Il modalState viene già inizializzato dall'URL, non resettarlo qui
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, currentUser?.id, currentUser?.ruolo]);
 
   // Monitora il modalState e ripristina il modal KeePass se viene chiuso accidentalmente ma l'URL lo richiede
   useEffect(() => {
