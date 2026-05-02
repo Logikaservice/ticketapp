@@ -12,7 +12,9 @@ import {
   EyeOff,
   Trash2,
   RotateCcw,
-  Layers
+  Layers,
+  Building2,
+  LayoutGrid
 } from 'lucide-react';
 import { hexToRgba } from '../../utils/techHubAccent';
 import HubContractsActiveCard from './HubContractsActiveCard';
@@ -37,6 +39,7 @@ const SURFACE_LOCAL = '#1E1E1E';
 
 function ModuleLaunchCard({
   icon: Icon,
+  eyebrow = 'Modulo',
   label,
   subtitle,
   accent,
@@ -49,14 +52,22 @@ function ModuleLaunchCard({
     <button
       type="button"
       onClick={onClick}
-      className={`h-full min-h-[6rem] w-full rounded-2xl border border-white/[0.08] p-4 text-left transition hover:bg-white/[0.04] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
+      className={`flex h-full min-h-[6rem] w-full items-center rounded-2xl border border-white/[0.08] p-4 text-left transition hover:bg-white/[0.04] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
       style={{ backgroundColor: SURFACE_LOCAL }}
     >
-      <div className="mb-3 inline-flex rounded-xl p-2.5" style={{ backgroundColor: hexToRgba(accent, 0.12) }}>
-        <Icon size={22} style={{ color: accent }} className="shrink-0" />
+      <div className="flex w-full min-w-0 items-center gap-3">
+        <div
+          className="inline-flex shrink-0 self-center rounded-xl p-2.5"
+          style={{ backgroundColor: hexToRgba(accent, 0.12) }}
+        >
+          <Icon size={22} style={{ color: accent }} className="shrink-0" />
+        </div>
+        <div className="min-w-0 flex-1 self-center leading-tight">
+          <div className="text-[11px] font-semibold uppercase tracking-widest text-white/50">{eyebrow}</div>
+          <div className="mt-0.5 text-base font-semibold text-white/90">{label}</div>
+          {subtitle ? <div className="mt-1 text-xs text-white/45">{subtitle}</div> : null}
+        </div>
       </div>
-      <div className="text-sm font-semibold text-white">{label}</div>
-      {subtitle && <div className="mt-1 text-xs text-white/45">{subtitle}</div>}
     </button>
   );
 }
@@ -138,7 +149,7 @@ function HubNewTicketCard({ accentHex, onOpenNewTicket, subdued, suppressInterac
       type="button"
       disabled={Boolean(subdued)}
       onClick={() => !subdued && onOpenNewTicket?.()}
-      className={`flex min-h-[8.5rem] h-full w-full flex-col items-center justify-center gap-3 rounded-2xl border p-5 text-center transition hover:brightness-110 active:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 md:py-6 ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
+      className={`flex h-full min-h-[6rem] w-full items-center gap-3 rounded-2xl border p-4 text-left transition hover:brightness-110 active:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
       style={{
         backgroundColor: hexToRgba(accentHex, 0.24),
         borderColor: hexToRgba(accentHex, 0.55),
@@ -146,16 +157,17 @@ function HubNewTicketCard({ accentHex, onOpenNewTicket, subdued, suppressInterac
       }}
       aria-label="Crea nuovo ticket"
     >
-      <span
-        className="flex h-12 w-12 items-center justify-center rounded-2xl"
-        style={{
-          backgroundColor: hexToRgba(accentHex, 0.35),
-          color: '#121212'
-        }}
+      <div
+        className="inline-flex shrink-0 self-center rounded-xl p-2.5"
+        style={{ backgroundColor: hexToRgba(accentHex, 0.35), color: '#121212' }}
       >
-        <Plus size={28} strokeWidth={2.4} aria-hidden />
-      </span>
-      <span className="text-base font-bold leading-tight text-white">+ nuovo ticket</span>
+        <Plus size={24} strokeWidth={2.4} aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1 self-center leading-tight">
+        <div className="text-[11px] font-semibold uppercase tracking-widest text-white/60">Azione</div>
+        <div className="mt-0.5 text-base font-bold text-white">+ nuovo ticket</div>
+        <div className="mt-1 text-xs text-white/55">Crea un ticket da zero</div>
+      </div>
     </button>
   );
 }
@@ -307,6 +319,7 @@ export default function HubOverviewSection({
         return (
           <ModuleLaunchCard
             icon={Mail}
+            eyebrow={HUB_MODULE_META['launch-email'].category}
             label="Email"
             subtitle="Apri modulo"
             accent={accentHex}
@@ -319,6 +332,7 @@ export default function HubOverviewSection({
         return (
           <ModuleLaunchCard
             icon={Wifi}
+            eyebrow={HUB_MODULE_META['launch-network'].category}
             label="Monitoraggio"
             subtitle="Stato rete"
             accent={accentHex}
@@ -331,6 +345,7 @@ export default function HubOverviewSection({
         return (
           <ModuleLaunchCard
             icon={Bell}
+            eyebrow={HUB_MODULE_META['launch-comms'].category}
             label="Comunicazioni"
             subtitle="Messaggi broadcast"
             accent={accentHex}
@@ -343,10 +358,24 @@ export default function HubOverviewSection({
         return (
           <ModuleLaunchCard
             icon={Shield}
+            eyebrow={HUB_MODULE_META['launch-antivirus'].category}
             label="Anti-Virus"
             subtitle="Sicurezza"
             accent={accentHex}
             onClick={() => nav?.onOpenAntiVirus?.()}
+            subdued={veil}
+            suppressInteraction={suppressInteraction}
+          />
+        );
+      case 'launch-office':
+        return (
+          <ModuleLaunchCard
+            icon={Building2}
+            eyebrow={HUB_MODULE_META['launch-office'].category}
+            label="Office"
+            subtitle="Licenze, download e attivazioni"
+            accent={accentHex}
+            onClick={() => setHubCenterView?.('office')}
             subdued={veil}
             suppressInteraction={suppressInteraction}
           />
@@ -368,20 +397,30 @@ export default function HubOverviewSection({
       case 'quick-summary':
         return (
           <div
-            className={`h-full rounded-2xl border border-white/[0.08] p-4 ${veil ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''}`}
+            className={`flex h-full min-h-[6rem] items-center gap-3 rounded-2xl border border-white/[0.08] p-4 ${
+              veil ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''
+            }`}
             style={{ backgroundColor: SURFACE_LOCAL }}
           >
-            <h3 className="text-sm font-semibold text-white">Riepilogo rapido</h3>
-            <p className="mt-2 text-xs leading-relaxed text-white/45">
-              Qui potrai inserire KPI o testo che riassume ticket, agent o avvisi. Struttura pronta per contenuti
-              dinamici.
-            </p>
+            <div className="inline-flex shrink-0 self-center rounded-xl bg-white/[0.08] p-2.5">
+              <Layers size={22} className="shrink-0 text-white/55" aria-hidden />
+            </div>
+            <div className="min-w-0 flex-1 leading-tight">
+              <div className="text-[11px] font-semibold uppercase tracking-widest text-white/50">
+                {HUB_MODULE_META['quick-summary'].category}
+              </div>
+              <h3 className="mt-0.5 text-base font-semibold text-white">Riepilogo rapido</h3>
+              <p className="mt-1 text-xs leading-relaxed text-white/45">
+                Qui potrai inserire KPI o testo che riassume ticket, agent o avvisi. Struttura pronta per contenuti dinamici.
+              </p>
+            </div>
           </div>
         );
       case 'launch-mappatura':
         return (
           <ModuleLaunchCard
             icon={MapPin}
+            eyebrow={HUB_MODULE_META['launch-mappatura'].category}
             label="Mappatura"
             subtitle="Topologia e dispositivi"
             accent={accentHex}
@@ -395,15 +434,21 @@ export default function HubOverviewSection({
       case 'slot-2':
         return (
           <div
-            className={`flex h-full min-h-[7rem] flex-col rounded-2xl border border-dashed border-white/[0.12] p-4 transition hover:[border-color:var(--hub-accent-border)] ${
+            className={`flex h-full min-h-[7rem] items-center gap-3 rounded-2xl border border-dashed border-white/[0.12] p-4 transition hover:[border-color:var(--hub-accent-border)] ${
               veil ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''
             }`}
             style={{ backgroundColor: 'rgba(30,30,30,0.55)' }}
           >
-            <p className="text-xs font-medium text-white/55">{HUB_MODULE_META[id].label}</p>
-            <p className="mt-2 text-xs text-white/35">
-              Può diventare tabella avvisi interni, grafico a barre o feed.
-            </p>
+            <div className="inline-flex shrink-0 self-center rounded-xl bg-white/[0.06] p-2.5">
+              <LayoutGrid size={22} className="shrink-0 text-white/45" aria-hidden />
+            </div>
+            <div className="min-w-0 flex-1 leading-tight">
+              <div className="text-[11px] font-semibold uppercase tracking-widest text-white/45">Slot</div>
+              <p className="mt-0.5 text-base font-semibold text-white/88">{HUB_MODULE_META[id].label}</p>
+              <p className="mt-1 text-xs text-white/35">
+                Può diventare tabella avvisi interni, grafico a barre o feed.
+              </p>
+            </div>
           </div>
         );
       default:

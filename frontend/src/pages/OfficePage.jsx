@@ -1,12 +1,38 @@
 // frontend/src/pages/OfficePage.jsx
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Loader, Calendar, X, Eye, EyeOff, RefreshCw, ArrowLeft, Plus, Trash2, GripVertical } from 'lucide-react';
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
 import OfficeIntroCard from '../components/OfficeIntroCard';
+import {
+  HUB_PAGE_BG,
+  HUB_SURFACE,
+  hexToRgba,
+  normalizeHex,
+  getStoredTechHubAccent
+} from '../utils/techHubAccent';
 
-const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onCompanyChange, currentUser, onOpenTicket, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura, onNavigateSpeedTest, onNavigateVpn, onNavigateHome }) => {
+const OfficePage = ({
+  onClose,
+  getAuthHeader,
+  selectedCompanyId: initialCompanyId,
+  onCompanyChange,
+  currentUser,
+  onOpenTicket,
+  onNavigateEmail,
+  onNavigateAntiVirus,
+  onNavigateDispositiviAziendali,
+  onNavigateNetworkMonitoring,
+  onNavigateMappatura,
+  onNavigateSpeedTest,
+  onNavigateVpn,
+  onNavigateHome,
+  embedded = false,
+  closeEmbedded,
+  accentHex: accentHexProp
+}) => {
+  const accent = useMemo(() => normalizeHex(accentHexProp) || getStoredTechHubAccent(), [accentHexProp]);
   const isCliente = currentUser?.ruolo === 'cliente';
   const isTecnico = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
   const showPasswordColumn = isTecnico || (currentUser?.ruolo === 'cliente' && currentUser?.admin_companies && currentUser.admin_companies.length > 0);
@@ -676,35 +702,98 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
     }
   };
 
+  const onEmbeddedBack = () => {
+    if (typeof closeEmbedded === 'function') closeEmbedded();
+    else if (typeof onClose === 'function') onClose();
+  };
+
+  const rootClassName = embedded
+    ? 'flex flex-1 min-h-0 flex-col overflow-hidden rounded-2xl border border-white/[0.08] font-sans'
+    : 'fixed inset-0 bg-gray-50 z-[100] flex flex-col font-sans w-full h-full overflow-hidden';
+
+  const rootEmbeddedStyle = useMemo(
+    () =>
+      embedded
+        ? {
+            backgroundColor: HUB_PAGE_BG,
+            ['--hub-accent']: accent,
+            ['--hub-accent-border']: hexToRgba(accent, 0.48)
+          }
+        : undefined,
+    [embedded, accent]
+  );
+
+  const embeddedBackBtnStyle = useMemo(
+    () => ({
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: '8px 12px',
+      borderRadius: 12,
+      border: '1px solid rgba(255,255,255,0.12)',
+      background: 'rgba(0,0,0,0.28)',
+      color: 'rgba(255,255,255,0.82)',
+      cursor: 'pointer',
+      fontSize: 13,
+      fontWeight: 600,
+      flexShrink: 0
+    }),
+    []
+  );
+
+  const selectClsOffice = embedded
+    ? 'rounded-md border border-gray-300 bg-gray-50 px-3 py-1.5 text-sm text-gray-900 outline-none [color-scheme:light] focus:ring-2 focus:ring-blue-500/80'
+    : 'border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none';
+
+  const refreshOfficeBtnCls = embedded
+    ? 'inline-flex items-center gap-1 rounded-md border border-white/14 bg-black/35 px-2.5 py-1.5 text-xs font-medium text-white/88 transition-colors hover:bg-white/[0.08] disabled:opacity-50'
+    : 'inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors disabled:opacity-50';
+
   return (
-    <div className="fixed inset-0 bg-gray-50 z-[100] flex flex-col font-sans w-full h-full overflow-hidden">
+    <div className={rootClassName} style={rootEmbeddedStyle}>
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
-        <div className="flex items-center gap-4">
-          <SectionNavMenu
-            currentPage="office"
-            onNavigateHome={onNavigateHome || onClose}
-            onNavigateOffice={null}
-            onNavigateEmail={onNavigateEmail}
-            onNavigateAntiVirus={onNavigateAntiVirus}
-            onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
-            onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
-            onNavigateMappatura={onNavigateMappatura}
-            onNavigateSpeedTest={onNavigateSpeedTest}
-            onNavigateVpn={onNavigateVpn}
-            currentUser={currentUser}
-            selectedCompanyId={selectedCompanyId}
-          />
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Office</h1>
-            <p className="text-sm text-gray-600">{companyName || 'Seleziona un\'azienda'}</p>
+      <div
+        className={
+          embedded
+            ? 'flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3 z-10 shadow-none'
+            : 'bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10'
+        }
+        style={embedded ? { backgroundColor: HUB_SURFACE } : undefined}
+      >
+        <div className={`flex min-w-0 items-center ${embedded ? 'gap-3' : 'gap-4'}`}>
+          {embedded ? (
+            <button type="button" onClick={onEmbeddedBack} style={embeddedBackBtnStyle}>
+              <ArrowLeft size={18} aria-hidden />
+              Panoramica Hub
+            </button>
+          ) : (
+            <SectionNavMenu
+              currentPage="office"
+              onNavigateHome={onNavigateHome || onClose}
+              onNavigateOffice={null}
+              onNavigateEmail={onNavigateEmail}
+              onNavigateAntiVirus={onNavigateAntiVirus}
+              onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
+              onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
+              onNavigateMappatura={onNavigateMappatura}
+              onNavigateSpeedTest={onNavigateSpeedTest}
+              onNavigateVpn={onNavigateVpn}
+              currentUser={currentUser}
+              selectedCompanyId={selectedCompanyId}
+            />
+          )}
+          <div className="min-w-0">
+            <h1 className={`font-bold truncate ${embedded ? 'text-lg text-white' : 'text-xl text-gray-900'}`}>Office</h1>
+            <p className={`truncate ${embedded ? 'text-xs text-white/55' : 'text-sm text-gray-600'}`}>
+              {companyName || 'Seleziona un\'azienda'}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-4">
           {!loadingCompanies && (isCliente ? !!selectedCompanyId : true) && (
             <div className="flex items-center gap-2">
               <select
-                className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                className={selectClsOffice}
                 value={selectedCompanyId || ''}
                 onChange={async (e) => {
                   const newCompanyId = e.target.value;
@@ -730,7 +819,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                   type="button"
                   onClick={refreshOfficeData}
                   disabled={loading}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors disabled:opacity-50"
+                  className={refreshOfficeBtnCls}
                   title="Ricarica dati Office da KeePass"
                 >
                   <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
@@ -743,7 +832,11 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className={embedded ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'flex-1 overflow-y-auto p-6'}>
+        <div
+          className={embedded ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-6 md:px-5' : 'h-full'}
+          style={embedded ? { backgroundColor: HUB_PAGE_BG } : undefined}
+        >
         {loadingCompanies && (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
@@ -1561,6 +1654,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
             )}
           </div>
         )}
+        </div>
       </div>
     </div>
   );

@@ -38,6 +38,7 @@ import CommAgentDashboard from '../components/CommAgentDashboard';
 import CommAgentManager from '../components/CommAgentManager';
 import ContractsListModal from '../components/Modals/ContractsListModal';
 import EmailPage from './EmailPage';
+import OfficePage from './OfficePage';
 import {
   TECH_HUB_ACCENT_PALETTE,
   STORAGE_KEY_TECH_HUB_ACCENT,
@@ -406,7 +407,7 @@ export default function TechnicianWorkbenchPage({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   /** Centro Hub: panoramica a griglia oppure modulo integrato (Comunicazioni, Email). */
   const [hubCenterView, setHubCenterView] = useState(
-    /** @type {'overview' | 'comunicazioni' | 'comm-agent-manager' | 'email' | 'contratti' | 'avvisi'} */ ('overview')
+    /** @type {'overview' | 'comunicazioni' | 'comm-agent-manager' | 'email' | 'office' | 'contratti' | 'avvisi'} */ ('overview')
   );
   const isTechnician = currentUser?.ruolo === 'tecnico';
   const hubLayoutUserKey = currentUser?.id ?? currentUser?.email ?? '';
@@ -731,11 +732,13 @@ export default function TechnicianWorkbenchPage({
                       ? 'Agent comunicazioni'
                       : hubCenterView === 'email'
                         ? 'Email'
-                        : hubCenterView === 'contratti'
-                          ? 'Contratti attivi'
-                          : hubCenterView === 'avvisi'
-                            ? 'Avvisi importanti'
-                            : 'Panoramica'}
+                        : hubCenterView === 'office'
+                          ? 'Office'
+                          : hubCenterView === 'contratti'
+                            ? 'Contratti attivi'
+                            : hubCenterView === 'avvisi'
+                              ? 'Avvisi importanti'
+                              : 'Panoramica'}
                 </span>
               </div>
             </div>
@@ -820,6 +823,7 @@ export default function TechnicianWorkbenchPage({
               hubCenterView === 'comunicazioni' ||
               hubCenterView === 'comm-agent-manager' ||
               hubCenterView === 'email' ||
+              hubCenterView === 'office' ||
               hubCenterView === 'contratti' ||
               hubCenterView === 'avvisi'
                 ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-2 md:px-5 md:pb-5'
@@ -856,7 +860,26 @@ export default function TechnicianWorkbenchPage({
                 onCompanyChange={onGloballyCompanyChange ?? undefined}
                 currentUser={currentUser}
                 onOpenTicket={onOpenTicketWithPrefill ?? undefined}
-                onNavigateOffice={() => nav?.onOpenOffice?.()}
+                onNavigateOffice={() => setHubCenterView('office')}
+                onNavigateAntiVirus={() => nav?.onOpenAntiVirus?.()}
+                onNavigateDispositiviAziendali={() => nav?.onOpenDispositivi?.()}
+                onNavigateNetworkMonitoring={() => nav?.onOpenNetwork?.()}
+                onNavigateMappatura={() => nav?.onOpenMappatura?.()}
+                onNavigateSpeedTest={() => nav?.onOpenSpeedTest?.()}
+                onNavigateVpn={() => nav?.onOpenVpn?.()}
+                onNavigateHome={() => setHubCenterView('overview')}
+              />
+            ) : hubCenterView === 'office' ? (
+              <OfficePage
+                embedded
+                accentHex={accentHex}
+                closeEmbedded={() => setHubCenterView('overview')}
+                getAuthHeader={getAuthHeader}
+                selectedCompanyId={selectedCompanyId}
+                onCompanyChange={onGloballyCompanyChange ?? undefined}
+                currentUser={currentUser}
+                onOpenTicket={onOpenTicketWithPrefill ?? undefined}
+                onNavigateEmail={() => setHubCenterView('email')}
                 onNavigateAntiVirus={() => nav?.onOpenAntiVirus?.()}
                 onNavigateDispositiviAziendali={() => nav?.onOpenDispositivi?.()}
                 onNavigateNetworkMonitoring={() => nav?.onOpenNetwork?.()}

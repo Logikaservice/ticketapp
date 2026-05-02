@@ -60,6 +60,12 @@ export const HUB_MODULE_META = {
     category: 'Slot',
     defaultPlacement: { col: 1, row: 6, w: 4, h: 1 }
   },
+  /** Sotto Slot libero 1 (row 7) — KeePass licenze e download Office nell’hub. */
+  'launch-office': {
+    label: 'Office',
+    category: 'Moduli',
+    defaultPlacement: { col: 1, row: 7, w: 4, h: 1 }
+  },
   'slot-2': {
     label: 'Slot libero 2',
     category: 'Slot',
