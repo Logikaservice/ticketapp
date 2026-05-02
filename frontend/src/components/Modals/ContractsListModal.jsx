@@ -4,20 +4,13 @@ import { buildApiUrl } from '../../utils/apiConfig';
 import ContractTimelineCard from '../ContractTimelineCard';
 import {
   getStoredTechHubAccent,
-  hexToRgba,
-  techHubAccentHeaderGradientStyle
+  techHubAccentHeaderGradientStyle,
+  hubShellThemeVars
 } from '../../utils/techHubAccent';
 
 const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
     const dashboardAccentHex = useMemo(() => getStoredTechHubAccent(), []);
-    const dashboardThemeVars = useMemo(
-      () => ({
-        '--td-accent': dashboardAccentHex,
-        '--td-soft': hexToRgba(dashboardAccentHex, 0.08),
-        '--td-soft-strong': hexToRgba(dashboardAccentHex, 0.16)
-      }),
-      [dashboardAccentHex]
-    );
+    const hubTheme = useMemo(() => hubShellThemeVars(dashboardAccentHex), [dashboardAccentHex]);
     const [contracts, setContracts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -111,14 +104,14 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
         }
     };
 
-    const inputFocusChrome =
-      'outline-none rounded-xl border transition focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]';
+    const inputFieldDark =
+      'border border-white/10 bg-[color:var(--hub-surface)] text-white placeholder:text-white/35 outline-none transition focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]';
 
     return (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
             <div
-              className="flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl animate-scaleIn contracts-list-dashboard-accent"
-              style={dashboardThemeVars}
+              className="contracts-list-hub-shell flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--hub-page)] text-white/90 shadow-2xl animate-scaleIn"
+              style={{ ...hubTheme, colorScheme: 'dark' }}
             >
                 <div
                   className="flex shrink-0 items-center justify-between border-b px-6 py-5 text-white"
@@ -129,8 +122,8 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
                           <FileText size={26} aria-hidden />
                           Lista contratti attivi
                         </h2>
-                        <p className="mt-1 text-sm text-white/90">
-                          Cerca, filtra e gestisci i contratti salvati nell&apos;area ticket.
+                        <p className="mt-1 text-sm text-white/88">
+                          Cerca, filtra e gestisci i contratti dall&apos;Hub tecnico (stesso tema colore dell&apos;Hub).
                         </p>
                     </div>
                     <button
@@ -143,14 +136,14 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
                     </button>
                 </div>
 
-                <div className="flex shrink-0 flex-col gap-4 border-b p-4" style={{ backgroundColor: hexToRgba(dashboardAccentHex, 0.06) }}>
+                <div className="flex shrink-0 flex-col gap-4 border-b border-white/10 bg-[color:var(--hub-surface)] p-4">
                     <div className="flex gap-4">
                         <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/38" size={20} />
                             <input
                                 type="text"
                                 placeholder="Cerca per titolo, cliente o azienda..."
-                                className={`w-full border border-gray-200 bg-white py-2 pl-10 pr-4 ${inputFocusChrome} hover:border-[color:var(--td-accent)]`}
+                                className={`w-full rounded-xl py-2 pl-10 pr-4 hover:border-[color:var(--td-accent)] ${inputFieldDark}`}
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                             />
@@ -161,7 +154,7 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
                             className={`flex items-center gap-2 rounded-xl border px-4 py-2 transition ${
                               showFilters || filterStatus !== 'all' || filterDateFrom || filterDateTo
                                 ? 'border-[color:var(--td-accent)] bg-[color:var(--td-soft-strong)] text-[color:var(--td-accent)]'
-                                : 'border-gray-300 bg-white text-gray-700 hover:border-[color:var(--td-accent)] hover:bg-[color:var(--td-soft)]'
+                                : 'border-white/12 bg-white/[0.06] text-white/88 hover:border-[color:var(--td-accent)] hover:bg-[color:var(--td-soft)]'
                             }`}
                         >
                             <Filter size={18} />
@@ -171,7 +164,7 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
                             type="button"
                             onClick={fetchContracts}
                             disabled={loading}
-                            className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-gray-700 transition hover:border-[color:var(--td-accent)] hover:bg-[color:var(--td-soft)] disabled:opacity-50"
+                            className="flex items-center gap-2 rounded-xl border border-white/12 bg-white/[0.06] px-4 py-2 text-white/85 transition hover:border-[color:var(--td-accent)] hover:bg-[color:var(--td-soft)] disabled:opacity-50"
                             title="Aggiorna lista"
                         >
                             <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
@@ -180,11 +173,11 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
 
                     {/* Filtri Avanzati */}
                     {showFilters && (
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2 border-t">
+                        <div className="grid grid-cols-1 gap-4 border-t border-white/10 pt-2 md:grid-cols-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Stato</label>
+                                <label className="mb-1 block text-sm font-medium text-white/72">Stato</label>
                                 <select
-                                    className={`w-full rounded-lg border border-gray-200 bg-white px-3 py-2 ${inputFocusChrome.replace('rounded-xl', 'rounded-lg')}`}
+                                    className={`w-full rounded-lg px-3 py-2 ${inputFieldDark}`}
                                     value={filterStatus}
                                     onChange={e => setFilterStatus(e.target.value)}
                                 >
@@ -194,25 +187,25 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
-                                    <Calendar size={14} />
+                                <label className="mb-1 flex items-center gap-1 text-sm font-medium text-white/72">
+                                    <Calendar size={14} className="text-white/55" aria-hidden />
                                     Data Inizio Da
                                 </label>
                                 <input
                                     type="date"
-                                    className={`w-full rounded-lg border border-gray-200 bg-white px-3 py-2 ${inputFocusChrome.replace('rounded-xl', 'rounded-lg')}`}
+                                    className={`w-full rounded-lg px-3 py-2 ${inputFieldDark}`}
                                     value={filterDateFrom}
                                     onChange={e => setFilterDateFrom(e.target.value)}
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
-                                    <Calendar size={14} />
+                                <label className="mb-1 flex items-center gap-1 text-sm font-medium text-white/72">
+                                    <Calendar size={14} className="text-white/55" aria-hidden />
                                     Data Fine Fino A
                                 </label>
                                 <input
                                     type="date"
-                                    className={`w-full rounded-lg border border-gray-200 bg-white px-3 py-2 ${inputFocusChrome.replace('rounded-xl', 'rounded-lg')}`}
+                                    className={`w-full rounded-lg px-3 py-2 ${inputFieldDark}`}
                                     value={filterDateTo}
                                     onChange={e => setFilterDateTo(e.target.value)}
                                 />
@@ -225,7 +218,7 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
                                         setFilterDateFrom('');
                                         setFilterDateTo('');
                                     }}
-                                    className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2 text-gray-700 transition hover:border-[color:var(--td-accent)] hover:bg-[color:var(--td-soft)]"
+                                    className="w-full rounded-lg border border-white/12 bg-white/[0.06] px-4 py-2 text-white/88 transition hover:border-[color:var(--td-accent)] hover:bg-[color:var(--td-soft)]"
                                 >
                                     Reset Filtri
                                 </button>
@@ -234,18 +227,18 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
                     )}
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto bg-slate-100 p-6">
+                <div className="min-h-0 flex-1 overflow-y-auto bg-[color:var(--hub-page)] p-6">
                     {loading ? (
                         <div className="flex justify-center py-10">
                           <div
-                            className="h-10 w-10 animate-spin rounded-full border-2 border-gray-200 border-t-[color:var(--td-accent)]"
+                            className="h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-[color:var(--td-accent)]"
                             role="status"
                             aria-label="Caricamento"
                           />
                         </div>
                     ) : filtered.length === 0 ? (
-                        <div className="text-center py-20">
-                            <div className="text-gray-500 mb-2">Nessun contratto trovato</div>
+                        <div className="py-20 text-center">
+                            <div className="mb-2 text-white/45">Nessun contratto trovato</div>
                             {(filterStatus !== 'all' || filterDateFrom || filterDateTo || searchTerm) && (
                                 <button
                                     type="button"
@@ -266,7 +259,7 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
                             {filtered.map(contract => (
                                 <div key={contract.id} className="relative">
                                     {/* Etichetta Cliente con Pulsante Elimina */}
-                                    <div className="mb-2 text-sm font-bold text-gray-700 ml-1 flex items-center justify-between">
+                                    <div className="mb-2 ml-1 flex items-center justify-between text-sm font-bold text-white/86">
                                         <div className="flex items-center gap-2">
                                             <div className="h-2 w-2 shrink-0 rounded-full bg-[color:var(--td-accent)]" aria-hidden />
                                             {contract.client_name || contract.azienda || 'Cliente Sconosciuto'}
@@ -274,7 +267,8 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
                                         <button
                                             onClick={() => handleDelete(contract.id, contract.title)}
                                             disabled={deletingId === contract.id}
-                                            className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                            type="button"
+                                            className="flex items-center gap-2 rounded-lg bg-red-500/15 px-3 py-1.5 text-sm text-red-400 transition-colors hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-50"
                                             title="Disattiva contratto"
                                         >
                                             <Trash2 size={14} />

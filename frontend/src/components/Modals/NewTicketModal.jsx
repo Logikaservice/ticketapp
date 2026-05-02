@@ -4,10 +4,10 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { X, Save, FilePlus, ChevronDown, ChevronRight, Crown, Building, Mail } from 'lucide-react';
 import {
   getStoredTechHubAccent,
-  hexToRgba,
   readableOnAccent,
   techHubAccentHeaderGradientStyle,
-  techHubAccentIconTileStyle
+  techHubAccentIconTileStyle,
+  hubShellThemeVars
 } from '../../utils/techHubAccent';
 
 const NewTicketModal = ({
@@ -31,14 +31,7 @@ const NewTicketModal = ({
   const fileInputRef = useRef(null);
 
   const dashboardAccentHex = useMemo(() => getStoredTechHubAccent(), []);
-  const dashboardThemeVars = useMemo(
-    () => ({
-      '--td-accent': dashboardAccentHex,
-      '--td-soft': hexToRgba(dashboardAccentHex, 0.08),
-      '--td-soft-strong': hexToRgba(dashboardAccentHex, 0.16)
-    }),
-    [dashboardAccentHex]
-  );
+  const hubTheme = useMemo(() => hubShellThemeVars(dashboardAccentHex), [dashboardAccentHex]);
 
   // Quando si modifica un ticket, carica l'azienda del cliente associato o dal ticket stesso (se esiste)
   useEffect(() => {
@@ -310,8 +303,8 @@ const NewTicketModal = ({
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4">
       <div
-        className="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-2xl ticket-modal-dashboard-accent"
-        style={dashboardThemeVars}
+        className="ticket-modal-hub-shell flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--hub-page)] text-white/90 shadow-2xl"
+        style={{ ...hubTheme, colorScheme: 'dark' }}
       >
         
         {/* Header: gradiente tema dashboard / Hub (accent da localStorage) */}
@@ -331,36 +324,37 @@ const NewTicketModal = ({
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition"
+              type="button"
+              className="rounded-lg bg-white/20 p-2 text-white transition hover:bg-white/30"
             >
-              <X size={24} />
+              <X size={24} aria-hidden />
             </button>
           </div>
         </div>
 
         {/* Form per l'inserimento dei dati */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 bg-[color:var(--hub-page)]">
           {currentUser.ruolo === 'tecnico' && (
             <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-white/75 mb-1">
                 Azienda 
-                {!isEditingTicket && <span className="text-red-500">*</span>}
+                {!isEditingTicket && <span className="text-red-400">*</span>}
                 {isEditingTicket && !selectedAzienda && (
-                  <span className="text-xs text-orange-600 ml-2">(Nessuna azienda associata)</span>
+                  <span className="text-xs text-orange-400/90 ml-2">(Nessuna azienda associata)</span>
                 )}
               </label>
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setIsAziendaDropdownOpen(!isAziendaDropdownOpen)}
-                  className="w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between transition hover:border-[color:var(--td-accent)] focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
+                  className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-[color:var(--hub-surface)] px-3 py-2 text-left text-white transition hover:border-[color:var(--td-accent)] focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
                 >
-                  <span className={selectedAzienda ? 'text-gray-900' : 'text-gray-500'}>
+                  <span className={selectedAzienda ? 'text-white/95' : 'text-white/42'}>
                     {selectedAzienda || 'Seleziona un\'azienda'}
                   </span>
                   <ChevronDown 
                     size={20} 
-                    className={`text-gray-400 transition-transform ${isAziendaDropdownOpen ? 'rotate-180' : ''}`} 
+                    className={`text-white/40 transition-transform ${isAziendaDropdownOpen ? 'rotate-180' : ''}`} 
                   />
                 </button>
 
@@ -371,11 +365,11 @@ const NewTicketModal = ({
                       onClick={() => setIsAziendaDropdownOpen(false)}
                     ></div>
                     <div 
-                      className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-96 overflow-y-auto"
+                      className="absolute z-50 mt-1 max-h-96 w-full overflow-y-auto rounded-lg border border-white/10 bg-[color:var(--hub-surface)] shadow-xl"
                       onClick={(e) => e.stopPropagation()}
                     >
                       {aziendeUniche.length === 0 ? (
-                        <div className="p-4 text-center text-gray-500">
+                        <div className="p-4 text-center text-white/45">
                           Nessuna azienda disponibile
                         </div>
                       ) : (
@@ -388,7 +382,7 @@ const NewTicketModal = ({
                               key={azienda}
                                 type="button"
                               onClick={(e) => handleSelectAzienda(azienda, e)}
-                              className={`w-full px-4 py-3 text-left transition flex items-center gap-3 border-b border-gray-100 last:border-b-0 hover:bg-[color:var(--td-soft)] ${
+                              className={`flex w-full items-center gap-3 border-b border-white/[0.06] px-4 py-3 text-left transition last:border-b-0 hover:bg-[color:var(--td-soft)] ${
                                 isSelected ? 'bg-[color:var(--td-soft-strong)]' : ''
                               }`}
                             >
@@ -399,10 +393,10 @@ const NewTicketModal = ({
                                 {azienda === 'Senza azienda' ? <Building size={16} /> : azienda.charAt(0).toUpperCase()}
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium text-gray-900">
+                                <div className="text-sm font-medium text-white">
                                   {azienda === 'Senza azienda' ? 'Senza azienda' : azienda}
                                 </div>
-                                <div className="text-xs text-gray-600">
+                                <div className="text-xs text-white/50">
                                   {clientiCount} {clientiCount === 1 ? 'cliente' : 'clienti'}
                                           </div>
                                         </div>
@@ -421,34 +415,34 @@ const NewTicketModal = ({
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Titolo <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-white/75 mb-1">Titolo <span className="text-red-400">*</span></label>
             <input
               type="text"
               placeholder="Es: Problema stampante ufficio"
               value={newTicketData.titolo}
               onChange={(e) => setNewTicketData({ ...newTicketData, titolo: e.target.value })}
-              className="w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
+              className="w-full rounded-lg border border-white/10 bg-[color:var(--hub-surface)] px-3 py-2 text-white placeholder:text-white/35 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
+            <label className="block text-sm font-medium text-white/75 mb-1">Descrizione</label>
             <textarea
               rows="4"
               placeholder="Descrivi il problema in dettaglio..."
               value={newTicketData.descrizione}
               onChange={(e) => setNewTicketData({ ...newTicketData, descrizione: e.target.value })}
-              className="w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
+              className="w-full rounded-lg border border-white/10 bg-[color:var(--hub-surface)] px-3 py-2 text-white placeholder:text-white/35 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+              <label className="block text-sm font-medium text-white/75 mb-1">Categoria</label>
               <select
                 value={newTicketData.categoria}
                 onChange={(e) => setNewTicketData({ ...newTicketData, categoria: e.target.value })}
-                className="w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
+                className="w-full rounded-lg border border-white/10 bg-[color:var(--hub-surface)] px-3 py-2 text-white placeholder:text-white/35 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
               >
                 <option value="assistenza">Assistenza</option>
                 <option value="manutenzione">Manutenzione</option>
@@ -456,11 +450,11 @@ const NewTicketModal = ({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Priorità</label>
+              <label className="block text-sm font-medium text-white/75 mb-1">Priorità</label>
               <select
                 value={newTicketData.priorita}
                 onChange={(e) => setNewTicketData({ ...newTicketData, priorita: e.target.value })}
-                className="w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
+                className="w-full rounded-lg border border-white/10 bg-[color:var(--hub-surface)] px-3 py-2 text-white placeholder:text-white/35 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
               >
                 <option value="bassa">Bassa</option>
                 <option value="media">Media</option>
@@ -471,7 +465,7 @@ const NewTicketModal = ({
           </div>
 
           <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Richiedente <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-white/75 mb-1">Richiedente <span className="text-red-400">*</span></label>
             {currentUser.ruolo === 'tecnico' && selectedAzienda ? (
               <div className="space-y-2">
                 <div className="relative">
@@ -482,14 +476,14 @@ const NewTicketModal = ({
                           <button
                             type="button"
                             onClick={() => setIsRichiedenteDropdownOpen(!isRichiedenteDropdownOpen)}
-                            className="w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between transition hover:border-[color:var(--td-accent)] focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
+                            className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-[color:var(--hub-surface)] px-3 py-2 text-left text-white transition hover:border-[color:var(--td-accent)] focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
                           >
-                            <span className={newTicketData.nomerichiedente ? 'text-gray-900' : 'text-gray-500'}>
+                            <span className={newTicketData.nomerichiedente ? 'text-white/95' : 'text-white/42'}>
                               {newTicketData.nomerichiedente || 'Seleziona un richiedente'}
                             </span>
                             <ChevronDown 
                               size={20} 
-                              className={`text-gray-400 transition-transform ${isRichiedenteDropdownOpen ? 'rotate-180' : ''}`} 
+                              className={`text-white/40 transition-transform ${isRichiedenteDropdownOpen ? 'rotate-180' : ''}`} 
                             />
                           </button>
                           {isRichiedenteDropdownOpen && (
@@ -499,11 +493,11 @@ const NewTicketModal = ({
                                 onClick={() => setIsRichiedenteDropdownOpen(false)}
                               ></div>
                               <div 
-                                className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-64 overflow-y-auto"
+                                className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-white/10 bg-[color:var(--hub-surface)] shadow-xl"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 {clientiAziendaSelezionata.length === 0 ? (
-                                  <div className="p-4 text-center text-gray-500">
+                                  <div className="p-4 text-center text-white/45">
                                     Nessun cliente disponibile per questa azienda
                                   </div>
                                 ) : (
@@ -535,13 +529,13 @@ const NewTicketModal = ({
                                               )}
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                              <div className="text-sm font-medium text-gray-900">
+                                              <div className="text-sm font-medium text-white">
                                                 {nomeCompleto}
                                               </div>
                                               {cliente.email && !isTemp && (
                                                 <div className="flex items-center gap-1 mt-0.5">
-                                                  <Mail size={12} className="text-gray-400" />
-                                                  <span className="text-xs text-gray-600 truncate">
+                                                  <Mail size={12} className="text-white/40" />
+                                                  <span className="truncate text-xs text-white/50">
                                                     {cliente.email}
                                                   </span>
                                                 </div>
@@ -554,7 +548,7 @@ const NewTicketModal = ({
                                         </button>
                                       );
                                     })}
-                                    <div className="border-t border-gray-200">
+                                    <div className="border-t border-white/10">
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -564,7 +558,7 @@ const NewTicketModal = ({
                                           setNewTicketData({ ...newTicketData, nomerichiedente: '' });
                                           // NON resettare selectedAzienda - deve rimanere selezionata!
                                         }}
-                                        className="w-full px-4 py-2.5 text-left hover:bg-gray-50 transition text-sm text-gray-600"
+                                        className="w-full px-4 py-2.5 text-left text-sm text-white/60 transition hover:bg-white/[0.06]"
                                       >
                                         Inserisci manualmente...
                                       </button>
@@ -581,7 +575,7 @@ const NewTicketModal = ({
                             type="text"
                             value={newTicketData.nomerichiedente}
                             onChange={(e) => handleRichiedenteManualInput(e.target.value)}
-                            className="w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
+                            className="w-full rounded-lg border border-white/10 bg-[color:var(--hub-surface)] px-3 py-2 text-white placeholder:text-white/35 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
                             placeholder="Inserisci il nome del richiedente"
                             required
                           />
@@ -607,7 +601,7 @@ const NewTicketModal = ({
               type="text"
               value={newTicketData.nomerichiedente}
               onChange={(e) => setNewTicketData({ ...newTicketData, nomerichiedente: e.target.value })}
-              className="w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
+              className="w-full rounded-lg border border-white/10 bg-[color:var(--hub-surface)] px-3 py-2 text-white placeholder:text-white/35 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
               placeholder="Nome del richiedente"
               required
             />
@@ -616,7 +610,7 @@ const NewTicketModal = ({
 
           {currentUser.ruolo === 'tecnico' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Data Apertura</label>
+              <label className="block text-sm font-medium text-white/75 mb-1">Data Apertura</label>
               <input
                 type="date"
                 value={(() => {
@@ -654,13 +648,13 @@ const NewTicketModal = ({
                   // Il campo date restituisce sempre YYYY-MM-DD
                   setNewTicketData({ ...newTicketData, dataapertura: e.target.value });
                 }}
-                className="w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
+                className="w-full rounded-lg border border-white/10 bg-[color:var(--hub-surface)] px-3 py-2 text-white placeholder:text-white/35 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
               />
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-white/75 mb-1">
               Foto (opzionale)
             </label>
             <input
@@ -673,7 +667,7 @@ const NewTicketModal = ({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2 transition hover:bg-gray-50 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/14 bg-[color:var(--hub-surface)] px-3 py-2 text-white/90 transition hover:border-[color:var(--td-accent)] hover:bg-white/[0.05] focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
             >
               <FilePlus size={18} />
               {photos.length > 0 ? `${photos.length} file selezionati` : 'Seleziona file'}
@@ -681,13 +675,13 @@ const NewTicketModal = ({
             {photos.length > 0 && (
               <div className="mt-2 space-y-2">
                 {photos.map((photo, index) => (
-                  <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-                    <FilePlus size={16} className="text-gray-600" />
-                    <span className="text-sm text-gray-700 flex-1 truncate">{photo.name}</span>
+                  <div key={index} className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-black/20 p-2">
+                    <FilePlus size={16} className="text-white/55" />
+                    <span className="flex-1 truncate text-sm text-white/85">{photo.name}</span>
                     <button
                       type="button"
                       onClick={() => removePhoto(index)}
-                      className="text-red-600 hover:text-red-800 text-sm"
+                      className="text-sm text-red-400 hover:text-red-300"
                     >
                       Rimuovi
                     </button>
@@ -700,15 +694,17 @@ const NewTicketModal = ({
         </div>
 
         {/* Footer con i pulsanti */}
-        <div className="p-4 border-t bg-gray-50 rounded-b-2xl">
+        <div className="rounded-b-2xl border-t border-white/10 bg-[color:var(--hub-surface)] p-4">
           <div className="flex justify-end gap-2">
             <button
+              type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition"
+              className="rounded-lg border border-white/12 bg-white/[0.08] px-4 py-2 text-white/90 transition hover:bg-white/[0.14]"
             >
               Annulla
             </button>
             <button
+              type="button"
               onClick={handleSaveWithPhotos}
               disabled={isSaving}
               className={`flex items-center gap-2 rounded-lg px-4 py-2 transition ${

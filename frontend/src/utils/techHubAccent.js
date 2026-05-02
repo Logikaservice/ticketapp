@@ -1,15 +1,36 @@
 /**
- * Tema “ticket / dashboard”: colore d’accento condiviso (Hub tecnico, modale nuovo ticket, ecc.).
+ * Accento tema + palette scura **Hub tecnico** (sfondo `#121212` / superfici `#1E1E1E`), usati anche dai modali
+ * allineati all’Hub (nuovo ticket, lista contratti, ecc.) — non alla dashboard ticket chiara (`#f3f4f6`).
  *
  * Comportamento (tecnico e cliente, stesso browser):
  * - Primo accesso: nessun valore in storage → si usa DEFAULT_TECH_HUB_ACCENT.
- * - Dopo la scelta (selettore Hub o Impostazioni account): il valore resta in localStorage
+ * - Dopo la scelta (Hub o Impostazioni account): il valore resta in localStorage
  *   sotto STORAGE_KEY_TECH_HUB_ACCENT finché l’utente non lo cambia di nuovo.
  */
 
 export const STORAGE_KEY_TECH_HUB_ACCENT = 'techHubAccent';
 
 export const DEFAULT_TECH_HUB_ACCENT = '#C1FF72';
+
+/** Sfondo principale Hub tecnico (stesso degli overlay modali «stile Hub»). */
+export const HUB_PAGE_BG = '#121212';
+
+/** Card / campo / fascia secondaria nell’Hub. */
+export const HUB_SURFACE = '#1E1E1E';
+
+/**
+ * Variabili CSS per moduli allineati all’Hub: accento utente + palette scura base.
+ */
+export function hubShellThemeVars(accentHex) {
+  const a = normalizeHex(accentHex) || DEFAULT_TECH_HUB_ACCENT;
+  return {
+    '--td-accent': a,
+    '--td-soft': hexToRgba(a, 0.08),
+    '--td-soft-strong': hexToRgba(a, 0.14),
+    '--hub-page': HUB_PAGE_BG,
+    '--hub-surface': HUB_SURFACE
+  };
+}
 
 export const TECH_HUB_ACCENT_PALETTE = [
   { id: 'lime', label: 'Lime', hex: '#C1FF72' },
