@@ -250,6 +250,8 @@ export default function TicketApp() {
   });
   /** Incrementato quando Email deve aprirsi nel centro Hub (tec. con workbench già visibile); azzerato alla chiusura Hub. */
   const [hubEmbedEmailKick, setHubEmbedEmailKick] = useState(0);
+  /** Stesso schema di `hubEmbedEmailKick` per Office nell’Hub. */
+  const [hubEmbedOfficeKick, setHubEmbedOfficeKick] = useState(0);
 
   const [dispositiviAziendaliHighlightMac, setDispositiviAziendaliHighlightMac] = useState(null);
   const [showDeviceAnalysisStandalone, setShowDeviceAnalysisStandalone] = useState(false);
@@ -688,6 +690,10 @@ export default function TicketApp() {
 
   const handleOpenOffice = (companyId) => {
     if (companyId) setShowGloballySelectedCompanyId(companyId);
+    if (showTechnicianWorkbench && currentUser?.ruolo === 'tecnico') {
+      setHubEmbedOfficeKick((n) => n + 1);
+      return;
+    }
     setShowTechnicianWorkbench(false);
     setShowOffice(true);
     setShowDashboard(false);
@@ -941,7 +947,10 @@ export default function TicketApp() {
   }, [isLoggedIn, currentUser, showTechnicianWorkbench]);
 
   useEffect(() => {
-    if (!showTechnicianWorkbench) setHubEmbedEmailKick(0);
+    if (!showTechnicianWorkbench) {
+      setHubEmbedEmailKick(0);
+      setHubEmbedOfficeKick(0);
+    }
   }, [showTechnicianWorkbench]);
 
   /** Overscroll / area sotto il layer fixed dell’Hub: evita fascia chiara (#body / vuoto dopo lo zoom wrapper). */
@@ -3821,6 +3830,7 @@ export default function TicketApp() {
               onOpenPackVision: openPackVisionMenu
             }}
             hubEmbedEmailKick={hubEmbedEmailKick}
+            hubEmbedOfficeKick={hubEmbedOfficeKick}
           />
         )}
 

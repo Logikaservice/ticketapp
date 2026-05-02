@@ -396,7 +396,9 @@ export default function TechnicianWorkbenchPage({
   /** tecnico → apre il modale Nuovo avviso (stesso della dashboard). */
   onOpenManageAlerts = null,
   /** Incrementato da App quando `handleOpenEmail` deve aprire Email nel centro Hub (Hub già visibile). */
-  hubEmbedEmailKick = 0
+  hubEmbedEmailKick = 0,
+  /** Come `hubEmbedEmailKick` per `handleOpenOffice`. */
+  hubEmbedOfficeKick = 0
 }) {
   const [accentHex, setAccentHex] = useState(getStoredTechHubAccent);
   const [hubImportantAlerts, setHubImportantAlerts] = useState([]);
@@ -440,6 +442,10 @@ export default function TechnicianWorkbenchPage({
   useEffect(() => {
     if (hubEmbedEmailKick > 0) setHubCenterView('email');
   }, [hubEmbedEmailKick]);
+
+  useEffect(() => {
+    if (hubEmbedOfficeKick > 0) setHubCenterView('office');
+  }, [hubEmbedOfficeKick]);
 
   const userMenuRef = useRef(null);
   const accentPickerRef = useRef(null);
@@ -650,7 +656,7 @@ export default function TechnicianWorkbenchPage({
             onClick={() => setHubCenterView('overview')}
           />
           <SidebarLink railMode={railMode} icon={TicketHomeIcon} label="Ticket" onClick={() => onNavigateHome?.()} />
-          <SidebarLink railMode={railMode} icon={Building2} label="Office" onClick={() => nav?.onOpenOffice?.()} />
+          <SidebarLink railMode={railMode} icon={Building2} label="Office" onClick={() => setHubCenterView('office')} />
           <SidebarLink railMode={railMode} icon={Mail} label="Email" onClick={() => setHubCenterView('email')} />
           <SidebarLink railMode={railMode} icon={Shield} label="Anti-Virus" onClick={() => nav?.onOpenAntiVirus?.()} />
           <SidebarLink railMode={railMode} icon={Eye} label="L-Sight" onClick={() => nav?.onOpenLSight?.()} />
