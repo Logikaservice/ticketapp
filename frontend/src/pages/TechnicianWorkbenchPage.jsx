@@ -25,6 +25,7 @@ import {
   Ticket as TicketHomeIcon,
   ChevronsLeft,
   ChevronsRight,
+  ChevronLeft,
   Info,
   AlertTriangle,
   AlertCircle,
@@ -37,6 +38,10 @@ const DEFAULT_ACCENT = '#C1FF72';
 const PAGE_BG = '#121212';
 const STORAGE_KEY_ACCENT = 'techHubAccent';
 const STORAGE_KEY_SIDEBAR_COLLAPSED = 'techHubSidebarCollapsed';
+const HUB_ALERTS_PAGE_SIZE = 5;
+
+const hubTinyIconBtn =
+  'rounded-lg border border-transparent p-1.5 text-white/55 transition hover:bg-white/[0.06] hover:text-[color:var(--hub-accent)] hover:[border-color:var(--hub-accent-border)] disabled:pointer-events-none disabled:opacity-0';
 
 function useMinMd() {
   const [ok, setOk] = useState(() =>
@@ -239,17 +244,11 @@ function alertLevelSidebarMeta(level) {
   }
 }
 
-/** Lista sola lettura avvisi dashboard (icone + testo colorato sullo sfondo pannello scuro esistente). */
-function ImportantAlertsSidebarList({ alerts, loading }) {
-  if (loading) {
-    return <div className="py-8 text-center text-xs text-white/40">Caricamento avvisi…</div>;
-  }
-  if (!alerts?.length) {
-    return <div className="py-8 text-center text-xs text-white/40">Nessun avviso presente.</div>;
-  }
+/** Righe lista avvisi (sola lettura). */
+function ImportantAlertsSidebarRows({ items }) {
   return (
     <div role="list" className="space-y-3">
-      {alerts.map((a) => {
+      {items.map((a) => {
         const meta = alertLevelSidebarMeta(a.level);
         const Icon = meta.Icon;
         const title = (a.title && String(a.title).trim()) || '(Senza titolo)';
@@ -274,6 +273,129 @@ function ImportantAlertsSidebarList({ alerts, loading }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** Max {HUB_ALERTS_PAGE_SIZE} avvisi per pagina; pallini + rotazione automatica ogni 5 s. */
+function ImportantAlertsCarousel({ alerts, loading, accentHex }) {
+  const [pageIndex, setPageIndex] = useState(0);
+  const [carouselTick, setCarouselTick] = useState(0);
+
+  const alertsKey = useMemo(
+    () => (alerts || []).map((a) => `${a.id ?? ''}:${(a.title || '').slice(0, 40)}`).join('|'),
+    [alerts]
+  );
+
+  const pageCount =
+    loading || !alerts?.length ? 0 : Math.max(1, Math.ceil(alerts.length / HUB_ALERTS_PAGE_SIZE));
+
+  const currentItems = useMemo(() => {
+    if (!alerts?.length) return [];
+    const start = pageIndex * HUB_ALERTS_PAGE_SIZE;
+    return alerts.slice(start, start + HUB_ALERTS_PAGE_SIZE);
+  }, [alerts, pageIndex]);
+
+  useEffect(() => {
+    setPageIndex(0);
+    setCarouselTick((t) => t + 1);
+  }, [alertsKey]);
+
+  useEffect(() => {
+    setPageIndex((i) => {
+      const max = Math.max(0, pageCount - 1);
+      return Math.min(Math.max(0, i), max);
+    });
+  }, [pageCount]);
+
+  const restartAutoTimer = () => setCarouselTick((t) => t + 1);
+
+  useEffect(() => {
+    if (loading || pageCount <= 1) return undefined;
+    const id = window.setInterval(() => {
+      setPageIndex((i) => (i + 1) % pageCount);
+    }, 5000);
+    return () => window.clearInterval(id);
+  }, [loading, pageCount, carouselTick]);
+
+  if (loading) {
+    return <div className="py-8 text-center text-xs text-white/40">Caricamento avvisi…</div>;
+  }
+  if (!alerts?.length) {
+    return <div className="py-8 text-center text-xs text-white/40">Nessun avviso presente.</div>;
+  }
+
+  const canPrev = pageIndex > 0;
+  const canNext = pageIndex < pageCount - 1;
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-[8rem] flex-1 overflow-y-auto pr-0.5">
+        <ImportantAlertsSidebarRows items={currentItems} />
+      </div>
+      {pageCount > 1 && (
+        <div className="mt-3 shrink-0 border-t border-white/[0.06] pt-3">
+          <div className="flex items-center gap-2">
+            <div className="flex w-9 shrink-0 justify-center">
+              {canPrev ? (
+                <button
+                  type="button"
+                  className={hubTinyIconBtn}
+                  title="Pagina precedente"
+                  aria-label="Pagina precedente"
+                  onClick={() => {
+                    setPageIndex((i) => Math.max(0, i - 1));
+                    restartAutoTimer();
+                  }}
+                >
+                  <ChevronLeft size={18} aria-hidden />
+                </button>
+              ) : (
+                <span className="inline-flex w-[34px]" aria-hidden />
+              )}
+            </div>
+            <div className="flex min-w-0 flex-1 items-center justify-center gap-2.5 px-1">
+              {Array.from({ length: pageCount }, (_, i) => (
+                <button
+                  key={String(i)}
+                  type="button"
+                  title={`Pagina ${i + 1} di ${pageCount}`}
+                  aria-label={`Vai alla pagina ${i + 1} di ${pageCount}`}
+                  aria-current={i === pageIndex ? 'true' : undefined}
+                  onClick={() => {
+                    setPageIndex(i);
+                    restartAutoTimer();
+                  }}
+                  className={`h-2 shrink-0 rounded-full transition-all duration-300 ${
+                    i === pageIndex ? 'min-w-[1.35rem]' : 'w-2 opacity-45 hover:opacity-70'
+                  }`}
+                  style={{
+                    backgroundColor: i === pageIndex ? accentHex : 'rgba(255,255,255,0.22)'
+                  }}
+                />
+              ))}
+            </div>
+            <div className="flex w-9 shrink-0 justify-center">
+              {canNext ? (
+                <button
+                  type="button"
+                  className={hubTinyIconBtn}
+                  title="Pagina successiva"
+                  aria-label="Pagina successiva"
+                  onClick={() => {
+                    setPageIndex((i) => Math.min(pageCount - 1, i + 1));
+                    restartAutoTimer();
+                  }}
+                >
+                  <ChevronRight size={18} aria-hidden />
+                </button>
+              ) : (
+                <span className="inline-flex w-[34px]" aria-hidden />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -786,7 +908,11 @@ export default function TechnicianWorkbenchPage({
           style={{ backgroundColor: PAGE_BG }}
         >
           <RightPanel title="Avvisi importanti" className="min-h-[12rem] flex-[1.25]" bodyClassName="space-y-0">
-            <ImportantAlertsSidebarList alerts={hubImportantAlerts} loading={hubImportantAlertsLoading} />
+            <ImportantAlertsCarousel
+              alerts={hubImportantAlerts}
+              loading={hubImportantAlertsLoading}
+              accentHex={accentHex}
+            />
           </RightPanel>
 
           <RightPanel title="Ultimi eventi di rete">
