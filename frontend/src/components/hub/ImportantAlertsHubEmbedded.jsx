@@ -152,7 +152,7 @@ export default function ImportantAlertsHubEmbedded({
               className="transition hover:brightness-110 active:brightness-95"
             >
               <Plus size={18} strokeWidth={2.4} aria-hidden />
-              + Crea avviso
+              Crea avviso
             </button>
           ) : null}
           {typeof onRefreshHubAlerts === 'function' ? (

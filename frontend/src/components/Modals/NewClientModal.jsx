@@ -1,6 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, UserPlus, Building2, CheckCircle2, ChevronDown, Check } from 'lucide-react';
-import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
+import {
+  getStoredTechHubAccent,
+  HUB_PAGE_BG,
+  HUB_SURFACE,
+  hexToRgba,
+  readableOnAccent,
+  hubModalCssVars,
+  HUB_MODAL_LABEL_CLS,
+  HUB_MODAL_FIELD_CLS
+} from '../../utils/techHubAccent';
 
 const NewClientModal = ({
   newClientData,
@@ -52,66 +61,68 @@ const NewClientModal = ({
     }
   }, [newClientData.useExistingCompany]);
 
+  const accentHex = getStoredTechHubAccent();
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
-        
-        {/* Header */}
-        <div
-          className="rounded-t-2xl border-b border-black/10 p-6"
-          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="flex items-center gap-2 text-2xl font-bold">
-                <UserPlus size={28} className="shrink-0 opacity-95" aria-hidden />
-                Nuovo Cliente
-              </h2>
-              <p className="mt-1 text-sm opacity-90">
-                Compila i dati per creare un nuovo cliente
-              </p>
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4">
+      <div
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/[0.1] shadow-2xl"
+        style={{ backgroundColor: HUB_PAGE_BG, ...hubModalCssVars(accentHex) }}
+      >
+        <div className="shrink-0 border-b border-white/[0.08] px-6 py-5" style={{ backgroundColor: HUB_SURFACE }}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <span
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl md:h-12 md:w-12"
+                style={{ backgroundColor: hexToRgba(accentHex, 0.2), color: accentHex }}
+              >
+                <UserPlus size={24} aria-hidden className="md:h-[26px] md:w-[26px]" />
+              </span>
+              <div className="min-w-0">
+                <h2 className="text-xl font-bold text-white md:text-2xl">Nuovo contatto</h2>
+                <p className="mt-0.5 text-sm text-white/55">Crea un nuovo cliente nel sistema</p>
+              </div>
             </div>
             <button
               onClick={onClose}
               type="button"
-              className="rounded-lg bg-black/20 p-2 ring-1 ring-black/10 transition hover:bg-black/30"
+              className="shrink-0 rounded-lg bg-white/10 p-2 text-white ring-1 ring-white/15 transition hover:bg-white/16"
               aria-label="Chiudi"
             >
-              <X size={24} aria-hidden />
+              <X size={22} aria-hidden />
             </button>
           </div>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6">
+        <form onSubmit={handleSubmit} className="min-h-0 flex-1 overflow-y-auto p-6">
           <div className="space-y-4">
             
             {/* Nome e Cognome sulla stessa riga */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nome <span className="text-red-500">*</span>
+                <label className={HUB_MODAL_LABEL_CLS}>
+                  Nome <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="text"
                   value={newClientData.nome}
                   onChange={(e) => setNewClientData({ ...newClientData, nome: e.target.value })}
                   placeholder="Mario"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className={HUB_MODAL_FIELD_CLS}
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Cognome <span className="text-red-500">*</span>
+                <label className={HUB_MODAL_LABEL_CLS}>
+                  Cognome <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="text"
                   value={newClientData.cognome}
                   onChange={(e) => setNewClientData({ ...newClientData, cognome: e.target.value })}
                   placeholder="Rossi"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className={HUB_MODAL_FIELD_CLS}
                   required
                 />
               </div>
@@ -120,29 +131,29 @@ const NewClientModal = ({
             {/* Email e Password sulla stessa riga */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email <span className="text-red-500">*</span>
+                <label className={HUB_MODAL_LABEL_CLS}>
+                  Email <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="email"
                   value={newClientData.email}
                   onChange={(e) => setNewClientData({ ...newClientData, email: e.target.value })}
                   placeholder="cliente@esempio.com"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className={HUB_MODAL_FIELD_CLS}
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Password <span className="text-red-500">*</span>
+                <label className={HUB_MODAL_LABEL_CLS}>
+                  Password <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="text"
                   value={newClientData.password}
                   onChange={(e) => setNewClientData({ ...newClientData, password: e.target.value })}
                   placeholder="Password visibile"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono"
+                  className={`${HUB_MODAL_FIELD_CLS} font-mono`}
                   required
                 />
               </div>
@@ -150,33 +161,50 @@ const NewClientModal = ({
 
             {/* Azienda */}
             <div className="space-y-3">
-              <label className="block text-sm font-medium text-gray-700">
-                Azienda <span className="text-red-500">*</span>
+              <label className={`${HUB_MODAL_LABEL_CLS} mb-3`}>
+                Azienda <span className="text-red-400">*</span>
               </label>
 
               <div className="flex flex-wrap gap-3">
                 <button
                   type="button"
-                  className={`px-4 py-2 rounded-lg border transition ${
+                  className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
                     !newClientData.useExistingCompany
-                      ? 'bg-green-600 border-green-600 text-white shadow'
-                      : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                      ? '[border-color:var(--hub-accent-border)] shadow-[inset_0_0_0_1px_var(--hub-accent-border)]'
+                      : 'border-white/[0.12] bg-black/20 text-white/75 hover:bg-white/[0.06]'
                   }`}
                   onClick={() => handleCompanyModeChange(false)}
+                  style={
+                    !newClientData.useExistingCompany
+                      ? {
+                          backgroundColor: hexToRgba(accentHex, 0.18),
+                          color: readableOnAccent(accentHex)
+                        }
+                      : undefined
+                  }
                 >
                   Nuova azienda
                 </button>
                 <button
                   type="button"
-                  className={`px-4 py-2 rounded-lg border transition flex items-center gap-2 ${
+                  className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition ${
                     newClientData.useExistingCompany
-                      ? 'bg-green-600 border-green-600 text-white shadow'
-                      : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                  } ${!canUseExisting ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      ? 'shadow-[inset_0_0_0_1px_var(--hub-accent-border)]'
+                      : 'border-white/[0.12] bg-black/20 text-white/75 hover:bg-white/[0.06]'
+                  } ${!canUseExisting ? 'cursor-not-allowed opacity-55' : ''}`}
                   onClick={() => canUseExisting && handleCompanyModeChange(true)}
                   disabled={!canUseExisting}
+                  style={
+                    newClientData.useExistingCompany
+                      ? {
+                          backgroundColor: hexToRgba(accentHex, 0.18),
+                          borderColor: hexToRgba(accentHex, 0.5),
+                          color: readableOnAccent(accentHex)
+                        }
+                      : undefined
+                  }
                 >
-                  <Building2 size={18} />
+                  <Building2 size={18} aria-hidden />
                   Azienda esistente
                 </button>
               </div>
@@ -201,24 +229,24 @@ const NewClientModal = ({
                     type="button"
                     onClick={() => canUseExisting && setShowCompanyDropdown(prev => !prev)}
                     disabled={!canUseExisting}
-                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg text-left flex items-center justify-between transition ${
+                    className={`flex w-full items-center justify-between rounded-lg border px-4 py-2 text-left text-sm transition ${
                       canUseExisting
-                        ? 'bg-white hover:border-green-400 focus:ring-2 focus:ring-green-500 focus:border-transparent'
-                        : 'bg-gray-100 opacity-60 cursor-not-allowed'
+                        ? `${HUB_MODAL_FIELD_CLS} cursor-pointer`
+                        : 'cursor-not-allowed border-white/[0.08] bg-black/20 text-white/35'
                     }`}
                   >
-                    <span className={newClientData.existingCompany ? 'text-gray-800' : 'text-gray-500'}>
+                    <span className={newClientData.existingCompany ? 'text-white' : 'text-white/42'}>
                       {newClientData.existingCompany || "Seleziona un'azienda..."}
                     </span>
                     <ChevronDown
                       size={18}
-                      className={`text-gray-400 transition-transform ${showCompanyDropdown ? 'rotate-180' : ''}`}
+                      className={`text-white/45 transition-transform ${showCompanyDropdown ? 'rotate-180' : ''}`}
+                      aria-hidden
                     />
                   </button>
-                  
-                  {/* Dropdown custom con card stilizzate */}
+
                   {showCompanyDropdown && canUseExisting && (
-                    <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-2xl max-h-64 overflow-y-auto z-10">
+                    <div className="absolute left-0 right-0 z-10 mt-1 max-h-64 overflow-y-auto rounded-lg border border-white/[0.12] bg-[#1E1E1E] shadow-2xl">
                       {existingCompanies.map((azienda) => {
                         const isSelected = newClientData.existingCompany === azienda;
                         return (
@@ -229,29 +257,37 @@ const NewClientModal = ({
                               setNewClientData({ ...newClientData, existingCompany: azienda });
                               setShowCompanyDropdown(false);
                             }}
-                            className={`w-full flex items-center justify-between px-3 py-1.5 text-left transition ${
-                              isSelected 
-                                ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500' 
-                                : 'hover:bg-green-50'
+                            className={`flex w-full items-center justify-between border-l-4 px-3 py-1.5 text-left transition ${
+                              isSelected
+                                ? 'border-[color:var(--hub-accent)] bg-white/[0.08]'
+                                : 'border-transparent hover:bg-white/[0.05]'
                             }`}
                           >
                             <div className="flex items-center gap-2">
-                              <div className="w-7 h-7 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                              <div
+                                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-xs font-bold ring-1 ring-white/15"
+                                style={{
+                                  backgroundColor: hexToRgba(accentHex, 0.25),
+                                  color: readableOnAccent(accentHex)
+                                }}
+                              >
                                 {azienda.charAt(0).toUpperCase()}
                               </div>
-                              <span className="font-medium text-gray-800 text-sm">{azienda}</span>
+                              <span className="text-sm font-medium text-white/90">{azienda}</span>
                             </div>
-                            {isSelected && <Check size={16} className="text-green-600 flex-shrink-0" />}
+                            {isSelected && (
+                              <Check size={16} className="flex-shrink-0 text-[color:var(--hub-accent)]" aria-hidden />
+                            )}
                           </button>
                         );
                       })}
                       {existingCompanies.length === 0 && (
-                        <div className="px-4 py-3 text-sm text-gray-500">Nessuna azienda disponibile.</div>
+                        <div className="px-4 py-3 text-sm text-white/50">Nessuna azienda disponibile.</div>
                       )}
                     </div>
                   )}
                   {!canUseExisting && (
-                    <p className="text-xs text-gray-500 mt-2">
+                    <p className="mt-2 text-xs text-white/45">
                       Nessuna azienda disponibile. Aggiungine una nuova per poterla riutilizzare.
                     </p>
                   )}
@@ -262,7 +298,7 @@ const NewClientModal = ({
                   value={newClientData.azienda}
                   onChange={(e) => setNewClientData({ ...newClientData, azienda: e.target.value })}
                   placeholder="Nome dell'azienda"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className={HUB_MODAL_FIELD_CLS}
                   required
                 />
               )}
@@ -270,69 +306,73 @@ const NewClientModal = ({
 
             {/* Ruolo amministratore */}
             <div
-              className={`flex items-start gap-3 p-4 border rounded-xl bg-gray-50 ${
-                !selectedCompany ? 'opacity-60' : ''
-              }`}
+              className={`rounded-xl border border-white/[0.1] bg-black/[0.22] p-4 ${!selectedCompany ? 'opacity-55' : ''}`}
             >
-              <input
-                id="isAdmin"
-                type="checkbox"
-                className="mt-1 h-5 w-5 text-green-600 rounded border-gray-300 focus:ring-green-500"
-                checked={newClientData.isAdmin}
-                onChange={handleAdminToggle}
-                disabled={!selectedCompany}
-              />
-              <label htmlFor="isAdmin" className="flex-1 cursor-pointer">
-                <span className="flex items-center gap-2 font-semibold text-gray-800">
-                  <CheckCircle2 size={18} className="text-green-600" />
-                  Rendi questo utente amministratore
-                </span>
-                <p className="text-sm text-gray-600 mt-1">
-                  Potrà gestire gli altri utenti dell'azienda selezionata{selectedCompany ? ` (${selectedCompany})` : ''} e
-                  visualizzare tutti i ticket associati.
-                </p>
-              </label>
+              <div className="flex items-start gap-3">
+                <input
+                  id="isAdmin"
+                  type="checkbox"
+                  className="mt-1 h-5 w-5 rounded border-white/30 bg-black/40 accent-[color:var(--hub-accent)] focus:ring-[color:var(--hub-accent)]"
+                  checked={newClientData.isAdmin}
+                  onChange={handleAdminToggle}
+                  disabled={!selectedCompany}
+                />
+                <label htmlFor="isAdmin" className="flex-1 cursor-pointer">
+                  <span className="flex items-center gap-2 font-semibold text-white/90">
+                    <CheckCircle2 size={18} className="text-[color:var(--hub-accent)]" aria-hidden />
+                    Rendi questo utente amministratore
+                  </span>
+                  <p className="mt-1 text-sm text-white/52">
+                    Potrà gestire gli altri utenti dell'azienda selezionata
+                    {selectedCompany ? ` (${selectedCompany})` : ''} e visualizzare tutti i ticket associati.
+                  </p>
+                </label>
+              </div>
             </div>
 
-            {/* Telefono (opzionale) */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Telefono <span className="text-gray-400 text-xs">(opzionale)</span>
+              <label className={HUB_MODAL_LABEL_CLS}>
+                Telefono <span className="text-xs text-white/40">(opzionale)</span>
               </label>
               <input
                 type="tel"
                 value={newClientData.telefono}
                 onChange={(e) => setNewClientData({ ...newClientData, telefono: e.target.value })}
                 placeholder="+39 123 456 7890"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className={HUB_MODAL_FIELD_CLS}
               />
             </div>
 
           </div>
 
-          {/* Info */}
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <strong>Nota:</strong> I campi contrassegnati con <span className="text-red-500">*</span> sono obbligatori.
-              La password sarà visibile in chiaro per facilitare la registrazione.
+          <div
+            className="mt-6 rounded-lg border px-4 py-3"
+            style={{ borderColor: hexToRgba(accentHex, 0.28), backgroundColor: hexToRgba(accentHex, 0.1) }}
+          >
+            <p className="text-sm text-white/82">
+              <strong className="text-white">Nota:</strong> I campi contrassegnati con{' '}
+              <span className="text-red-400">*</span> sono obbligatori. La password sarà visibile in chiaro per facilitare la
+              registrazione.
             </p>
           </div>
 
-          {/* Buttons */}
-          <div className="flex gap-3 justify-end mt-6">
+          <div
+            className="mt-6 flex flex-shrink-0 flex-wrap justify-end gap-2 border-t border-white/[0.08] pt-6"
+          >
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition font-medium"
+              className="rounded-lg bg-white/[0.1] px-6 py-2 text-sm font-medium text-white transition hover:bg-white/[0.14]"
             >
               Annulla
             </button>
             <button
               type="submit"
-              className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium"
+              className="flex items-center gap-2 rounded-lg px-6 py-2 text-sm font-semibold transition hover:brightness-110"
+              style={{ backgroundColor: accentHex, color: readableOnAccent(accentHex) }}
             >
-              <UserPlus size={18} />
-              Crea Cliente
+              <UserPlus size={18} aria-hidden />
+              Crea contatto
             </button>
           </div>
         </form>

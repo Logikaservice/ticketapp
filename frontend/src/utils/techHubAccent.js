@@ -18,6 +18,24 @@ export const HUB_PAGE_BG = '#121212';
 /** Card / campo / fascia secondaria nell’Hub. */
 export const HUB_SURFACE = '#1E1E1E';
 
+/** Variabili CSS per moduli/modali allineati all'Hub (focus ring sull'accento). */
+export function hubModalCssVars(accentHex) {
+  const a = normalizeHex(accentHex) || DEFAULT_TECH_HUB_ACCENT;
+  return {
+    ['--hub-accent']: a,
+    ['--hub-accent-border']: hexToRgba(a, 0.52)
+  };
+}
+
+/** Etichetta campo in form modale stile Hub scuro. */
+export const HUB_MODAL_LABEL_CLS = 'mb-1 block text-sm font-medium text-white/78';
+
+/** Input / textarea standard su sfondo Hub. */
+export const HUB_MODAL_FIELD_CLS =
+  'w-full rounded-lg border border-white/[0.12] bg-black/[0.28] px-3 py-2 text-sm text-white placeholder:text-white/38 outline-none transition focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)]';
+
+export const HUB_MODAL_TEXTAREA_CLS = `${HUB_MODAL_FIELD_CLS} min-h-[5rem] resize-y`;
+
 /**
  * Variabili CSS per moduli allineati all’Hub: accento utente + palette scura base.
  */
