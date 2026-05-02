@@ -17,7 +17,9 @@ function fmtEuroCompact(n) {
     style: 'currency',
     currency: 'EUR',
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+    maximumFractionDigits: 2,
+    /** Default `auto` può omettere il punto migliaia sotto ~10 000 → es. 6510 senza separator. */
+    useGrouping: 'always'
   }).format(x);
 }
 
