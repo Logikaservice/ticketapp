@@ -500,7 +500,9 @@ export default function TechnicianWorkbenchPage({
   /** Apre il modal nuovo ticket precompilato da un avviso (stesso handler della dashboard). */
   onCreateTicketFromAlert = null,
   /** Incrementa `alertsRefreshTrigger` in App per ricaricare gli avvisi Hub. */
-  onRefreshHubAlerts = null
+  onRefreshHubAlerts = null,
+  /** tecnico → apre il modale Nuovo avviso (stesso della dashboard). */
+  onOpenManageAlerts = null
 }) {
   const [accentHex, setAccentHex] = useState(getStoredTechHubAccent);
   const [hubImportantAlerts, setHubImportantAlerts] = useState([]);
@@ -892,6 +894,7 @@ export default function TechnicianWorkbenchPage({
                 onBack={() => setHubCenterView('overview')}
                 onCreateTicketFromAlert={onCreateTicketFromAlert ?? undefined}
                 onRefreshHubAlerts={onRefreshHubAlerts ?? undefined}
+                onOpenManageAlerts={onOpenManageAlerts ?? undefined}
               />
             ) : hubCenterView === 'contratti' ? (
               <ContractsListModal

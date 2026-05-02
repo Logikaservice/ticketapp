@@ -172,7 +172,7 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
   if (!content) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-40 overflow-y-auto">
+    <div className="fixed inset-0 z-[110] overflow-y-auto bg-black bg-opacity-60">
       <div className="flex min-h-full items-center justify-center p-4">
         {content}
       </div>

@@ -3777,6 +3777,7 @@ export default function TicketApp() {
             onOpenTicketWithPrefill={openNewTicketWithData}
             onCreateTicketFromAlert={handleCreateTicketFromAlert}
             onRefreshHubAlerts={() => setAlertsRefreshTrigger((n) => n + 1)}
+            onOpenManageAlerts={() => setModalState({ type: 'manageAlerts', data: null })}
             commAgentNav={{
               onNavigateHome: () => {
                 setShowTechnicianWorkbench(false);

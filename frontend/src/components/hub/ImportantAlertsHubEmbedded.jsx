@@ -6,6 +6,7 @@ import {
   Bell,
   FileText,
   Info,
+  Plus,
   RefreshCw,
   Sparkles
 } from 'lucide-react';
@@ -60,7 +61,8 @@ export default function ImportantAlertsHubEmbedded({
   currentUser,
   onBack,
   onCreateTicketFromAlert,
-  onRefreshHubAlerts
+  onRefreshHubAlerts,
+  onOpenManageAlerts = null
 }) {
   const rootStyle = useMemo(
     () => ({
@@ -92,6 +94,27 @@ export default function ImportantAlertsHubEmbedded({
   const refreshBtnClass =
     'inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-black/25 px-3 py-2 text-[13px] font-semibold text-white/80 transition hover:bg-white/[0.06] hover:[border-color:var(--hub-accent-border)]';
 
+  const showManageAlertsBtn =
+    currentUser?.ruolo === 'tecnico' && typeof onOpenManageAlerts === 'function';
+
+  const createAlertsBtnStyle = useMemo(
+    () => ({
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: '8px 14px',
+      borderRadius: 12,
+      border: `1px solid ${hexToRgba(accentHex, 0.55)}`,
+      backgroundColor: hexToRgba(accentHex, 0.22),
+      color: '#fafafa',
+      cursor: 'pointer',
+      fontSize: 13,
+      fontWeight: 700,
+      flexShrink: 0
+    }),
+    [accentHex]
+  );
+
   return (
     <div
       className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.08] font-sans"
@@ -119,12 +142,26 @@ export default function ImportantAlertsHubEmbedded({
             </div>
           </div>
         </div>
-        {typeof onRefreshHubAlerts === 'function' ? (
-          <button type="button" className={refreshBtnClass} onClick={() => onRefreshHubAlerts()}>
-            <RefreshCw size={16} aria-hidden />
-            Aggiorna
-          </button>
-        ) : null}
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          {showManageAlertsBtn ? (
+            <button
+              type="button"
+              style={createAlertsBtnStyle}
+              onClick={() => onOpenManageAlerts()}
+              aria-label="Crea un nuovo avviso importante"
+              className="transition hover:brightness-110 active:brightness-95"
+            >
+              <Plus size={18} strokeWidth={2.4} aria-hidden />
+              + Crea avviso
+            </button>
+          ) : null}
+          {typeof onRefreshHubAlerts === 'function' ? (
+            <button type="button" className={refreshBtnClass} onClick={() => onRefreshHubAlerts()}>
+              <RefreshCw size={16} aria-hidden />
+              Aggiorna
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div
