@@ -1,19 +1,31 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileSignature } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
-import { hexToRgba } from '../../utils/techHubAccent';
 import {
-  summarizeContractsPortfolio,
-  buildMonthlyContractHistogram
+  buildCalendarYearEuroSeries,
+  rollupEuroYearSeries,
+  summarizeEuroForCalendarMonth
 } from '../../utils/contractHubStats';
 
-/** Una tonalità verde/arancio per chip KPI, barre e legenda (leggermente scure, leggibili su sfondo Hub). */
+/** Verde barra KPI / riempimento; grigio “guscio” candela — stesse tonalità già usate sull’Hub. */
 const COL_VERDE = '#15803d';
-const COL_ARANCIO = '#c2410c';
-const COL_GRIGIO = '#64748b';
+const COL_TRACK = '#3f495a';
 
-const KPI_TEXT_GREEN = '#bbf7d0';
-const KPI_TEXT_ORANGE = '#fed7aa';
+function fmtEuroCompact(n) {
+  const x = typeof n === 'number' ? n : 0;
+  return new Intl.NumberFormat('it-IT', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: x >= 1000 && Number.isInteger(x) ? 0 : 2
+  }).format(x);
+}
+
+/** Allineati alla scala delle candele (= max mensile fra i previsti nell’anno). */
+function ticksForScale(scaleMax) {
+  const m = Math.max(scaleMax || 1, 1);
+  return [0, m / 2, m];
+}
 
 /** @param {{ backgroundColor: string, accentHex: string }} p */
 export default function HubContractsActiveCard({
@@ -28,6 +40,10 @@ export default function HubContractsActiveCard({
   const [err, setErr] = useState(null);
   const chartRef = useRef(null);
   const [tip, setTip] = useState(null);
+  /** KPI header: solo mese in corso vs intero anno (grafico sempre gen–dic anno di riferimento). */
+  const [kpiScope, setKpiScope] = useState(/** @type {'mese' | 'anno'} */ ('anno'));
+
+  const refYear = new Date().getFullYear();
 
   const load = useCallback(async () => {
     if (!getAuthHeader || currentUser?.ruolo !== 'tecnico') {
@@ -64,94 +80,122 @@ export default function HubContractsActiveCard({
     };
   }, [load]);
 
-  const kpis = useMemo(() => summarizeContractsPortfolio(contracts), [contracts]);
-  const histogram = useMemo(() => buildMonthlyContractHistogram(contracts, 7), [contracts]);
+  const euroModel = useMemo(
+    () => buildCalendarYearEuroSeries(contracts, refYear),
+    [contracts, refYear]
+  );
+
+  const moneyKpis = useMemo(() => {
+    const now = new Date();
+    if (kpiScope === 'anno') {
+      return rollupEuroYearSeries(euroModel.series);
+    }
+    return summarizeEuroForCalendarMonth(
+      contracts,
+      now.getFullYear(),
+      now.getMonth()
+    );
+  }, [contracts, euroModel.series, kpiScope]);
 
   const chartModel = useMemo(() => {
-    const W = 480;
-    const H = 200;
-    const padL = 34;
-    const padR = 12;
-    const padT = 10;
-    const padB = 36;
+    const W = 520;
+    const H = 168;
+    const padL = 40;
+    const padR = 8;
+    const padT = 6;
+    const padB = 26;
     const innerW = W - padL - padR;
     const innerH = H - padT - padB;
-    const n = histogram.monthsMeta.length || 1;
-    const gap = innerW / n * 0.08;
-    const clusterW = innerW / n - gap;
+    const n = 12;
+    const gapFrac = 0.2;
+    const slot = innerW / n;
+    const gap = slot * gapFrac;
+    const barW = Math.max(6, slot - gap);
 
-    const maxBar = histogram.maxStack;
+    const scaleMax = Math.max(euroModel.chartEuroMax, 1);
+    /** @type {Array<{ bx: number; bw: number; hTrack: number; hFill: number; monthIndex: number }>} */
+    const bars = [];
 
-    /** @type {Array<{ bx: number, bw: number, hGray: number, hOrange: number, hGreen: number, monthIndex: number }>} */
-    const clusters = [];
-    for (let i = 0; i < n; i += 1) {
-      const x0 = padL + i * (innerW / n) + gap / 2;
-      const bx = x0 + clusterW * 0.1;
-      const bw = clusterW * 0.65 / 3;
-      const sg = histogram.series[i] || { verde: 0, arancione: 0, grigio: 0 };
-      const hz = innerH / maxBar;
+    for (let mi = 0; mi < 12; mi += 1) {
+      const sg = euroModel.series[mi] || { previsto: 0, pagato: 0 };
+      const prev = sg.previsto;
+      const paid = sg.pagato;
+      const x0 = padL + mi * slot + gap / 2;
+      const bx = x0 + (slot - gap - barW) / 2;
+      const hTrack =
+        prev > 0 ? Math.max(innerH * (prev / scaleMax), 6) : 4;
+      const ratioRaw = prev > 0 ? paid / prev : 0;
+      const ratio = Math.min(1, Math.max(0, ratioRaw));
+      const hFill = prev > 0 ? Math.max(hTrack * ratio, paid > 0 ? 6 * ratio || 4 : 0) : paid > 0 ? 8 : 0;
 
-      clusters.push({
-        bx,
-        bw,
-        hGray: sg.grigio * hz,
-        hOrange: sg.arancione * hz,
-        hGreen: sg.verde * hz,
-        monthIndex: i
-      });
+      bars.push({ bx, bw: barW, hTrack, hFill, monthIndex: mi });
     }
 
-    return { W, H, padL, padR, padT, padB, innerW, innerH, clusters, maxY: maxBar };
-  }, [histogram]);
+    return { W, H, padL, padR, padT, padB, innerH, bars, scaleMax };
+  }, [euroModel]);
 
   const baseY = chartModel.padT + chartModel.innerH;
+  const yTicks = ticksForScale(chartModel.scaleMax);
 
   return (
-    <div
-      className="rounded-2xl border border-white/[0.08] p-5"
-      style={{ backgroundColor }}
-    >
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
+    <div className="rounded-2xl border border-white/[0.08] p-4 md:p-5" style={{ backgroundColor }}>
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
             <FileSignature size={20} style={{ color: accentHex }} className="shrink-0" />
             <h2 className="text-sm font-semibold text-white">Contratti attivi</h2>
           </div>
-          <p className="mt-1 text-[11px] text-white/40">
-            Andamento mensile • Grigio: eventi rinnovo · Arancio: rate da pagare · Verde: rate saldate nel mese
+          <p className="mt-1 text-[10px] leading-snug text-white/42">
+            {refYear}: rate previste nel mese (guscio) e incassato nel mese (riempimento). KPI:{' '}
+            <span className="text-white/55">
+              {kpiScope === 'mese' ? 'mese in corso' : `anno ${refYear}`}
+            </span>
+            .
           </p>
         </div>
-        {onOpenContractsList && (
-          <button
-            type="button"
-            onClick={onOpenContractsList}
-            className="text-[11px] font-semibold text-white/50 transition hover:text-[color:var(--hub-accent)]"
+        <div className="flex shrink-0 items-center gap-2">
+          <div
+            className="inline-flex rounded-lg border border-white/[0.1] p-0.5"
+            role="group"
+            aria-label="Ambito KPI"
           >
-            Lista contratti →
-          </button>
-        )}
+            <SegmentBtn active={kpiScope === 'mese'} onClick={() => setKpiScope('mese')}>
+              Mese
+            </SegmentBtn>
+            <SegmentBtn active={kpiScope === 'anno'} onClick={() => setKpiScope('anno')}>
+              Anno
+            </SegmentBtn>
+          </div>
+          {onOpenContractsList && (
+            <button
+              type="button"
+              onClick={onOpenContractsList}
+              className="text-[10px] font-semibold text-white/50 transition hover:text-[color:var(--hub-accent)]"
+            >
+              Lista →
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-3 tabular-nums">
-        <KpiChip label="Totale" value={kpis.totale} accent={accentHex} />
-        <KpiChip label="Saldati" value={kpis.saldati} tone="green" />
-        <KpiChip label="Da pagare" value={kpis.daPagare} tone="orange" />
-        {kpis.senzaRate > 0 && (
-          <KpiChip label="Senza rate" value={kpis.senzaRate} tone="gray" muted />
-        )}
+      {/* Tre colonne KPI (come reference “Audiences”) */}
+      <div className="mb-3 grid grid-cols-3 divide-x divide-white/[0.08] rounded-xl border border-white/[0.08] bg-black/15">
+        <KpiMoneyCol label="Totale" sub="Previsto" value={moneyKpis.previsto} />
+        <KpiMoneyCol label="Pagato" sub="Nel periodo" value={moneyKpis.pagato} highlight />
+        <KpiMoneyCol label="Mancante" sub="Da incassare" value={moneyKpis.mancante} />
       </div>
 
-      <div ref={chartRef} className="relative min-h-[220px]" onMouseLeave={() => setTip(null)}>
+      <div ref={chartRef} className="relative min-h-[172px]" onMouseLeave={() => setTip(null)}>
         {loading ? (
-          <div className="flex h-[200px] items-center justify-center text-xs text-white/35">Caricamento…</div>
+          <div className="flex h-[152px] items-center justify-center text-xs text-white/35">Caricamento…</div>
         ) : err ? (
-          <div className="flex h-[200px] items-center justify-center text-xs text-red-300/90">{err}</div>
+          <div className="flex h-[152px] items-center justify-center text-xs text-red-300/90">{err}</div>
         ) : (
           <svg
             className="h-auto w-full max-w-full"
             viewBox={`0 0 ${chartModel.W} ${chartModel.H}`}
             role="img"
-            aria-label="Grafico contratti per mese"
+            aria-label={`Andamento mensile euro contratti ${refYear}`}
           >
             <line
               x1={chartModel.padL}
@@ -161,38 +205,38 @@ export default function HubContractsActiveCard({
               stroke="rgba(255,255,255,0.08)"
               strokeWidth="1"
             />
-            {ticksFor(chartModel.maxY).map((tick) => (
-              <g key={`tick-${tick}`}>
-                <text
-                  x={chartModel.padL - 6}
-                  y={baseY - ((tick || 0) / chartModel.maxY) * chartModel.innerH}
-                  fill="rgba(255,255,255,0.32)"
-                  fontSize="9"
-                  textAnchor="end"
-                  dominantBaseline="middle"
-                >
-                  {tick}
-                </text>
-                <line
-                  x1={chartModel.padL}
-                  x2={chartModel.W - chartModel.padR}
-                  y1={baseY - ((tick || 0) / chartModel.maxY) * chartModel.innerH}
-                  y2={baseY - ((tick || 0) / chartModel.maxY) * chartModel.innerH}
-                  stroke="rgba(255,255,255,0.04)"
-                  strokeDasharray="2 6"
-                />
-              </g>
-            ))}
+            {yTicks.map((tick) => {
+              const yt = baseY - (tick / chartModel.scaleMax) * chartModel.innerH;
+              return (
+                <g key={`y-${tick}-${chartModel.scaleMax}`}>
+                  <text
+                    x={chartModel.padL - 6}
+                    y={tick === 0 ? baseY + 10 : yt}
+                    fill="rgba(255,255,255,0.32)"
+                    fontSize="9"
+                    textAnchor="end"
+                    dominantBaseline={tick === 0 ? 'hanging' : 'middle'}
+                  >
+                    {fmtEuroCompact(tick)}
+                  </text>
+                  {tick !== 0 && (
+                    <line
+                      x1={chartModel.padL}
+                      x2={chartModel.W - chartModel.padR}
+                      y1={yt}
+                      y2={yt}
+                      stroke="rgba(255,255,255,0.05)"
+                      strokeDasharray="2 6"
+                    />
+                  )}
+                </g>
+              );
+            })}
 
-            {chartModel.clusters.map((c) => {
-              const gapBw = c.bw * 0.22;
-              const xG = c.bx;
-              const xO = c.bx + c.bw + gapBw;
-              const xVe = c.bx + 2 * (c.bw + gapBw);
+            {chartModel.bars.map((c) => {
               const mi = c.monthIndex;
-              const lbl = histogram.monthsMeta[mi]?.label ?? '';
-              const sg =
-                histogram.series[mi] || { verde: 0, arancione: 0, grigio: 0 };
+              const lbl = euroModel.monthsMeta[mi]?.label ?? '';
+              const sg = euroModel.series[mi] || { previsto: 0, pagato: 0 };
 
               const toLocal = (e) => {
                 const root = chartRef.current;
@@ -201,62 +245,70 @@ export default function HubContractsActiveCard({
                 return { x: e.clientX - r.left, y: e.clientY - r.top };
               };
 
-              const showMonthTip = (e) => {
+              const showTip = (e) => {
                 const pix = toLocal(e);
                 setTip({
                   monthIndex: mi,
                   label: lbl,
                   x: pix.x,
-                  y: pix.y - 14,
-                  verde: sg.verde,
-                  arancione: sg.arancione,
-                  grigio: sg.grigio
+                  y: pix.y - 12,
+                  ...sg,
+                  mancante: Math.max(0, sg.previsto - sg.pagato)
                 });
               };
 
-              const mkBar = (suffix, x, h, fill) => {
-                const rawH = Number.isFinite(h) && h > 0 ? h : 0;
-                const hh = rawH > 0 ? Math.max(rawH, 5) : 0;
-                const y = baseY - hh;
-                return (
-                  <rect
-                    key={`b-${mi}-${suffix}`}
-                    x={x}
-                    y={hh > 0 ? y : baseY}
-                    width={c.bw}
-                    height={Math.max(hh, 0)}
-                    rx={hh > 0 ? 3 : 0}
-                    ry={hh > 0 ? 3 : 0}
-                    fill={fill}
-                    opacity={hh > 0 ? 1 : 0.12}
-                    className={hh > 0 ? 'cursor-pointer transition hover:opacity-90' : ''}
-                    onMouseEnter={showMonthTip}
-                    onMouseMove={showMonthTip}
-                  />
-                );
-              };
+              const rx = Math.min(4, c.bw / 2);
+              const yTrack = baseY - c.hTrack;
+              const yFill = baseY - c.hFill;
 
               return (
-                <g key={`cl-${mi}`}>
-                  {mkBar('g', xG, c.hGray, COL_GRIGIO)}
-                  {mkBar('o', xO, c.hOrange, COL_ARANCIO)}
-                  {mkBar('v', xVe, c.hGreen, COL_VERDE)}
+                <g key={`bar-${mi}`}>
+                  {/* Guscio: totale previsto nel mese */}
+                  <rect
+                    x={c.bx}
+                    y={yTrack}
+                    width={c.bw}
+                    height={c.hTrack}
+                    rx={rx}
+                    ry={rx}
+                    fill={COL_TRACK}
+                    opacity={sg.previsto > 0 ? 1 : 0.22}
+                    className="cursor-pointer transition hover:opacity-90"
+                    onMouseEnter={showTip}
+                    onMouseMove={showTip}
+                  />
+                  {/* Riempimento: pagato */}
+                  {c.hFill > 0 && sg.previsto > 0 && (
+                    <rect
+                      x={c.bx}
+                      y={yFill}
+                      width={c.bw}
+                      height={c.hFill}
+                      rx={rx}
+                      ry={rx}
+                      fill={COL_VERDE}
+                      className="cursor-pointer transition hover:opacity-90"
+                      onMouseEnter={showTip}
+                      onMouseMove={showTip}
+                    />
+                  )}
                 </g>
               );
             })}
 
-            {histogram.monthsMeta.map(({ label }, idx) => {
-              const cw = chartModel.innerW / (histogram.monthsMeta.length || 1);
-              const x = chartModel.padL + idx * cw + cw / 2;
+            {euroModel.monthsMeta.map(({ label }, idx) => {
+              const slot = chartModel.innerW / 12;
+              const x = chartModel.padL + idx * slot + slot / 2;
               return (
                 <text
-                  key={label + idx}
+                  key={`${label}-${idx}`}
                   x={x}
-                  y={chartModel.H - 10}
-                  fill="rgba(255,255,255,0.38)"
+                  y={chartModel.H - 8}
+                  fill="rgba(255,255,255,0.36)"
                   fontSize="10"
                   fontWeight={600}
                   textAnchor="middle"
+                  className="capitalize"
                 >
                   {label}
                 </text>
@@ -267,107 +319,68 @@ export default function HubContractsActiveCard({
 
         {tip?.monthIndex != null && (
           <div
-            className="pointer-events-none absolute z-10 max-w-[14rem] rounded-xl border border-white/[0.12] px-3 py-2 text-xs shadow-xl"
+            className="pointer-events-none absolute z-10 max-w-[15rem] rounded-xl border border-white/[0.12] px-3 py-2 text-xs shadow-xl"
             style={{
-              left: `${Math.min(Math.max(tip.x, 12), chartRef.current ? chartRef.current.clientWidth - 200 : tip.x)}px`,
+              left: `${Math.min(Math.max(tip.x, 14), chartRef.current ? chartRef.current.clientWidth - 200 : tip.x)}px`,
               top: `${Math.min(Math.max(tip.y, 12), tip.y)}px`,
               backgroundColor,
-              transform: 'translate(-50%, -100%) translateY(-6px)'
+              transform: 'translate(-50%, -100%) translateY(-4px)'
             }}
           >
-            <div className="font-semibold text-white/90 capitalize">{tip.label}</div>
-            <ul className="mt-2 space-y-1 text-[11px] text-white/60">
-              <li className="flex items-center justify-between gap-3">
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: COL_GRIGIO }} />
-                  Rinnovi
-                </span>
-                <span className="tabular-nums text-white">{tip.grigio}</span>
+            <div className="font-semibold capitalize text-white/90">{tip.label}</div>
+            <ul className="mt-2 space-y-1 text-[11px] text-white/65">
+              <li className="flex justify-between gap-4 tabular-nums">
+                <span className="text-white/50">Previsto</span>
+                <span className="text-white">{fmtEuroCompact(tip.previsto ?? 0)}</span>
               </li>
-              <li className="flex items-center justify-between gap-3">
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: COL_ARANCIO }} />
-                  Rate da pagare
-                </span>
-                <span className="tabular-nums text-white">{tip.arancione}</span>
+              <li className="flex justify-between gap-4 tabular-nums">
+                <span className="text-white/50">Pagato</span>
+                <span className="text-white">{fmtEuroCompact(tip.pagato ?? 0)}</span>
               </li>
-              <li className="flex items-center justify-between gap-3">
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: COL_VERDE }} />
-                  Rate saldate
-                </span>
-                <span className="tabular-nums text-white">{tip.verde}</span>
+              <li className="flex justify-between gap-4 tabular-nums">
+                <span className="text-white/50">Mancante</span>
+                <span className="text-white">{fmtEuroCompact(tip.mancante ?? 0)}</span>
               </li>
             </ul>
           </div>
         )}
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-4 border-t border-white/[0.06] pt-3 text-[10px] text-white/42">
-        <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: COL_GRIGIO }} /> Rinnovi
+      <div className="mt-2 flex flex-wrap justify-center gap-4 border-t border-white/[0.06] pt-2 text-[10px] text-white/42">
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: COL_TRACK }} />{' '}
+          Previsto nel mese
         </span>
-        <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: COL_ARANCIO }} /> Da pagare
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: COL_VERDE }} /> Saldate nel mese
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: COL_VERDE }} /> Pagato nel mese
         </span>
       </div>
     </div>
   );
 }
 
-function ticksFor(maxY) {
-  const z = Math.max(1, maxY || 1);
-  if (z <= 4) return Array.from({ length: z + 1 }, (_, i) => i);
-  const mid = Math.round(z / 2);
-  return [0, mid, z];
+function SegmentBtn({ active, children, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
+        active ? 'bg-white/[0.12] text-white' : 'text-white/42 hover:text-white/70'
+      }`}
+    >
+      {children}
+    </button>
+  );
 }
 
-function KpiChip({ label, value, accent, tone, muted }) {
-  const base = 'rounded-xl border px-3 py-1.5 ';
-  let style = {};
-  let cls = `${base} `;
-
-  if (muted) {
-    cls += 'border-white/[0.06] text-white/42 ';
-  } else if (accent) {
-    cls += ' ';
-    style = {
-      borderColor: hexToRgba(accent, 0.45),
-      boxShadow: `0 0 0 1px ${hexToRgba(accent, 0.12)} inset`,
-      color: '#fafafa'
-    };
-  } else if (tone === 'green') {
-    cls += ' ';
-    style = {
-      borderColor: hexToRgba(COL_VERDE, 0.4),
-      backgroundColor: hexToRgba(COL_VERDE, 0.22),
-      color: KPI_TEXT_GREEN
-    };
-  } else if (tone === 'orange') {
-    cls += ' ';
-    style = {
-      borderColor: hexToRgba(COL_ARANCIO, 0.42),
-      backgroundColor: hexToRgba(COL_ARANCIO, 0.2),
-      color: KPI_TEXT_ORANGE
-    };
-  } else if (tone === 'gray') {
-    cls += ' ';
-    style = {
-      borderColor: hexToRgba(COL_GRIGIO, 0.35),
-      backgroundColor: hexToRgba(COL_GRIGIO, 0.2),
-      color: '#e2e8f0'
-    };
-  } else {
-    cls += 'border-white/[0.1] text-white ';
-  }
-
+function KpiMoneyCol({ label, sub, value, highlight }) {
   return (
-    <div className={`${cls} min-w-[5.75rem]`} style={Object.keys(style).length ? style : undefined}>
-      <div className="text-[10px] font-bold uppercase tracking-wider text-white/45">{label}</div>
-      <div className="text-xl font-extrabold tabular-nums leading-tight">{value}</div>
+    <div className={`px-2 py-2.5 text-center sm:px-3 ${highlight ? 'text-emerald-200/95' : 'text-white'}`}>
+      <div className="text-lg font-extrabold tabular-nums leading-tight sm:text-xl">{fmtEuroCompact(value)}</div>
+      <div className={`mt-0.5 text-[10px] font-bold uppercase tracking-wide ${highlight ? 'text-emerald-200/65' : 'text-white/40'}`}>
+        {label}
+      </div>
+      <div className="text-[10px] text-white/38">{sub}</div>
     </div>
   );
 }

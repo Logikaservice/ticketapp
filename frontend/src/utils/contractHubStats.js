@@ -85,6 +85,15 @@ function tsInMonth(ts, bounds) {
   return ts >= bounds.start && ts <= bounds.end;
 }
 
+/** Importo rata da evento/contratto (solo fatture, rinnovo escluso altrove). */
+export function billingEventEuroAmount(contract, ev) {
+  const raw =
+    ev?.amount !== undefined && ev?.amount !== null && ev?.amount !== ''
+      ? parseFloat(ev.amount)
+      : parseFloat(contract?.amount ?? 0);
+  return Number.isFinite(raw) && raw >= 0 ? raw : 0;
+}
+
 function parseEventTs(eventDateStr) {
   const d = new Date(eventDateStr);
   const t = d.getTime();
@@ -141,4 +150,83 @@ export function buildMonthlyContractHistogram(contracts, monthsCount = 7) {
 
   const maxPeak = Math.max(...series.map((s) => Math.max(s.verde, s.arancione, s.grigio)), 1);
   return { monthsMeta, series, maxStack: maxPeak };
+}
+
+/**
+ * Serie Jan–Dic (anno di calendario): per ogni mese importo previsto dalle rate in scadenza
+ * e somma delle rate marcate pagate (`is_processed`) nello stesso mese dell’evento.
+ * @param {unknown[]} contracts
+ * @param {number} year
+ */
+export function buildCalendarYearEuroSeries(contracts, year) {
+  const monthsMeta = [];
+  for (let m = 0; m < 12; m += 1) {
+    const bounds = monthBoundsLocal(year, m);
+    const label = new Intl.DateTimeFormat('it', { month: 'short' })
+      .format(new Date(bounds.start))
+      .replace(/\./g, '');
+    monthsMeta.push({ label, bounds, monthIndex: m });
+  }
+
+  /** @type {Array<{ previsto: number; pagato: number }>} */
+  const series = monthsMeta.map(() => ({ previsto: 0, pagato: 0 }));
+  const list = Array.isArray(contracts) ? contracts : [];
+
+  for (let mi = 0; mi < 12; mi += 1) {
+    const bounds = monthsMeta[mi].bounds;
+    for (const c of list) {
+      const evs = Array.isArray(c?.events) ? c.events : [];
+      for (const ev of evs) {
+        if (isRenewalEvent(ev)) continue;
+        const ets = parseEventTs(ev.event_date);
+        if (!Number.isFinite(ets) || !tsInMonth(ets, bounds)) continue;
+
+        const euro = billingEventEuroAmount(c, ev);
+        series[mi].previsto += euro;
+        if (isBillingEventProcessed(ev)) series[mi].pagato += euro;
+      }
+    }
+  }
+
+  const maxPrevisto = Math.max(...series.map((s) => s.previsto), 0);
+  return { monthsMeta, series, chartEuroMax: Math.max(maxPrevisto, 1) };
+}
+
+/**
+ * KPI monetari aggregati sul mese calendariale.
+ * @param {unknown[]} contracts
+ * @param {number} year
+ * @param {number} monthIndex0 0–11
+ */
+export function summarizeEuroForCalendarMonth(contracts, year, monthIndex0) {
+  const bounds = monthBoundsLocal(year, monthIndex0);
+  let previsto = 0;
+  let pagato = 0;
+  const list = Array.isArray(contracts) ? contracts : [];
+  for (const c of list) {
+    const evs = Array.isArray(c?.events) ? c.events : [];
+    for (const ev of evs) {
+      if (isRenewalEvent(ev)) continue;
+      const ets = parseEventTs(ev.event_date);
+      if (!Number.isFinite(ets) || !tsInMonth(ets, bounds)) continue;
+
+      const euro = billingEventEuroAmount(c, ev);
+      previsto += euro;
+      if (isBillingEventProcessed(ev)) pagato += euro;
+    }
+  }
+
+  const mancante = Math.max(0, previsto - pagato);
+  return { previsto, pagato, mancante };
+}
+
+/** Somma i 12 bucket della serie annuale (evita doppio passaggio se già calcolata). */
+export function rollupEuroYearSeries(series) {
+  let previsto = 0;
+  let pagato = 0;
+  for (const s of series) {
+    previsto += s.previsto;
+    pagato += s.pagato;
+  }
+  return { previsto, pagato, mancante: Math.max(0, previsto - pagato) };
 }
