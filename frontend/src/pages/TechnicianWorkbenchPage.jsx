@@ -205,7 +205,8 @@ function RightPanel({
   bodyClassName = 'space-y-3',
   titleAccessory = null,
   onMouseEnter,
-  onMouseLeave
+  onMouseLeave,
+  scrollBody = true
 }) {
   return (
     <div
@@ -218,7 +219,11 @@ function RightPanel({
         <h3 className="min-w-0 flex-1 text-xs font-bold uppercase tracking-widest text-white/40">{title}</h3>
         {titleAccessory ? <div className="flex shrink-0 items-center">{titleAccessory}</div> : null}
       </div>
-      <div className={`min-h-0 flex-1 overflow-y-auto pr-1 ${bodyClassName}`}>{children}</div>
+      <div
+        className={`min-h-0 flex-1 ${scrollBody ? 'overflow-y-auto pr-1' : 'overflow-hidden'} ${bodyClassName}`}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -280,7 +285,12 @@ function ImportantAlertsSidebarRows({ items }) {
             <div className="min-w-0 flex-1 select-text">
               <p className={`text-[13px] font-semibold leading-snug ${meta.titleClassName}`}>{title}</p>
               {body ? (
-                <p className={`mt-1 whitespace-pre-wrap text-[11px] leading-relaxed ${meta.bodyClassName}`}>{body}</p>
+                <p
+                  title={body.length > 160 ? body : undefined}
+                  className={`mt-1 line-clamp-3 break-words text-[11px] leading-relaxed ${meta.bodyClassName}`}
+                >
+                  {body}
+                </p>
               ) : null}
             </div>
           </div>
@@ -343,7 +353,7 @@ function ImportantAlertsCarousel({ alerts, loading, accentHex, rotationPaused = 
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="min-h-[8rem] flex-1 overflow-y-auto pr-0.5">
+      <div className="min-h-0 flex-1 overflow-hidden">
         <ImportantAlertsSidebarRows items={currentItems} />
       </div>
       {pageCount > 1 && (
@@ -925,6 +935,7 @@ export default function TechnicianWorkbenchPage({
             title="Avvisi importanti"
             className="min-h-[12rem] flex-[1.25]"
             bodyClassName="space-y-0"
+            scrollBody={false}
             titleAccessory={
               <button
                 type="button"
