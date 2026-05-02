@@ -559,16 +559,28 @@ const EmailPage = ({
       </div>
 
       <div className={embedded ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'flex-1 overflow-y-auto p-6'}>
-        <div className={embedded ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-5 md:px-5' : 'max-w-7xl mx-auto w-full'} style={embedded ? { backgroundColor: '#f3f4f6' } : undefined}>
+        <div
+          className={embedded ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-5 md:px-5' : 'max-w-7xl mx-auto w-full'}
+          style={embedded ? { backgroundColor: HUB_PAGE_BG } : undefined}
+        >
           {loadingCompanies && (
-            <div className="flex justify-center items-center py-12">
-              <Loader size={32} className="animate-spin text-blue-600 mr-3" />
-              <span className="text-gray-600">Caricamento aziende...</span>
+            <div className="flex items-center justify-center py-12">
+              <Loader
+                size={32}
+                className={`mr-3 animate-spin ${embedded ? 'text-[color:var(--hub-accent)]' : 'text-blue-600'}`}
+              />
+              <span className={embedded ? 'text-white/60' : 'text-gray-600'}>Caricamento aziende...</span>
             </div>
           )}
 
           {!loadingCompanies && error && !showIntro && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div
+              className={
+                embedded
+                  ? 'mb-4 rounded-lg border border-red-500/35 bg-red-950/45 px-4 py-3 text-sm text-red-100'
+                  : 'mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700'
+              }
+            >
               {error}
             </div>
           )}
@@ -736,9 +748,12 @@ const EmailPage = ({
           )}
 
           {!loadingCompanies && loading && selectedCompanyId && (
-            <div className="flex justify-center items-center py-12">
-              <Loader size={32} className="animate-spin text-blue-600 mr-3" />
-              <span className="text-gray-600">Caricamento Email da KeePass...</span>
+            <div className="flex items-center justify-center py-12">
+              <Loader
+                size={32}
+                className={`mr-3 animate-spin ${embedded ? 'text-[color:var(--hub-accent)]' : 'text-blue-600'}`}
+              />
+              <span className={embedded ? 'text-white/60' : 'text-gray-600'}>Caricamento Email da KeePass...</span>
             </div>
           )}
 
