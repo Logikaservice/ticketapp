@@ -7,7 +7,7 @@ import {
   AlertCircle, AlertTriangle, CheckCircle, Clock, RefreshCw,
   Activity, TrendingUp, TrendingDown, Search,
   Filter, X, Loader, Plus, Download, Server as ServerIcon,
-  Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings, Edit, Menu,
+  Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings, Edit,
   CircleAlert, Stethoscope, Eye, EyeOff, FileText, ArrowUpCircle, Terminal, Network, History, Key, MonitorSmartphone,
   Cpu, HardDrive, Battery, Shield, User, HelpCircle, Ticket
 } from 'lucide-react';
@@ -1792,11 +1792,14 @@ const NetworkMonitoringDashboard = ({
   const eMuted = embedded ? 'text-white/48' : 'text-gray-500';
   const eMutedSm = embedded ? 'text-sm text-white/50' : 'text-sm text-gray-500';
   const eSelect =
-    'min-w-[200px] cursor-pointer appearance-none rounded-lg border border-white/[0.14] bg-black/40 px-4 py-2 pr-8 text-sm text-white/[0.9] outline-none transition [color-scheme:dark] hover:border-white/22 focus:border-transparent focus:ring-2 focus:ring-[color:var(--hub-accent)]';
+    'min-w-[200px] cursor-pointer appearance-none rounded-lg border border-white/[0.14] bg-[#1E1E1E] px-4 py-2.5 pr-10 text-sm font-medium text-white/[0.92] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] outline-none transition [color-scheme:dark] hover:border-white/[0.22] focus:border-[color:var(--hub-accent)] focus:ring-2 focus:ring-[color:var(--hub-accent)]/35';
   const eSelectFull =
-    'w-full cursor-pointer appearance-none rounded-lg border border-white/[0.14] bg-black/40 px-4 py-2 pr-8 text-sm text-white/[0.9] outline-none transition [color-scheme:dark] hover:border-white/22 focus:border-transparent focus:ring-2 focus:ring-[color:var(--hub-accent)]';
+    'w-full cursor-pointer appearance-none rounded-lg border border-white/[0.14] bg-[#1E1E1E] px-4 py-2.5 pr-10 text-sm font-medium text-white/[0.92] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] outline-none transition [color-scheme:dark] hover:border-white/[0.22] focus:border-[color:var(--hub-accent)] focus:ring-2 focus:ring-[color:var(--hub-accent)]/35';
   const eSelectInline =
-    'cursor-pointer rounded-lg border border-white/[0.14] bg-black/40 px-4 py-2 text-sm text-white/[0.9] outline-none transition [color-scheme:dark] hover:border-white/22 focus:ring-2 focus:ring-[color:var(--hub-accent)]';
+    'cursor-pointer rounded-lg border border-white/[0.14] bg-[#1E1E1E] px-4 py-2.5 text-sm font-medium text-white/[0.92] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] outline-none transition [color-scheme:dark] hover:border-white/[0.22] focus:ring-2 focus:ring-[color:var(--hub-accent)]/35';
+  const embeddedSelectSurfaceStyle = embedded
+    ? { backgroundColor: HUB_SURFACE, color: 'rgba(255,255,255,0.92)', colorScheme: 'dark' }
+    : undefined;
   const embedBtnPrimaryStyle = embedded
     ? { backgroundColor: accentEmbedded, color: readableOnAccent(accentEmbedded) }
     : undefined;
@@ -1826,7 +1829,7 @@ const NetworkMonitoringDashboard = ({
     ? 'flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-medium text-emerald-200 transition-colors hover:bg-emerald-500/12'
     : 'flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-medium text-green-700 transition-colors hover:bg-green-50';
   const daPopoverShell = embedded
-    ? 'absolute max-w-[960px] rounded-xl border border-white/[0.12] bg-[#252525] p-4 text-[11px] leading-snug shadow-2xl'
+    ? 'absolute max-w-[960px] rounded-xl border border-white/[0.10] p-4 text-[11px] leading-snug shadow-2xl'
     : 'absolute max-w-[960px] rounded-xl border border-gray-200 bg-white/95 p-4 text-[11px] leading-snug shadow-2xl';
   const daPopLbl = embedded ? 'text-white/42' : 'text-gray-500';
   const daPopTxt = embedded ? 'text-white/76' : 'text-gray-700';
@@ -1848,7 +1851,12 @@ const NetworkMonitoringDashboard = ({
             if (onCompanyChange) onCompanyChange(companyId);
             // loadCompanyDevices viene gestito in automatico dall'useEffect
           }}
-          className={embedded ? eSelect : 'px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer min-w-[200px]'}
+          style={embedded ? embeddedSelectSurfaceStyle : undefined}
+          className={
+            embedded
+              ? eSelect
+              : 'min-w-[200px] cursor-pointer appearance-none rounded-lg border border-gray-300 bg-white px-4 py-2 pr-8 text-gray-700 hover:border-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500'
+          }
         >
           <option value="">Tutte le Aziende</option>
           {companies.map((company) => (
@@ -1859,7 +1867,7 @@ const NetworkMonitoringDashboard = ({
         </select>
         <Building
           size={18}
-          className={`absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none ${embedded ? 'text-white/38' : 'text-gray-400'}`}
+          className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 transform ${embedded ? 'text-white/35' : 'text-gray-400'}`}
         />
       </div>
 
@@ -2031,12 +2039,23 @@ const NetworkMonitoringDashboard = ({
                   <span>{d.letter ? `Disco ${d.letter}` : 'Disco'}</span>
                   <span>{percent}% in uso</span>
                 </div>
-                <div className={`h-1.5 w-full overflow-hidden rounded-full ${embedded ? 'bg-white/10' : 'bg-gray-200'}`}>
+                <div className={`h-1.5 w-full overflow-hidden rounded-full ${embedded ? 'bg-white/[0.08]' : 'bg-gray-200'}`}>
                   <div
-                    className={`h-1.5 rounded-full ${percent > 90 ? 'bg-red-500' : percent > 75 ? 'bg-yellow-500' : 'bg-teal-500'
-                      }`}
+                    className={`h-1.5 rounded-full ${
+                      percent > 90
+                        ? embedded
+                          ? 'bg-red-400/90'
+                          : 'bg-red-500'
+                        : percent > 75
+                          ? embedded
+                            ? 'bg-amber-400/85'
+                            : 'bg-yellow-500'
+                          : embedded
+                            ? 'bg-[color:var(--hub-accent)]'
+                            : 'bg-teal-500'
+                    }`}
                     style={{ width: `${percent}%` }}
-                  ></div>
+                  />
                 </div>
                 <div className={`flex justify-between text-[9px] ${embedded ? 'text-white/45' : 'text-gray-500'}`}>
                   <span>Liberi: {d.free_gb} GB</span>
@@ -2140,22 +2159,6 @@ const NetworkMonitoringDashboard = ({
           <button type="button" onClick={onEmbeddedHubBack} style={embeddedBackBtnStyle} aria-label="Torna alla panoramica Hub">
             <ArrowLeft size={20} aria-hidden />
           </button>
-          <SectionNavMenu
-            embedded
-            currentPage="network"
-            onNavigateHome={onEmbeddedHubBack}
-            onNavigateOffice={onNavigateOffice}
-            onNavigateEmail={onNavigateEmail}
-            onNavigateAntiVirus={onNavigateAntiVirus}
-            onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
-            onNavigateNetworkMonitoring={null}
-            onNavigateMappatura={onNavigateMappatura}
-            onNavigateSpeedTest={onNavigateSpeedTest}
-            onNavigateLSight={onNavigateLSight}
-            onNavigateVpn={onNavigateVpn}
-            currentUser={currentUser}
-            selectedCompanyId={selectedCompanyId}
-          />
           <div className="hidden h-6 w-px bg-white/15 sm:block" aria-hidden />
           <h1 className="text-base font-bold text-white/90">Monitoraggio Rete</h1>
           {getAuthHeader && socket ? (
@@ -2647,6 +2650,7 @@ const NetworkMonitoringDashboard = ({
               <select
                 value={agentEventsFilters.azienda}
                 onChange={(e) => setAgentEventsFilters(prev => ({ ...prev, azienda: e.target.value }))}
+                style={embeddedSelectSurfaceStyle}
                 className={
                   embedded
                     ? `${eSelectFull} !w-full px-3 py-2`
@@ -2662,6 +2666,7 @@ const NetworkMonitoringDashboard = ({
               <select
                 value={agentEventsFilters.agentId}
                 onChange={(e) => setAgentEventsFilters(prev => ({ ...prev, agentId: e.target.value }))}
+                style={embeddedSelectSurfaceStyle}
                 className={
                   embedded
                     ? `${eSelectFull} !w-full px-3 py-2`
@@ -2679,6 +2684,7 @@ const NetworkMonitoringDashboard = ({
               <select
                 value={agentEventsFilters.eventType}
                 onChange={(e) => setAgentEventsFilters(prev => ({ ...prev, eventType: e.target.value }))}
+                style={embeddedSelectSurfaceStyle}
                 className={
                   embedded
                     ? `${eSelectFull} !w-full px-3 py-2`
@@ -3825,7 +3831,12 @@ const NetworkMonitoringDashboard = ({
                       const companyId = e.target.value ? parseInt(e.target.value) : null;
                       setChangesCompanyFilter(companyId);
                     }}
-                    className={embedded ? eSelectFull : 'w-full px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer'}
+                    style={embeddedSelectSurfaceStyle}
+                    className={
+                      embedded
+                        ? eSelectFull
+                        : 'w-full cursor-pointer appearance-none rounded-lg border border-gray-300 bg-white px-4 py-2 pr-8 text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500'
+                    }
                   >
                     <option value="">Tutte le Aziende</option>
                     {companies
@@ -3839,7 +3850,7 @@ const NetworkMonitoringDashboard = ({
                   </select>
                   <Building
                     size={16}
-                    className={`absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none ${embedded ? 'text-white/35' : 'text-gray-400'}`}
+                    className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 transform ${embedded ? 'text-white/35' : 'text-gray-400'}`}
                   />
                 </div>
 
@@ -3849,7 +3860,12 @@ const NetworkMonitoringDashboard = ({
                     <select
                       value={changesNetworkFilter}
                       onChange={(e) => setChangesNetworkFilter(e.target.value)}
-                      className={embedded ? eSelectFull : 'w-full px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer'}
+                      style={embeddedSelectSurfaceStyle}
+                      className={
+                        embedded
+                          ? eSelectFull
+                          : 'w-full cursor-pointer appearance-none rounded-lg border border-gray-300 bg-white px-4 py-2 pr-8 text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500'
+                      }
                     >
                       <option value="">Tutte le Reti</option>
                       {availableNetworks.map((net, idx) => (
@@ -3860,7 +3876,7 @@ const NetworkMonitoringDashboard = ({
                     </select>
                     <Wifi
                       size={16}
-                      className={`absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none ${embedded ? 'text-white/35' : 'text-gray-400'}`}
+                      className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 transform ${embedded ? 'text-white/35' : 'text-gray-400'}`}
                     />
                   </div>
                 )}
@@ -3869,10 +3885,11 @@ const NetworkMonitoringDashboard = ({
                 <select
                   value={eventTypeFilter}
                   onChange={(e) => setEventTypeFilter(e.target.value)}
+                  style={embeddedSelectSurfaceStyle}
                   className={
                     embedded
-                      ? eSelectInline + ' min-w-0 md:w-auto'
-                      : 'px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer'
+                      ? `${eSelectInline} min-w-0 md:w-auto`
+                      : 'cursor-pointer rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500'
                   }
                 >
                   <option value="all">Tutti gli Eventi</option>
@@ -4241,7 +4258,11 @@ const NetworkMonitoringDashboard = ({
           if (!device) return null;
           return createPortal(
             <>
-              <div className="fixed inset-0 z-20 bg-black/20" aria-hidden="true" onClick={() => { setDeviceTypePickerDeviceId(null); setDeviceTypePickerAnchor(null); }} />
+              <div
+                className={`fixed inset-0 z-20 ${embedded ? 'bg-black/55' : 'bg-black/20'}`}
+                aria-hidden="true"
+                onClick={() => { setDeviceTypePickerDeviceId(null); setDeviceTypePickerAnchor(null); }}
+              />
               <div
                 className={`fixed z-30 w-[560px] max-w-[95vw] rounded-xl border p-3 shadow-2xl ${embedded ? 'border-white/[0.12] bg-[#1E1E1E]' : 'border-gray-200 bg-white'}`}
                 style={{ left: Math.min(deviceTypePickerAnchor.left, window.innerWidth - 580), top: Math.min(deviceTypePickerAnchor.top, window.innerHeight - 350) }}
@@ -4385,7 +4406,12 @@ const NetworkMonitoringDashboard = ({
           >
             <div
               className={daPopoverShell}
-              style={{ left: popoverSafeLeft, top: dispositivoAziendaliPopover.top, maxWidth: popoverMaxWidth }}
+              style={{
+                left: popoverSafeLeft,
+                top: dispositivoAziendaliPopover.top,
+                maxWidth: popoverMaxWidth,
+                ...(embedded ? { backgroundColor: HUB_SURFACE } : undefined)
+              }}
               onClick={(e) => e.stopPropagation()}
             >
               {!popoverHasInfo && (
