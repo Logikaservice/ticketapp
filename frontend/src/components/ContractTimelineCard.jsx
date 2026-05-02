@@ -88,28 +88,51 @@ const ContractTimelineCard = ({
         return eventYear === currentYear;
     });
 
-    /** Posizione eventi sul segmento anno (%) + «lane» verticali quando le etichette sarebbero troppo vicine in orizzontale */
-    const eventPercentsForLabels = visibleEvents.map((event) => {
+    const timelineEventsSorted = [...visibleEvents].sort(
+        (a, b) => new Date(a.event_date) - new Date(b.event_date)
+    );
+
+    /** Posizione % sull'anno + lane (cicliche, max 4–5) + nudge orizzontale: evita accavallamenti su contratti mensili */
+    const eventPercentsForLabels = timelineEventsSorted.map((event) => {
         const t = new Date(event.event_date).getTime();
         return ((t - yearStartDate) / (yearEndDate - yearStartDate)) * 100;
     });
-    const clusterThresholdPct = compact ? 6.25 : 5.75;
-    const labelLaneStridePx = compact ? 14 : 18;
-    const labelBaseOffsetPx = compact ? 26 : 34;
+    const bf = contract.billing_frequency;
+    const clusterThresholdPct =
+        bf === 'monthly' ? 9.2 : bf === 'quarterly' ? 24 : bf === 'semiannual' ? 48 : bf === 'annual' ? 66 : compact ? 6.5 : 6;
+    const labelLaneStridePx = compact ? 24 : 28;
+    const labelBaseOffsetPx = compact ? 22 : 30;
+    const maxLaneMod = compact ? 4 : 5;
+
     const labelLanes = [];
-    for (let i = 0; i < visibleEvents.length; i++) {
-        let lane = 0;
-        for (let j = 0; j < i; j++) {
-            if (Math.abs(eventPercentsForLabels[i] - eventPercentsForLabels[j]) < clusterThresholdPct) {
-                lane = Math.max(lane, labelLanes[j] + 1);
-            }
+    const labelHzNudgePx = [];
+    const nEvt = timelineEventsSorted.length;
+    for (let i = 0; i < nEvt; i++) {
+        const closePrev =
+            i > 0 && Math.abs(eventPercentsForLabels[i] - eventPercentsForLabels[i - 1]) < clusterThresholdPct;
+        const prevLane = i > 0 ? labelLanes[i - 1] : 0;
+        labelLanes.push(closePrev ? (prevLane + 1) % maxLaneMod : 0);
+
+        let nudge = 0;
+        if (compact && bf === 'monthly' && nEvt >= 8) {
+            nudge = (i % 3 - 1) * 13;
+        } else if (compact && nEvt >= 6) {
+            nudge = i % 2 === 0 ? -11 : 11;
         }
-        labelLanes.push(lane);
+        labelHzNudgePx.push(nudge);
     }
     const maxLabelLane = labelLanes.length ? Math.max(...labelLanes) : 0;
+
+    const useShortEventLabel = compact && bf === 'monthly' && nEvt > 4;
+    const showDeadlineRow = !!(nextEvent && daysToNextEvent <= 30);
+    const timelinePadBottomReserve =
+        labelBaseOffsetPx +
+        maxLabelLane * labelLaneStridePx +
+        (compact ? 32 : 36) +
+        (showDeadlineRow ? (compact ? 34 : 38) : compact ? 8 : 12);
     
     // Find the first non-processed event for yellow color (solo tra gli eventi visibili)
-    const firstNonProcessedIndex = visibleEvents.findIndex(e => !e.is_processed);
+    const firstNonProcessedIndex = timelineEventsSorted.findIndex(e => !e.is_processed);
     const isHub = variant === 'hub';
     const isCompact = compact;
     const tlPadPx = isCompact ? 16 : 24;
@@ -270,13 +293,9 @@ const ContractTimelineCard = ({
             {/* Timeline Visual */}
             <div
                 className={
-                    isCompact ? 'relative mb-2 px-4 pt-4' : 'relative mb-5 px-6 pt-8'
+                    (isCompact ? 'relative mb-2 overflow-x-clip px-4 pt-4' : 'relative mb-5 overflow-x-clip px-6 pt-8')
                 }
-                style={{
-                    paddingBottom: isCompact
-                        ? `${20 + maxLabelLane * labelLaneStridePx}px`
-                        : `${28 + maxLabelLane * labelLaneStridePx}px`
-                }}
+                style={{ paddingBottom: `${timelinePadBottomReserve}px` }}
             >
                 {/* Traccia totale anno (past + future): grigio visibile sopra alla card */}
                 <div
@@ -316,7 +335,7 @@ const ContractTimelineCard = ({
                 </div>
 
                 {/* All Event Points - mostra solo eventi dell'anno corrente */}
-                {visibleEvents.map((event, index) => {
+                {timelineEventsSorted.map((event, index) => {
                     const eventPercent = eventPercentsForLabels[index];
                     const lane = labelLanes[index] ?? 0;
                     const isProcessed = event.is_processed === true;
@@ -416,19 +435,33 @@ const ContractTimelineCard = ({
                                 )}
                             </div>
                             <div
-                                className={`absolute left-1/2 z-[3] -translate-x-1/2 px-0.5 text-center ${isCompact ? 'max-w-[5.5rem]' : 'max-w-[7rem]'}`}
-                                style={{ top: labelBaseOffsetPx + lane * labelLaneStridePx }}
+                                className={`absolute left-1/2 z-[3] px-1 text-center ${useShortEventLabel ? (isCompact ? 'max-w-[3.75rem]' : 'max-w-[4.25rem]') : isCompact ? 'max-w-[5.75rem]' : 'max-w-[7.25rem]'}`}
+                                style={{
+                                    top: labelBaseOffsetPx + lane * labelLaneStridePx,
+                                    transform: `translateX(calc(-50% + ${labelHzNudgePx[index] ?? 0}px))`
+                                }}
                             >
-                                <div
-                                    className={`font-semibold leading-snug ${textColor} ${isCompact ? 'text-[10px]' : 'text-xs'}`}
-                                >
-                                    {displayDescription}
-                                </div>
-                                <div
-                                    className={`mt-0.5 leading-tight ${isHub ? 'text-white/45' : 'text-gray-400'} ${isCompact ? 'text-[9px]' : 'text-[10px]'}`}
-                                >
-                                    {formatDate(event.event_date)}
-                                </div>
+                                {useShortEventLabel ? (
+                                    <div
+                                        className={`tabular-nums font-semibold leading-tight ${textColor} ${isCompact ? 'text-[10px]' : 'text-xs'}`}
+                                        title={`${displayDescription} · ${formatDate(event.event_date)}`}
+                                    >
+                                        {formatDate(event.event_date)}
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div
+                                            className={`break-words font-semibold leading-snug ${textColor} ${isCompact ? 'text-[10px]' : 'text-xs'}`}
+                                        >
+                                            {displayDescription}
+                                        </div>
+                                        <div
+                                            className={`mt-0.5 break-words leading-tight tabular-nums ${isHub ? 'text-white/45' : 'text-gray-400'} ${isCompact ? 'text-[9px]' : 'text-[10px]'}`}
+                                        >
+                                            {formatDate(event.event_date)}
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
                     );
@@ -436,8 +469,10 @@ const ContractTimelineCard = ({
             </div>
 
             {/* Bottom Actions */}
-            {nextEvent && daysToNextEvent <= 30 && (
-                <div className={`flex justify-between items-center ${isCompact ? 'pt-2' : 'pt-3'}`}>
+            {showDeadlineRow && (
+                <div
+                    className={`relative z-[5] flex items-center justify-between ${isCompact ? 'mt-2 pt-2' : 'mt-3 pt-3'}`}
+                >
                     <div className={isCompact ? 'flex gap-2' : 'flex gap-4'}>
                         <div
                             className={`flex items-center ${isCompact ? 'gap-1.5 text-xs' : 'gap-2 text-sm'} ${
