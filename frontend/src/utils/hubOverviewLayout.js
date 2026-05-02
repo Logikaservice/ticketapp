@@ -193,6 +193,29 @@ export function findFirstFit(layout, w, h, ignoreId = null, maxRowsScan = 80) {
 }
 
 /**
+ * Posizione immediatamente sotto l’occupazione più bassa della griglia (nuova «fila» sotto tutto il layout).
+ * Usato quando si aggiunge un modulo dalla libreria: così non va a riempire buchi intermedi.
+ */
+export function findAppendBelowLayout(layout, w, h, ignoreId = null) {
+  const ww = clampInt(w, 1, HUB_GRID_COLS);
+  const hh = clampInt(h, 1, HUB_MAX_ROW_SPAN);
+  const others = layout.filter((x) => x.id !== ignoreId);
+  let maxBottom = 0;
+  others.forEach((x) => {
+    maxBottom = Math.max(maxBottom, x.row + x.h - 1);
+  });
+  const baseRow = maxBottom === 0 ? 1 : maxBottom + 1;
+
+  for (let row = baseRow; row <= baseRow + 60; row++) {
+    for (let col = 1; col <= HUB_GRID_COLS - ww + 1; col++) {
+      const trial = { col, row, w: ww, h: hh };
+      if (!hasCollision(layout, trial, ignoreId)) return { col, row };
+    }
+  }
+  return findFirstFit(layout, ww, hh, ignoreId, baseRow + 80);
+}
+
+/**
  * Posizione libera più vicina a (preferCol, preferRow); utile dopo drop con coordinate mouse.
  */
 export function findNearestFit(
@@ -332,13 +355,9 @@ export function restoreDefaultModule(layout, id) {
   const fixed = meta.fixedSize;
   const w = fixed ? fixed.w : p.w;
   const h = fixed ? fixed.h : p.h;
-  let trial = { id, col: p.col, row: p.row, w, h, hidden: false };
   const next = cloneLayout(layout);
-  if (hasCollision(next, trial, null)) {
-    const fit = findFirstFit(next, w, h, null);
-    trial = { ...trial, col: fit.col, row: fit.row };
-  }
-  next.push(trial);
+  const fit = findAppendBelowLayout(next, w, h, null);
+  next.push({ id, col: fit.col, row: fit.row, w, h, hidden: false });
   return resolveCollisions(next);
 }
 
