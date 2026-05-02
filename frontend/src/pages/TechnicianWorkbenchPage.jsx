@@ -411,13 +411,23 @@ export default function TechnicianWorkbenchPage({
   const isTechnician = currentUser?.ruolo === 'tecnico';
   const hubLayoutUserKey = currentUser?.id ?? currentUser?.email ?? '';
 
-  const [hubLayout, setHubLayout] = useState(() => sanitizeLayoutItems(getDefaultHubLayout()));
-  const [hubLayoutEditMode, setHubLayoutEditMode] = useState(false);
-
-  useEffect(() => {
+  /** Carica subito dal localStorage: se lo facessimo solo in useEffect, il figlio salverebbe il default e cancellerebbe il salvataggio. */
+  const [hubLayout, setHubLayout] = useState(() => {
     const key = currentUser?.id ?? currentUser?.email ?? '';
     const saved = loadHubLayout(key);
-    if (saved !== null) setHubLayout(sanitizeLayoutItems(saved));
+    return sanitizeLayoutItems(saved !== null ? saved : getDefaultHubLayout());
+  });
+  const [hubLayoutEditMode, setHubLayoutEditMode] = useState(false);
+  const skipHubLayoutUserReloadRef = useRef(true);
+
+  useEffect(() => {
+    if (skipHubLayoutUserReloadRef.current) {
+      skipHubLayoutUserReloadRef.current = false;
+      return;
+    }
+    const key = currentUser?.id ?? currentUser?.email ?? '';
+    const saved = loadHubLayout(key);
+    setHubLayout(sanitizeLayoutItems(saved !== null ? saved : getDefaultHubLayout()));
   }, [currentUser?.id, currentUser?.email]);
 
   useEffect(() => {
