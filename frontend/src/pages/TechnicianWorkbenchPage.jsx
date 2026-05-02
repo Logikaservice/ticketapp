@@ -862,6 +862,7 @@ export default function TechnicianWorkbenchPage({
             {hubCenterView === 'comunicazioni' ? (
               <CommAgentDashboard
                 embedded
+                accentHex={accentHex}
                 currentUser={currentUser}
                 notify={notify}
                 selectedCompanyId={selectedCompanyId}

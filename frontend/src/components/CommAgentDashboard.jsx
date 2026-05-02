@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     Send, Users, Monitor, Building2, Globe, MessageSquare,
     ChevronDown, Clock, CheckCircle2, AlertTriangle, Wrench,
@@ -8,6 +8,42 @@ import {
 
 import { buildApiUrl } from '../utils/apiConfig';
 import SectionNavMenu from './SectionNavMenu';
+import {
+    normalizeHex,
+    hexToRgba,
+    readableOnAccent,
+    getStoredTechHubAccent,
+    HUB_PAGE_BG,
+    HUB_SURFACE,
+    lightenHex,
+    darkenHex
+} from '../utils/techHubAccent';
+
+/** Palette allineata all’Hub tecnico (stesso sfondo, superfici, accento utente). */
+function buildCommHubTheme(accentHex) {
+    const accent = normalizeHex(accentHex) || getStoredTechHubAccent();
+    return {
+        accent,
+        page: HUB_PAGE_BG,
+        surface: HUB_SURFACE,
+        well: 'rgba(0,0,0,0.28)',
+        border: 'rgba(255,255,255,0.08)',
+        borderMid: 'rgba(255,255,255,0.12)',
+        label: 'rgba(255,255,255,0.42)',
+        labelHi: 'rgba(255,255,255,0.55)',
+        text: 'rgba(255,255,255,0.92)',
+        textSoft: 'rgba(255,255,255,0.78)',
+        muted: 'rgba(255,255,255,0.38)',
+        tabInactive: 'rgba(255,255,255,0.4)',
+        accentSoft: hexToRgba(accent, 0.14),
+        accentSoft2: hexToRgba(accent, 0.1),
+        accentBorder: hexToRgba(accent, 0.48),
+        iconTileBg: hexToRgba(accent, 0.14),
+        btnPrimaryBg: accent,
+        btnPrimaryFg: readableOnAccent(accent),
+        sendDisabled: 'rgba(255,255,255,0.22)'
+    };
+}
 
 const CommAgentDashboard = ({
     currentUser,
@@ -25,8 +61,11 @@ const CommAgentDashboard = ({
     onNavigateCommAgentManager,
     onNavigateVpn,
     /** Se true: niente overlay full-screen; pensato per l’Hub tecnico (area centrale). */
-    embedded = false
+    embedded = false,
+    /** Accento tema (coerente con Hub); default da localStorage come l’Hub. */
+    accentHex: accentHexProp
 }) => {
+    const th = useMemo(() => buildCommHubTheme(accentHexProp), [accentHexProp]);
     // State
     const [activeTab, setActiveTab] = useState('send');
     const [agents, setAgents] = useState([]);
@@ -170,14 +209,17 @@ const CommAgentDashboard = ({
         setActiveTab('send');
     };
 
-    // Priority/Category configs
-    const categoryOptions = [
-        { value: 'info', label: 'Informazione', icon: <Info size={14} />, color: '#667EEA' },
-        { value: 'warning', label: 'Avviso', icon: <AlertTriangle size={14} />, color: '#F59E0B' },
-        { value: 'maintenance', label: 'Manutenzione', icon: <Wrench size={14} />, color: '#06B6D4' },
-        { value: 'update', label: 'Aggiornamento', icon: <RefreshCw size={14} />, color: '#10B981' },
-        { value: 'urgent', label: 'Urgente', icon: <Zap size={14} />, color: '#EF4444' }
-    ];
+    // Priority/Category (info = accento Hub, resto semantico)
+    const categoryOptions = useMemo(
+        () => [
+            { value: 'info', label: 'Informazione', icon: <Info size={14} />, color: th.accent },
+            { value: 'warning', label: 'Avviso', icon: <AlertTriangle size={14} />, color: '#F59E0B' },
+            { value: 'maintenance', label: 'Manutenzione', icon: <Wrench size={14} />, color: '#06B6D4' },
+            { value: 'update', label: 'Aggiornamento', icon: <RefreshCw size={14} />, color: '#10B981' },
+            { value: 'urgent', label: 'Urgente', icon: <Zap size={14} />, color: '#EF4444' }
+        ],
+        [th.accent]
+    );
 
     // Delete agent
     const handleDeleteAgent = async (agentId) => {
@@ -194,6 +236,12 @@ const CommAgentDashboard = ({
         }
     };
 
+    const accentShellVars = {
+        ['--hub-accent']: th.accent,
+        ['--hub-accent-border']: th.accentBorder,
+        ['--hub-accent-soft']: th.accentSoft
+    };
+
     const outerShell = embedded
         ? {
               position: 'relative',
@@ -202,10 +250,11 @@ const CommAgentDashboard = ({
               zIndex: 'auto',
               display: 'flex',
               flexDirection: 'column',
-              background: '#0f172a',
+              background: th.page,
               overflow: 'hidden',
               borderRadius: 16,
-              border: '1px solid rgba(255,255,255,0.08)'
+              border: `1px solid ${th.border}`,
+              ...accentShellVars
           }
         : {
               position: 'fixed',
@@ -213,8 +262,9 @@ const CommAgentDashboard = ({
               zIndex: 60,
               display: 'flex',
               flexDirection: 'column',
-              background: '#0f172a',
-              overflow: 'hidden'
+              background: th.page,
+              overflow: 'hidden',
+              ...accentShellVars
           };
 
     return (
@@ -225,15 +275,16 @@ const CommAgentDashboard = ({
                     height: '100%',
                     minHeight: 0,
                     display: 'flex',
-                    flexDirection: 'column'
+                    flexDirection: 'column',
+                    color: th.text
                 }}
             >
                 {/* Header */}
                 <div
                     style={{
-                        padding: embedded ? '12px 16px' : '20px 28px',
-                        background: embedded ? '#1e293b' : 'white',
-                        borderBottom: embedded ? '1px solid #334155' : '1px solid #E2E8F0',
+                        padding: embedded ? '12px 16px' : '16px 24px',
+                        background: th.surface,
+                        borderBottom: `1px solid ${th.border}`,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
@@ -251,10 +302,10 @@ const CommAgentDashboard = ({
                                     alignItems: 'center',
                                     gap: 8,
                                     padding: '8px 12px',
-                                    borderRadius: 10,
-                                    border: '1px solid #475569',
-                                    background: '#0f172a',
-                                    color: '#e2e8f0',
+                                    borderRadius: 12,
+                                    border: `1px solid ${th.borderMid}`,
+                                    background: th.well,
+                                    color: th.textSoft,
                                     cursor: 'pointer',
                                     fontSize: 13,
                                     fontWeight: 600,
@@ -286,21 +337,21 @@ const CommAgentDashboard = ({
                                 width: embedded ? 36 : 44,
                                 height: embedded ? 36 : 44,
                                 borderRadius: 14,
-                                background: embedded ? 'rgba(124,58,237,0.25)' : '#EDE9FE',
+                                background: th.iconTileBg,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 flexShrink: 0
                             }}
                         >
-                            <Bell size={embedded ? 20 : 24} color="#a78bfa" />
+                            <Bell size={embedded ? 20 : 24} color={th.accent} />
                         </div>
                         <div style={{ minWidth: 0 }}>
                             <h2
                                 style={{
                                     margin: 0,
-                                    color: embedded ? '#f1f5f9' : '#1F2937',
-                                    fontSize: embedded ? 17 : 20,
+                                    color: th.text,
+                                    fontSize: embedded ? 17 : 19,
                                     fontWeight: 700
                                 }}
                             >
@@ -309,7 +360,7 @@ const CommAgentDashboard = ({
                             <p
                                 style={{
                                     margin: '2px 0 0',
-                                    color: embedded ? '#94a3b8' : '#6B7280',
+                                    color: th.label,
                                     fontSize: 11
                                 }}
                             >
@@ -324,9 +375,9 @@ const CommAgentDashboard = ({
                 <div
                     style={{
                         display: 'flex',
-                        padding: embedded ? '0 12px' : '0 28px',
-                        background: '#1e293b',
-                        borderBottom: '1px solid #334155',
+                        padding: embedded ? '0 12px' : '0 20px',
+                        background: th.well,
+                        borderBottom: `1px solid ${th.border}`,
                         gap: 4,
                         flexShrink: 0
                     }}
@@ -335,22 +386,45 @@ const CommAgentDashboard = ({
                         { id: 'send', label: 'Invia Messaggio', icon: <Send size={15} /> },
                         { id: 'agents', label: 'Agent Registrati', icon: <Monitor size={15} /> },
                         { id: 'history', label: 'Storico Messaggi', icon: <Clock size={15} /> }
-                    ].map(tab => (
-                        <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
-                            padding: '12px 20px', border: 'none', cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600,
-                            background: activeTab === tab.id ? 'rgba(99,102,241,0.15)' : 'transparent',
-                            color: activeTab === tab.id ? '#818CF8' : '#94A3B8',
-                            borderBottom: activeTab === tab.id ? '2px solid #818CF8' : '2px solid transparent',
-                            transition: 'all 0.2s', borderRadius: '8px 8px 0 0'
-                        }}>
+                    ].map((tab) => (
+                        <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setActiveTab(tab.id)}
+                            style={{
+                                padding: '11px 18px',
+                                border: 'none',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                fontSize: 13,
+                                fontWeight: 600,
+                                background:
+                                    activeTab === tab.id ? th.accentSoft : 'transparent',
+                                color:
+                                    activeTab === tab.id ? th.accent : th.tabInactive,
+                                borderBottom:
+                                    activeTab === tab.id ? `2px solid ${th.accent}` : '2px solid transparent',
+                                transition: 'all 0.2s',
+                                borderRadius: '10px 10px 0 0'
+                            }}
+                        >
                             {tab.icon} {tab.label}
                         </button>
                     ))}
                 </div>
 
                 {/* Content */}
-                <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: embedded ? 16 : 28 }}>
+                <div
+                    style={{
+                        flex: 1,
+                        minHeight: 0,
+                        overflow: 'auto',
+                        padding: embedded ? 16 : 24,
+                        background: th.page
+                    }}
+                >
 
                     {/* TAB: Invio Messaggio */}
                     {activeTab === 'send' && (
@@ -360,7 +434,7 @@ const CommAgentDashboard = ({
 
                                 {/* Tipo destinatario */}
                                 <div>
-                                    <label style={{ color: '#94A3B8', fontSize: 12, fontWeight: 600, marginBottom: 8, display: 'block', textTransform: 'uppercase', letterSpacing: 1 }}>
+                                    <label style={{ color: th.label, fontSize: 12, fontWeight: 600, marginBottom: 8, display: 'block', textTransform: 'uppercase', letterSpacing: 1 }}>
                                         Destinatario
                                     </label>
                                     <div style={{ display: 'flex', gap: 8 }}>
@@ -372,9 +446,12 @@ const CommAgentDashboard = ({
                                             <button key={opt.value} onClick={() => { setTargetType(opt.value); setSelectedAgent(null); setSelectedCompanies([]); }}
                                                 style={{
                                                     flex: 1, padding: '14px 12px', borderRadius: 12, cursor: 'pointer',
-                                                    border: targetType === opt.value ? '2px solid #818CF8' : '2px solid #334155',
-                                                    background: targetType === opt.value ? 'rgba(99,102,241,0.1)' : '#1e293b',
-                                                    color: targetType === opt.value ? '#C7D2FE' : '#94A3B8',
+                                                    border:
+                                                        targetType === opt.value ? `2px solid ${th.accent}` : `2px solid ${th.borderMid}`,
+                                                    background:
+                                                        targetType === opt.value ? th.accentSoft2 : th.surface,
+                                                    color:
+                                                        targetType === opt.value ? th.textSoft : th.label,
                                                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
                                                     transition: 'all 0.2s'
                                                 }}>
@@ -390,14 +467,14 @@ const CommAgentDashboard = ({
                                             {companies.length > 0 ? (
                                                 <>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                                                        <span style={{ fontSize: 11, color: '#64748B' }}>
+                                                        <span style={{ fontSize: 11, color: th.muted }}>
                                                             {selectedCompanies.length} di {companies.length} selezionate
                                                         </span>
                                                         <button onClick={() => setSelectedCompanies(
                                                             selectedCompanies.length === companies.length ? [] : companies.map(c => c.azienda)
                                                         )} style={{
-                                                            padding: '4px 10px', borderRadius: 6, border: '1px solid #334155',
-                                                            background: '#1e293b', color: '#818CF8', cursor: 'pointer', fontSize: 11, fontWeight: 600
+                                                            padding: '4px 10px', borderRadius: 6, border: `1px solid ${th.borderMid}`,
+                                                            background: th.surface, color: th.accent, cursor: 'pointer', fontSize: 11, fontWeight: 600
                                                         }}>
                                                             {selectedCompanies.length === companies.length ? 'Deseleziona Tutte' : 'Seleziona Tutte'}
                                                         </button>
@@ -411,24 +488,38 @@ const CommAgentDashboard = ({
                                                                         isSelected ? prev.filter(x => x !== c.azienda) : [...prev, c.azienda]
                                                                     )}
                                                                     style={{
-                                                                        padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
-                                                                        border: isSelected ? '2px solid #818CF8' : '1px solid #334155',
-                                                                        background: isSelected ? 'rgba(99,102,241,0.1)' : '#1e293b',
-                                                                        color: '#E2E8F0', display: 'flex', alignItems: 'center', gap: 10,
-                                                                        textAlign: 'left', transition: 'all 0.15s'
-                                                                    }}>
-                                                                    <div style={{
-                                                                        width: 18, height: 18, borderRadius: 4, flexShrink: 0,
-                                                                        border: isSelected ? '2px solid #818CF8' : '2px solid #475569',
-                                                                        background: isSelected ? '#818CF8' : 'transparent',
-                                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                        padding: '10px 14px',
+                                                                        borderRadius: 10,
+                                                                        cursor: 'pointer',
+                                                                        border: isSelected ? `2px solid ${th.accent}` : `1px solid ${th.borderMid}`,
+                                                                        background: isSelected ? th.accentSoft2 : th.surface,
+                                                                        color: th.textSoft,
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        gap: 10,
+                                                                        textAlign: 'left',
                                                                         transition: 'all 0.15s'
-                                                                    }}>
+                                                                    }}
+                                                                >
+                                                                    <div
+                                                                        style={{
+                                                                            width: 18,
+                                                                            height: 18,
+                                                                            borderRadius: 4,
+                                                                            flexShrink: 0,
+                                                                            border: isSelected ? `2px solid ${th.accent}` : `2px solid ${th.borderMid}`,
+                                                                            background: isSelected ? th.accent : 'transparent',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'center',
+                                                                            transition: 'all 0.15s'
+                                                                        }}
+                                                                    >
                                                                         {isSelected && <CheckCircle2 size={12} color="white" />}
                                                                     </div>
                                                                     <div style={{ flex: 1 }}>
                                                                         <div style={{ fontSize: 13, fontWeight: 600 }}>{c.azienda}</div>
-                                                                        <div style={{ fontSize: 11, color: '#64748B' }}>{c.agent_count} agent</div>
+                                                                        <div style={{ fontSize: 11, color: th.muted }}>{c.agent_count} agent</div>
                                                                     </div>
                                                                 </button>
                                                             );
@@ -437,8 +528,8 @@ const CommAgentDashboard = ({
                                                 </>
                                             ) : (
                                                 <div style={{
-                                                    padding: 16, textAlign: 'center', color: '#64748B', fontSize: 13,
-                                                    background: '#1e293b', borderRadius: 10, border: '1px solid #334155'
+                                                    padding: 16, textAlign: 'center', color: th.muted, fontSize: 13,
+                                                    background: th.surface, borderRadius: 10, border: `1px solid ${th.borderMid}`
                                                 }}>
                                                     Nessuna azienda con agent installati
                                                 </div>
@@ -450,13 +541,13 @@ const CommAgentDashboard = ({
                                     {targetType === 'single' && (
                                         <div style={{ marginTop: 12 }}>
                                             <div style={{ position: 'relative', marginBottom: 8 }}>
-                                                <Search size={14} style={{ position: 'absolute', left: 12, top: 11, color: '#64748B' }} />
+                                                <Search size={14} style={{ position: 'absolute', left: 12, top: 11, color: th.muted }} />
                                                 <input
                                                     type="text" placeholder="Cerca per nome, email, azienda..."
                                                     value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                                                     style={{
                                                         width: '100%', padding: '10px 14px 10px 34px', borderRadius: 10,
-                                                        background: '#1e293b', color: '#E2E8F0', border: '1px solid #334155',
+                                                        background: th.surface, color: th.textSoft, border: `1px solid ${th.borderMid}`,
                                                         fontSize: 13, boxSizing: 'border-box'
                                                     }}
                                                 />
@@ -466,9 +557,13 @@ const CommAgentDashboard = ({
                                                     <button key={agent.id} onClick={() => setSelectedAgent(agent)}
                                                         style={{
                                                             padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
-                                                            border: selectedAgent?.id === agent.id ? '2px solid #818CF8' : '1px solid #334155',
-                                                            background: selectedAgent?.id === agent.id ? 'rgba(99,102,241,0.1)' : '#1e293b',
-                                                            color: '#E2E8F0', display: 'flex', alignItems: 'center', gap: 10,
+                                                            border:
+                                                                selectedAgent?.id === agent.id
+                                                                    ? `2px solid ${th.accent}`
+                                                                    : `1px solid ${th.borderMid}`,
+                                                            background:
+                                                                selectedAgent?.id === agent.id ? th.accentSoft2 : th.surface,
+                                                            color: th.textSoft, display: 'flex', alignItems: 'center', gap: 10,
                                                             textAlign: 'left', transition: 'all 0.15s'
                                                         }}>
                                                         <div style={{
@@ -480,14 +575,14 @@ const CommAgentDashboard = ({
                                                             <div style={{ fontSize: 13, fontWeight: 600 }}>
                                                                 {agent.nome} {agent.cognome}
                                                             </div>
-                                                            <div style={{ fontSize: 11, color: '#64748B' }}>
+                                                            <div style={{ fontSize: 11, color: th.muted }}>
                                                                 {agent.email} • {agent.machine_name || 'N/A'} • {agent.azienda}
                                                             </div>
                                                         </div>
                                                     </button>
                                                 ))}
                                                 {filteredAgents.length === 0 && (
-                                                    <div style={{ textAlign: 'center', padding: 20, color: '#64748B', fontSize: 13 }}>
+                                                    <div style={{ textAlign: 'center', padding: 20, color: th.muted, fontSize: 13 }}>
                                                         Nessun agent trovato
                                                     </div>
                                                 )}
@@ -498,14 +593,14 @@ const CommAgentDashboard = ({
 
                                 {/* Titolo */}
                                 <div>
-                                    <label style={{ color: '#94A3B8', fontSize: 12, fontWeight: 600, marginBottom: 6, display: 'block', textTransform: 'uppercase', letterSpacing: 1 }}>
+                                    <label style={{ color: th.label, fontSize: 12, fontWeight: 600, marginBottom: 6, display: 'block', textTransform: 'uppercase', letterSpacing: 1 }}>
                                         Titolo
                                     </label>
                                     <input type="text" value={title} onChange={e => setTitle(e.target.value)}
                                         placeholder="Titolo della notifica..."
                                         style={{
                                             width: '100%', padding: '12px 14px', borderRadius: 10,
-                                            background: '#1e293b', color: '#E2E8F0', border: '1px solid #334155',
+                                            background: th.surface, color: th.textSoft, border: `1px solid ${th.borderMid}`,
                                             fontSize: 14, fontWeight: 600, boxSizing: 'border-box'
                                         }}
                                     />
@@ -513,7 +608,7 @@ const CommAgentDashboard = ({
 
                                 {/* Corpo messaggio */}
                                 <div>
-                                    <label style={{ color: '#94A3B8', fontSize: 12, fontWeight: 600, marginBottom: 6, display: 'block', textTransform: 'uppercase', letterSpacing: 1 }}>
+                                    <label style={{ color: th.label, fontSize: 12, fontWeight: 600, marginBottom: 6, display: 'block', textTransform: 'uppercase', letterSpacing: 1 }}>
                                         Messaggio
                                     </label>
                                     <textarea value={body} onChange={e => setBody(e.target.value)}
@@ -521,7 +616,7 @@ const CommAgentDashboard = ({
                                         rows={4}
                                         style={{
                                             width: '100%', padding: '12px 14px', borderRadius: 10,
-                                            background: '#1e293b', color: '#E2E8F0', border: '1px solid #334155',
+                                            background: th.surface, color: th.textSoft, border: `1px solid ${th.borderMid}`,
                                             fontSize: 13, resize: 'vertical', fontFamily: 'inherit',
                                             lineHeight: 1.6, boxSizing: 'border-box'
                                         }}
@@ -530,7 +625,7 @@ const CommAgentDashboard = ({
 
                                 {/* Categoria */}
                                 <div>
-                                    <label style={{ color: '#94A3B8', fontSize: 12, fontWeight: 600, marginBottom: 6, display: 'block', textTransform: 'uppercase', letterSpacing: 1 }}>
+                                    <label style={{ color: th.label, fontSize: 12, fontWeight: 600, marginBottom: 6, display: 'block', textTransform: 'uppercase', letterSpacing: 1 }}>
                                         Categoria
                                     </label>
                                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -539,9 +634,12 @@ const CommAgentDashboard = ({
                                                 style={{
                                                     padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 12,
                                                     fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6,
-                                                    border: category === opt.value ? `2px solid ${opt.color}` : '2px solid #334155',
-                                                    background: category === opt.value ? `${opt.color}20` : '#1e293b',
-                                                    color: category === opt.value ? opt.color : '#64748B',
+                                                    border:
+                                                        category === opt.value
+                                                            ? `2px solid ${opt.color}`
+                                                            : `2px solid ${th.borderMid}`,
+                                                    background: category === opt.value ? `${opt.color}20` : th.surface,
+                                                    color: category === opt.value ? opt.color : th.muted,
                                                     transition: 'all 0.2s'
                                                 }}>
                                                 {opt.icon} {opt.label}
@@ -553,13 +651,23 @@ const CommAgentDashboard = ({
                                 {/* Bottone invio */}
                                 <button onClick={handleSend} disabled={sending || !title.trim() || !body.trim()}
                                     style={{
-                                        padding: '14px 28px', borderRadius: 12, border: 'none', cursor: 'pointer',
-                                        background: sending ? '#4B5563' : 'linear-gradient(135deg, #667EEA 0%, #764BA2 100%)',
-                                        color: 'white', fontSize: 15, fontWeight: 700,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                                        transition: 'all 0.3s', opacity: (!title.trim() || !body.trim()) ? 0.5 : 1,
-                                        boxShadow: sending ? 'none' : '0 4px 15px rgba(102,126,234,0.3)'
-                                    }}>
+                                        padding: '14px 28px',
+                                        borderRadius: 12,
+                                        border: 'none',
+                                        cursor: sending || !title.trim() || !body.trim() ? 'not-allowed' : 'pointer',
+                                        background: sending ? th.sendDisabled : th.btnPrimaryBg,
+                                        color: sending ? 'rgba(255,255,255,0.5)' : th.btnPrimaryFg,
+                                        fontSize: 15,
+                                        fontWeight: 700,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: 10,
+                                        transition: 'all 0.3s',
+                                        opacity: !title.trim() || !body.trim() ? 0.5 : 1,
+                                        boxShadow: sending ? 'none' : `0 4px 20px ${hexToRgba(th.accent, 0.28)}`
+                                    }}
+                                >
                                     {sending ? <Loader2 size={18} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={18} />}
                                     {sending ? 'Invio in corso...' : 'Invia Notifica'}
                                 </button>
@@ -567,7 +675,7 @@ const CommAgentDashboard = ({
 
                             {/* Colonna Destra: Preview */}
                             <div style={{ width: 380, flexShrink: 0 }}>
-                                <label style={{ color: '#94A3B8', fontSize: 12, fontWeight: 600, marginBottom: 12, display: 'block', textTransform: 'uppercase', letterSpacing: 1 }}>
+                                <label style={{ color: th.label, fontSize: 12, fontWeight: 600, marginBottom: 12, display: 'block', textTransform: 'uppercase', letterSpacing: 1 }}>
                                     Anteprima Notifica
                                 </label>
                                 <NotificationPreview
@@ -575,20 +683,21 @@ const CommAgentDashboard = ({
                                     body={body || 'Il messaggio apparirà qui...'}
                                     sender={`${currentUser?.nome || ''} ${currentUser?.cognome || ''}`}
                                     category={category}
+                                    accentHex={th.accent}
                                 />
 
                                 {/* Info riepilogo */}
                                 <div style={{
                                     marginTop: 16, padding: 16, borderRadius: 12,
-                                    background: '#1e293b', border: '1px solid #334155'
+                                    background: th.surface, border: `1px solid ${th.borderMid}`
                                 }}>
-                                    <div style={{ color: '#94A3B8', fontSize: 12, fontWeight: 600, marginBottom: 10, textTransform: 'uppercase' }}>
+                                    <div style={{ color: th.label, fontSize: 12, fontWeight: 600, marginBottom: 10, textTransform: 'uppercase' }}>
                                         Riepilogo invio
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                                            <span style={{ color: '#64748B' }}>Destinatari:</span>
-                                            <span style={{ color: '#E2E8F0', fontWeight: 600 }}>
+                                            <span style={{ color: th.muted }}>Destinatari:</span>
+                                            <span style={{ color: th.textSoft, fontWeight: 600 }}>
                                                 {targetType === 'broadcast' ? `Tutti (${agents.length})` :
                                                     targetType === 'group' ? (selectedCompanies.length > 0 ? `${selectedCompanies.length} aziend${selectedCompanies.length === 1 ? 'a' : 'e'}` : 'Nessuna azienda') :
                                                         (selectedAgent ? `${selectedAgent.nome} ${selectedAgent.cognome}` : 'Nessuno')}
@@ -597,17 +706,17 @@ const CommAgentDashboard = ({
                                         {(() => {
                                             const targetList = targetType === 'broadcast' ? agents : targetType === 'group' ? agents.filter(a => selectedCompanies.includes(a.azienda)) : (selectedAgent ? [selectedAgent] : []);
                                             return targetList.length > 0 ? (
-                                                <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
+                                                <div style={{ fontSize: 11, color: th.muted, marginTop: 2 }}>
                                                     Riceveranno {targetList.length} agent → PC: {targetList.map(a => a.machine_name || a.email || '?').join(', ')}
                                                 </div>
                                             ) : null;
                                         })()}
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                                            <span style={{ color: '#64748B' }}>Online ora:</span>
+                                            <span style={{ color: th.muted }}>Online ora:</span>
                                             <span style={{ color: '#22C55E', fontWeight: 600 }}>{onlineCount} / {agents.length}</span>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                                            <span style={{ color: '#64748B' }}>Categoria:</span>
+                                            <span style={{ color: th.muted }}>Categoria:</span>
                                             <span style={{ color: categoryOptions.find(c => c.value === category)?.color, fontWeight: 600 }}>
                                                 {categoryOptions.find(c => c.value === category)?.label}
                                             </span>
@@ -622,12 +731,12 @@ const CommAgentDashboard = ({
                     {activeTab === 'agents' && (
                         <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                                <div style={{ color: '#94A3B8', fontSize: 13 }}>
+                                <div style={{ color: th.label, fontSize: 13 }}>
                                     {agents.length} agent registrati • {onlineCount} online
                                 </div>
                                 <button onClick={fetchAgents} style={{
-                                    padding: '8px 16px', borderRadius: 8, border: '1px solid #334155',
-                                    background: '#1e293b', color: '#94A3B8', cursor: 'pointer', fontSize: 12,
+                                    padding: '8px 16px', borderRadius: 8, border: `1px solid ${th.borderMid}`,
+                                    background: th.surface, color: th.label, cursor: 'pointer', fontSize: 12,
                                     display: 'flex', alignItems: 'center', gap: 6
                                 }}>
                                     <RefreshCw size={14} /> Aggiorna
@@ -638,7 +747,7 @@ const CommAgentDashboard = ({
                                 {agents.map(agent => (
                                     <div key={agent.id} style={{
                                         padding: '16px 18px', borderRadius: 14,
-                                        background: '#1e293b', border: '1px solid #334155',
+                                        background: th.surface, border: `1px solid ${th.borderMid}`,
                                         display: 'flex', alignItems: 'center', gap: 14,
                                         transition: 'border-color 0.2s'
                                     }}>
@@ -651,20 +760,20 @@ const CommAgentDashboard = ({
                                         }} />
 
                                         {/* Info - tutto in linea */}
-                                        <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 12px', fontSize: 12, color: '#64748B' }}>
-                                            <span style={{ fontWeight: 600, color: '#E2E8F0', marginRight: 4 }}>
+                                        <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 12px', fontSize: 12, color: th.muted }}>
+                                            <span style={{ fontWeight: 600, color: th.textSoft, marginRight: 4 }}>
                                                 {agent.nome} {agent.cognome}
                                             </span>
                                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                                 <Mail size={11} />
                                                 {agent.email}
                                             </span>
-                                            <span style={{ color: '#334155' }}>•</span>
+                                            <span style={{ color: th.borderMid }}>•</span>
                                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                                 <Monitor size={11} />
                                                 {agent.machine_name || 'N/A'}
                                             </span>
-                                            <span style={{ color: '#334155' }}>•</span>
+                                            <span style={{ color: th.borderMid }}>•</span>
                                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                                 <Building2 size={11} />
                                                 {agent.azienda || 'N/A'}
@@ -674,13 +783,15 @@ const CommAgentDashboard = ({
                                         {/* Version */}
                                         <div style={{
                                             padding: '4px 10px', borderRadius: 6,
-                                            background: '#0f172a', fontSize: 11, color: '#64748B'
+                                            background: th.well,
+                                            fontSize: 11,
+                                            color: th.muted
                                         }}>
                                             v{agent.version || '1.0.0'}
                                         </div>
 
                                         {/* Last heartbeat */}
-                                        <div style={{ fontSize: 11, color: '#64748B', textAlign: 'right', minWidth: 80 }}>
+                                        <div style={{ fontSize: 11, color: th.muted, textAlign: 'right', minWidth: 80 }}>
                                             {agent.last_heartbeat
                                                 ? new Date(agent.last_heartbeat).toLocaleString('it-IT', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
                                                 : 'Mai'}
@@ -689,10 +800,12 @@ const CommAgentDashboard = ({
                                         {/* Delete */}
                                         <button onClick={() => handleDeleteAgent(agent.id)} style={{
                                             padding: 6, borderRadius: 6, border: 'none', cursor: 'pointer',
-                                            background: 'transparent', color: '#64748B', transition: 'color 0.2s'
+                                            background: 'transparent', color: th.muted, transition: 'color 0.2s'
                                         }}
                                             onMouseEnter={e => e.target.style.color = '#EF4444'}
-                                            onMouseLeave={e => e.target.style.color = '#64748B'}
+                                            onMouseLeave={(e) => {
+                                                e.target.style.color = th.muted;
+                                            }}
                                         >
                                             <Trash2 size={15} />
                                         </button>
@@ -700,7 +813,7 @@ const CommAgentDashboard = ({
                                 ))}
 
                                 {agents.length === 0 && (
-                                    <div style={{ textAlign: 'center', padding: 60, color: '#64748B' }}>
+                                    <div style={{ textAlign: 'center', padding: 60, color: th.muted }}>
                                         <Monitor size={48} style={{ marginBottom: 16, opacity: 0.3 }} />
                                         <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Nessun agent registrato</div>
                                         <div style={{ fontSize: 13 }}>I client devono scaricare e installare il Communication Agent</div>
@@ -714,12 +827,12 @@ const CommAgentDashboard = ({
                     {activeTab === 'history' && (
                         <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                                <div style={{ color: '#94A3B8', fontSize: 13 }}>
+                                <div style={{ color: th.label, fontSize: 13 }}>
                                     Ultimi {messages.length} messaggi inviati
                                 </div>
                                 <button onClick={fetchMessages} style={{
-                                    padding: '8px 16px', borderRadius: 8, border: '1px solid #334155',
-                                    background: '#1e293b', color: '#94A3B8', cursor: 'pointer', fontSize: 12,
+                                    padding: '8px 16px', borderRadius: 8, border: `1px solid ${th.borderMid}`,
+                                    background: th.surface, color: th.label, cursor: 'pointer', fontSize: 12,
                                     display: 'flex', alignItems: 'center', gap: 6
                                 }}>
                                     <RefreshCw size={14} /> Aggiorna
@@ -732,12 +845,12 @@ const CommAgentDashboard = ({
                                     return (
                                         <div key={msg.id} style={{
                                             padding: '16px 18px', borderRadius: 14,
-                                            background: '#1e293b', border: '1px solid #334155',
-                                            borderLeft: `3px solid ${catConfig?.color || '#667EEA'}`
+                                            background: th.surface, border: `1px solid ${th.borderMid}`,
+                                            borderLeft: `3px solid ${catConfig?.color || th.accent}`
                                         }}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                    <span style={{ fontSize: 14, fontWeight: 700, color: '#E2E8F0' }}>{msg.title}</span>
+                                                    <span style={{ fontSize: 14, fontWeight: 700, color: th.textSoft }}>{msg.title}</span>
                                                     <span style={{
                                                         padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700,
                                                         background: `${catConfig?.color}20`, color: catConfig?.color
@@ -746,8 +859,18 @@ const CommAgentDashboard = ({
                                                     </span>
                                                     <span style={{
                                                         padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600,
-                                                        background: msg.target_type === 'broadcast' ? '#667EEA20' : msg.target_type === 'group' ? '#06B6D420' : '#F59E0B20',
-                                                        color: msg.target_type === 'broadcast' ? '#667EEA' : msg.target_type === 'group' ? '#06B6D4' : '#F59E0B'
+                                                        background:
+                                                            msg.target_type === 'broadcast'
+                                                                ? hexToRgba(th.accent, 0.2)
+                                                                : msg.target_type === 'group'
+                                                                  ? hexToRgba('#06B6D4', 0.2)
+                                                                  : hexToRgba('#F59E0B', 0.2),
+                                                        color:
+                                                            msg.target_type === 'broadcast'
+                                                                ? th.accent
+                                                                : msg.target_type === 'group'
+                                                                  ? '#06B6D4'
+                                                                  : '#F59E0B'
                                                     }}>
                                                         {msg.target_type === 'broadcast' ? '🌍 Tutti' :
                                                             msg.target_type === 'group' ? `🏢 ${msg.target_company || msg.target_azienda}` :
@@ -755,7 +878,7 @@ const CommAgentDashboard = ({
                                                     </span>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                                                    <div style={{ fontSize: 11, color: '#64748B' }}>
+                                                    <div style={{ fontSize: 11, color: th.muted }}>
                                                         {new Date(msg.created_at).toLocaleString('it-IT', {
                                                             day: '2-digit', month: '2-digit', year: '2-digit',
                                                             hour: '2-digit', minute: '2-digit'
@@ -765,25 +888,31 @@ const CommAgentDashboard = ({
                                                         onClick={() => handleRinvio(msg)}
                                                         style={{
                                                             padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
-                                                            border: '1px solid #334155', background: '#1e293b', color: '#818CF8',
+                                                            border: `1px solid ${th.borderMid}`, background: th.surface, color: th.accent,
                                                             cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
                                                             transition: 'all 0.2s'
                                                         }}
-                                                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(129,140,248,0.15)'; e.currentTarget.style.borderColor = '#818CF8'; }}
-                                                        onMouseLeave={e => { e.currentTarget.style.background = '#1e293b'; e.currentTarget.style.borderColor = '#334155'; }}
+                                                        onMouseEnter={(e) => {
+                                                            e.currentTarget.style.background = th.accentSoft;
+                                                            e.currentTarget.style.borderColor = th.accent;
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            e.currentTarget.style.background = th.surface;
+                                                            e.currentTarget.style.borderColor = th.borderMid;
+                                                        }}
                                                     >
                                                         <RefreshCw size={12} />
                                                         Rinvio
                                                     </button>
                                                 </div>
                                             </div>
-                                            <div style={{ fontSize: 13, color: '#94A3B8', marginBottom: 8 }}>{msg.body}</div>
-                                            <div style={{ display: 'flex', gap: 16, fontSize: 11, color: '#64748B' }}>
+                                            <div style={{ fontSize: 13, color: th.label, marginBottom: 8 }}>{msg.body}</div>
+                                            <div style={{ display: 'flex', gap: 16, fontSize: 11, color: th.muted }}>
                                                 <span><Users size={11} style={{ marginRight: 4, verticalAlign: 'middle' }} /> Destinatari: {msg.total_targets ?? 0}</span>
                                                 <span style={{ color: '#22C55E' }}>
                                                     <CheckCircle2 size={11} style={{ marginRight: 4, verticalAlign: 'middle' }} /> Ricevuto da: {msg.delivered_count ?? 0}
                                                 </span>
-                                                <span style={{ color: '#818CF8' }}>
+                                                <span style={{ color: th.accent }}>
                                                     <Eye size={11} style={{ marginRight: 4, verticalAlign: 'middle' }} /> Letto da: {msg.read_count ?? 0}
                                                 </span>
                                             </div>
@@ -792,7 +921,7 @@ const CommAgentDashboard = ({
                                 })}
 
                                 {messages.length === 0 && (
-                                    <div style={{ textAlign: 'center', padding: 60, color: '#64748B' }}>
+                                    <div style={{ textAlign: 'center', padding: 60, color: th.muted }}>
                                         <MessageSquare size={48} style={{ marginBottom: 16, opacity: 0.3 }} />
                                         <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Nessun messaggio inviato</div>
                                         <div style={{ fontSize: 13 }}>Invia il tuo primo messaggio dalla tab "Invia Messaggio"</div>
@@ -815,13 +944,18 @@ const CommAgentDashboard = ({
 // ============================================
 // Componente Preview Notifica (simula l'aspetto WPF)
 // ============================================
-const NotificationPreview = ({ title, body, sender, category }) => {
+const NotificationPreview = ({ title, body, sender, category, accentHex }) => {
+    const accentBase = normalizeHex(accentHex) || getStoredTechHubAccent();
     const schemes = {
-        info: { bg1: '#667EEA', bg2: '#764BA2', icon: '💬' },
-        warning: { bg1: '#F093FB', bg2: '#F5576C', icon: '⚠️' },
-        maintenance: { bg1: '#4FACFE', bg2: '#00F2FE', icon: '🔧' },
-        update: { bg1: '#43E97B', bg2: '#38F9D7', icon: '🔄' },
-        urgent: { bg1: '#FA709A', bg2: '#FEE140', icon: '🚨' }
+        info: {
+            bg1: darkenHex(accentBase, 0.1),
+            bg2: lightenHex(accentBase, 0.12),
+            icon: '💬'
+        },
+        warning: { bg1: '#b45309', bg2: '#f59e0b', icon: '⚠️' },
+        maintenance: { bg1: '#0369a1', bg2: '#22d3ee', icon: '🔧' },
+        update: { bg1: '#047857', bg2: '#34d399', icon: '🔄' },
+        urgent: { bg1: '#b91c1c', bg2: '#f87171', icon: '🚨' }
     };
 
     const cat = category || 'info';
