@@ -12,6 +12,7 @@ import {
   normalizeHex,
   getStoredTechHubAccent
 } from '../utils/techHubAccent';
+import { getOfficeContentTheme } from '../utils/officePageContentTheme';
 
 const OfficePage = ({
   onClose,
@@ -749,6 +750,8 @@ const OfficePage = ({
     ? 'inline-flex items-center gap-1 rounded-md border border-white/14 bg-black/35 px-2.5 py-1.5 text-xs font-medium text-white/88 transition-colors hover:bg-white/[0.08] disabled:opacity-50'
     : 'inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors disabled:opacity-50';
 
+  const ox = getOfficeContentTheme(embedded);
+
   return (
     <div className={rootClassName} style={rootEmbeddedStyle}>
       {/* Header */}
@@ -840,8 +843,8 @@ const OfficePage = ({
         {loadingCompanies && (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <Loader size={32} className="animate-spin text-blue-600 mx-auto mb-4" />
-              <p className="text-gray-600">Caricamento aziende...</p>
+              <Loader size={32} className={ox.loadSpin} />
+              <p className={ox.loadTxt}>Caricamento aziende...</p>
             </div>
           </div>
         )}
@@ -849,6 +852,7 @@ const OfficePage = ({
         {showIntro && (
           <div className="max-w-4xl mx-auto w-full">
             <OfficeIntroCard
+              embedded={embedded}
               companies={companies}
               value={selectedCompanyValid ? selectedCompanyId : ''}
               onChange={(companyId) => {
@@ -870,19 +874,19 @@ const OfficePage = ({
         {loading && selectedCompanyId && (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <Loader size={32} className="animate-spin text-blue-600 mx-auto mb-4" />
-              <p className="text-gray-600">Caricamento dati Office da Keepass...</p>
+              <Loader size={32} className={ox.loadSpin} />
+              <p className={ox.loadTxt}>Caricamento dati Office da Keepass...</p>
             </div>
           </div>
         )}
 
         {!loading && !loadingCompanies && error && !showIntro && selectedCompanyId && (
-          <div className="max-w-2xl mx-auto mt-8">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-              <X size={20} className="text-red-600 shrink-0 mt-0.5" />
+          <div className={ox.errBoxOuter}>
+            <div className={ox.errBoxInner}>
+              <X size={20} className={ox.errIcon} />
               <div>
-                <h3 className="font-semibold text-red-800 mb-1">Errore</h3>
-                <p className="text-red-700">{error}</p>
+                <h3 className={ox.errTitle}>Errore</h3>
+                <p className={ox.errMsg}>{error}</p>
               </div>
             </div>
           </div>
@@ -890,8 +894,8 @@ const OfficePage = ({
 
         {!loading && !error && officeData && activeView === 'licenses' && (
           <div className="max-w-7xl mx-auto">
-            <div className="mb-4 bg-white border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
-              <p className="text-sm text-gray-700">Download Office</p>
+            <div className={ox.rowBanner}>
+              <p className={ox.textSingle}>Download Office</p>
               <button
                 type="button"
                 onClick={() => setActiveView('downloads')}
@@ -900,8 +904,8 @@ const OfficePage = ({
                 Apri download
               </button>
             </div>
-            <div className="mb-4 bg-white border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
-              <p className="text-sm text-gray-700">Attivazione licenza Office</p>
+            <div className={ox.rowBanner}>
+              <p className={ox.textSingle}>Attivazione licenza Office</p>
               <button
                 type="button"
                 onClick={() => setActiveView('activations')}
@@ -923,29 +927,29 @@ const OfficePage = ({
                 const showCredentialsRow = hasUsername || canShowPassword;
                 const licenseValue = file.license ? String(file.license).trim() : '';
                 return (
-                <div key={index} className={`break-inside-avoid mb-4 bg-white rounded-lg shadow-sm border-2 px-4 py-3 transition-colors ${isExpired ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>
+                <div key={index} className={ox.fileCardOuter(isExpired)}>
                   {/* Titolo */}
-                  <div className="mb-2 pb-2 border-b border-gray-200">
-                    <h3 className="text-base font-bold text-gray-900 truncate">{file.title || `File ${index + 1}`}</h3>
+                  <div className={ox.borderBHdr}>
+                    <h3 className={ox.fileTitle}>{file.title || `File ${index + 1}`}</h3>
                     {/* Nome utente e Password sulla stessa riga */}
                     {showCredentialsRow && (
                     <div className="mt-2 flex flex-wrap items-center gap-x-12 gap-y-2">
                       {hasUsername && (
                         <div className="flex items-center gap-2">
-                          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide shrink-0">Nome utente</p>
-                          <p className="text-xs text-gray-900 font-mono">{file.username}</p>
+                          <p className={ox.labelUpperSm}>Nome utente</p>
+                          <p className={ox.valMonoXs}>{file.username}</p>
                         </div>
                       )}
                       {canShowPassword && (
                         <div className="flex items-center gap-2">
-                          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide shrink-0">Password</p>
+                          <p className={ox.labelUpperSm}>Password</p>
                           {visiblePasswords[officeEntryKey(file)] !== undefined ? (
                             <div className="flex items-center gap-1">
-                              <span className="font-mono text-gray-800 bg-gray-50 px-2 py-0.5 rounded text-xs">{visiblePasswords[officeEntryKey(file)]}</span>
+                              <span className={ox.pwdChip}>{visiblePasswords[officeEntryKey(file)]}</span>
                               <button
                                 type="button"
                                 onClick={() => hidePassword(file)}
-                                className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                                className={ox.eyeBtn}
                                 title="Nascondi password"
                               >
                                 <EyeOff size={14} />
@@ -956,7 +960,7 @@ const OfficePage = ({
                               type="button"
                               onClick={() => fetchPassword(file)}
                               disabled={loadingPasswords[officeEntryKey(file)]}
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded hover:bg-gray-100 transition-colors whitespace-nowrap disabled:opacity-50"
+                              className={ox.btnGhostSm}
                               title="Mostra password"
                             >
                               {loadingPasswords[officeEntryKey(file)] ? <Loader size={12} className="animate-spin" /> : <Eye size={14} />}
@@ -969,15 +973,15 @@ const OfficePage = ({
                     )}
                     {licenseValue && (
                       <div className="mt-2 flex items-center gap-2">
-                        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide shrink-0">Licenza</p>
-                        <p className="text-xs text-gray-900">{licenseValue}</p>
+                        <p className={ox.labelUpperSm}>Licenza</p>
+                        <p className={ox.valXs}>{licenseValue}</p>
                       </div>
                     )}
                   </div>
 
                   {/* Campi personalizzati del file */}
                   <div className="mb-2">
-                    <h4 className="text-xs font-semibold text-gray-500 mb-1">Attivo su:</h4>
+                    <h4 className={ox.hAttivo}>Attivo su:</h4>
                     
                     {file.customFields && Object.keys(file.customFields).length > 0 ? (() => {
                       const numericFieldMap = new Map();
@@ -990,7 +994,7 @@ const OfficePage = ({
                       });
 
                       if (numericFieldMap.size === 0) {
-                        return <p className="text-xs text-gray-500 italic">Nessun campo personalizzato numerico trovato</p>;
+                        return <p className={ox.pMutedItalicXs}>Nessun campo personalizzato numerico trovato</p>;
                       }
 
                       const maxFieldNumber = Math.max(...numericFieldMap.keys());
@@ -1015,11 +1019,11 @@ const OfficePage = ({
                             return (
                               <div key={`custom-${fieldNumber}`} className={`border-l-4 ${getBorderColor(fieldNumber)} pl-3 py-1`}>
                                 {valueStr ? (
-                                  <p className="text-sm text-gray-900">
+                                  <p className={ox.pBodySm}>
                                     <span className="font-semibold">{fieldNumber}.</span> {valueStr}
                                   </p>
                                 ) : (
-                                  <p className="text-sm text-gray-400 italic">
+                                  <p className={ox.pMutedSmItalic}>
                                     <span className="font-semibold">{fieldNumber}.</span> (vuoto)
                                   </p>
                                 )}
@@ -1029,36 +1033,36 @@ const OfficePage = ({
                         </div>
                       );
                     })() : (
-                      <p className="text-xs text-gray-500 italic">Nessun campo personalizzato trovato</p>
+                      <p className={ox.pMutedItalicXs}>Nessun campo personalizzato trovato</p>
                     )}
                   </div>
 
                   {/* Scadenza + Nota (automatica da KeePass) */}
                   {file.expires && (
-                    <div className={`pt-2 border-t ${isExpired ? 'border-red-300' : 'border-gray-200'}`}>
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div className={ox.rowBorderT(isExpired)}>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-2">
-                          <Calendar size={16} className={keepassExpired ? 'text-red-600' : 'text-gray-600'} />
-                          <p className="text-xs text-gray-500">
+                          <Calendar size={16} className={ox.calendarIcon(keepassExpired)} />
+                          <p className={ox.expLabelXs}>
                             Scadenza:{' '}
-                            <span className={`font-medium ${keepassExpired ? 'text-red-700' : 'text-gray-900'}`}>
+                            <span className={ox.expDateStrong(keepassExpired)}>
                               {formatDate(file.expires)}
                               {keepassExpired ? ' (scaduta)' : ''}
                             </span>
                           </p>
                         </div>
-                        <div className="flex items-center gap-1.5 flex-1 min-w-0 sm:max-w-xs">
-                          <span className="text-xs text-gray-500 shrink-0">Nota:</span>
+                        <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:max-w-xs">
+                          <span className={`${ox.expLabelXs} shrink-0`}>Nota:</span>
                           {isTecnico ? (
                             <input
                               type="text"
                               value={status.note}
                               onChange={(e) => saveNoteDebounced(file, e.target.value)}
                               placeholder="Aggiungi nota..."
-                              className={`flex-1 min-w-0 text-xs border rounded px-2 py-1 outline-none focus:ring-1 ${isExpired ? 'border-red-300 focus:ring-red-400 bg-red-50' : 'border-gray-300 focus:ring-blue-400'}`}
+                              className={ox.noteInput(isExpired)}
                             />
                           ) : (
-                            <span className="text-xs text-gray-700 truncate">{status.note || '-'}</span>
+                            <span className={ox.readNote}>{status.note || '-'}</span>
                           )}
                         </div>
                       </div>
@@ -1067,8 +1071,8 @@ const OfficePage = ({
 
                   {/* Apri ticket */}
                   {typeof onOpenTicket === 'function' && (
-                    <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between gap-3 flex-nowrap">
-                      <p className="text-xs text-gray-600 truncate min-w-0 flex-1">Hai un dubbio o un problema tecnico? Apri una richiesta di supporto</p>
+                    <div className={ox.footerTicketRow}>
+                      <p className={ox.ticketFootText}>Hai un dubbio o un problema tecnico? Apri una richiesta di supporto</p>
                       <button
                         type="button"
                         onClick={() => onOpenTicket({
@@ -1090,8 +1094,8 @@ const OfficePage = ({
                 })}
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-                <p className="text-gray-500 italic">Nessun file trovato nel gruppo Office</p>
+              <div className={ox.inlineErr}>
+                <p className={ox.inlineEmptyMsg}>Nessun file trovato nel gruppo Office</p>
               </div>
             )}
           </div>
@@ -1099,15 +1103,15 @@ const OfficePage = ({
 
         {!loading && !error && officeData && activeView === 'downloads' && (
           <div className="max-w-5xl mx-auto">
-            <div className="mb-4 bg-white border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
+            <div className={ox.rowBanner}>
               <div>
-                <p className="text-sm font-medium text-gray-900">Download Office</p>
-                <p className="text-xs text-gray-500">I tecnici possono creare e aggiornare i link. Gli utenti possono solo aprirli.</p>
+                <p className={ox.hSmBold}>Download Office</p>
+                <p className={ox.textMutedXs}>I tecnici possono creare e aggiornare i link. Gli utenti possono solo aprirli.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setActiveView('licenses')}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
+                className={ox.btnGhostNav}
               >
                 <ArrowLeft size={13} />
                 Torna a Office
@@ -1115,22 +1119,22 @@ const OfficePage = ({
             </div>
 
             {isTecnico && (
-              <div className="mb-4 bg-white border border-gray-200 rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Nuovo blocco download</h3>
+              <div className={ox.panelWhite}>
+                <h3 className={ox.panelHeading}>Nuovo blocco download</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                   <input
                     type="text"
                     value={newDownload.title}
                     onChange={(e) => setNewDownload((prev) => ({ ...prev, title: e.target.value }))}
                     placeholder="Titolo (es. Office 2024)"
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    className={ox.inp}
                   />
                   <input
                     type="text"
                     value={newDownload.description}
                     onChange={(e) => setNewDownload((prev) => ({ ...prev, description: e.target.value }))}
                     placeholder="Descrizione (opzionale)"
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    className={ox.inp}
                   />
                 </div>
                 <div className="space-y-2">
@@ -1141,20 +1145,20 @@ const OfficePage = ({
                         value={link.label}
                         onChange={(e) => updateNewLinkField(idx, 'label', e.target.value)}
                         placeholder="Etichetta link (es. Download 64bit)"
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        className={ox.inp}
                       />
                       <input
                         type="url"
                         value={link.url}
                         onChange={(e) => updateNewLinkField(idx, 'url', e.target.value)}
                         placeholder="https://..."
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        className={ox.inp}
                       />
                       <button
                         type="button"
                         onClick={() => removeNewLinkRow(idx)}
                         disabled={(newDownload.links || []).length <= 1}
-                        className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition-colors disabled:opacity-50"
+                        className={ox.btnRedGhost}
                       >
                         Rimuovi
                       </button>
@@ -1165,7 +1169,7 @@ const OfficePage = ({
                   <button
                     type="button"
                     onClick={addNewLinkRow}
-                    className="mr-2 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
+                    className={`mr-2 ${ox.btnGhostMd}`}
                   >
                     Aggiungi link
                   </button>
@@ -1183,20 +1187,20 @@ const OfficePage = ({
             )}
 
             {loadingDownloadLinks ? (
-              <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
-                <Loader size={24} className="animate-spin text-blue-600 mx-auto mb-2" />
-                <p className="text-sm text-gray-600">Caricamento link download...</p>
+              <div className={ox.panelLoading}>
+                <Loader size={24} className={ox.spinSm} />
+                <p className={ox.msgLoadingSm}>Caricamento link download...</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {downloadError && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                  <div className={ox.errStrip}>
                     {downloadError}
                   </div>
                 )}
                 {downloadLinks.length === 0 && !downloadError && (
-                  <div className="bg-white border border-gray-200 rounded-lg p-6 text-sm text-gray-500 italic">
-                    Nessun link download configurato per questa azienda
+                  <div className={ox.inlineErr}>
+                    <p className={ox.inlineEmptyMsg}>Nessun link download configurato per questa azienda</p>
                   </div>
                 )}
                 {downloadLinks.map((link) => {
@@ -1205,7 +1209,7 @@ const OfficePage = ({
                   return (
                     <div
                       key={link.id}
-                      className={`bg-white border rounded-lg p-4 transition-colors ${isDragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200'}`}
+                      className={ox.listCardDrag(isDragOver)}
                       draggable={isTecnico && !isEditing}
                       onDragStart={() => {
                         if (!isTecnico || isEditing) return;
@@ -1233,14 +1237,14 @@ const OfficePage = ({
                             value={editingDownload.title}
                             onChange={(e) => setEditingDownload((prev) => ({ ...prev, title: e.target.value }))}
                             placeholder="Titolo"
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                            className={ox.inp}
                           />
                           <input
                             type="text"
                             value={editingDownload.description}
                             onChange={(e) => setEditingDownload((prev) => ({ ...prev, description: e.target.value }))}
                             placeholder="Descrizione"
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                            className={ox.inp}
                           />
                           {(editingDownload.links || []).map((editLink, idx) => (
                             <div key={`edit-link-${idx}`} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
@@ -1249,20 +1253,20 @@ const OfficePage = ({
                                 value={editLink.label}
                                 onChange={(e) => updateEditingLinkField(idx, 'label', e.target.value)}
                                 placeholder="Etichetta link"
-                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                className={ox.inp}
                               />
                               <input
                                 type="url"
                                 value={editLink.url}
                                 onChange={(e) => updateEditingLinkField(idx, 'url', e.target.value)}
                                 placeholder="https://..."
-                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                className={ox.inp}
                               />
                               <button
                                 type="button"
                                 onClick={() => removeEditingLinkRow(idx)}
                                 disabled={(editingDownload.links || []).length <= 1}
-                                className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition-colors disabled:opacity-50"
+                                className={ox.btnRedGhost}
                               >
                                 Rimuovi
                               </button>
@@ -1271,24 +1275,24 @@ const OfficePage = ({
                           <button
                             type="button"
                             onClick={addEditingLinkRow}
-                            className="w-fit px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
+                            className={ox.btnGhostWFit}
                           >
                             Aggiungi link
                           </button>
                         </div>
                       ) : (
                         <div className="flex flex-col gap-1">
-                          <p className="text-sm font-semibold text-gray-900">{link.title}</p>
-                          {link.description ? <p className="text-xs text-gray-600">{link.description}</p> : null}
+                          <p className={ox.titleLink}>{link.title}</p>
+                          {link.description ? <p className={ox.descLink}>{link.description}</p> : null}
                           <div className="mt-1 space-y-1">
                             {(link.links || []).map((item, idx) => (
                               <div key={`${link.id}-item-${idx}`} className="flex items-center justify-between gap-3">
-                                <span className="text-xs text-gray-700 truncate">{item.label}</span>
+                                <span className={ox.lblLinkRow}>{item.label}</span>
                                 <a
                                   href={item.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="shrink-0 px-2 py-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors"
+                                  className={ox.linkOpenPill}
                                 >
                                   Apri
                                 </a>
@@ -1300,10 +1304,7 @@ const OfficePage = ({
 
                       <div className="mt-3 flex items-center gap-2">
                         {isTecnico && !isEditing && (
-                          <div
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-500 bg-gray-50 border border-gray-200 rounded"
-                            title="Trascina per riordinare"
-                          >
+                          <div className={ox.dragBadge} title="Trascina per riordinare">
                             <GripVertical size={12} />
                             Trascina
                           </div>
@@ -1329,7 +1330,7 @@ const OfficePage = ({
                                   : [{ label: '', url: '' }]
                               });
                             }}
-                            className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
+                            className={ox.btnGhostMd}
                           >
                             Modifica
                           </button>
@@ -1350,7 +1351,7 @@ const OfficePage = ({
                                 setEditingDownloadId(null);
                                 setEditingDownload({ title: '', description: '', links: [{ label: '', url: '' }] });
                               }}
-                              className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
+                              className={ox.btnGhostMd}
                             >
                               Annulla
                             </button>
@@ -1361,7 +1362,7 @@ const OfficePage = ({
                             type="button"
                             onClick={() => handleDeleteDownloadLink(link.id)}
                             disabled={savingDownload}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition-colors disabled:opacity-50"
+                            className={ox.btnDelDanger}
                           >
                             <Trash2 size={12} />
                             Elimina
@@ -1378,38 +1379,34 @@ const OfficePage = ({
 
         {!loading && !error && officeData && activeView === 'activations' && (
           <div className="max-w-5xl mx-auto">
-            <div className="mb-4 bg-white border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
+            <div className={ox.rowBanner}>
               <div>
-                <p className="text-sm font-medium text-gray-900">Guide attivazione Office</p>
-                <p className="text-xs text-gray-500">I tecnici possono creare e aggiornare le guide. Gli utenti possono solo aprire i link.</p>
+                <p className={ox.hSmBold}>Guide attivazione Office</p>
+                <p className={ox.textMutedXs}>I tecnici possono creare e aggiornare le guide. Gli utenti possono solo aprire i link.</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setActiveView('licenses')}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
-              >
+              <button type="button" onClick={() => setActiveView('licenses')} className={ox.btnGhostNav}>
                 <ArrowLeft size={13} />
                 Torna a Office
               </button>
             </div>
 
             {isTecnico && (
-              <div className="mb-4 bg-white border border-gray-200 rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Nuova guida attivazione</h3>
+              <div className={ox.panelWhite}>
+                <h3 className={ox.panelHeading}>Nuova guida attivazione</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                   <input
                     type="text"
                     value={newActivation.title}
                     onChange={(e) => setNewActivation((prev) => ({ ...prev, title: e.target.value }))}
                     placeholder="Titolo (es. Office 2024 Pro Plus)"
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    className={ox.inp}
                   />
                   <input
                     type="text"
                     value={newActivation.description}
                     onChange={(e) => setNewActivation((prev) => ({ ...prev, description: e.target.value }))}
                     placeholder="Descrizione (opzionale)"
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    className={ox.inp}
                   />
                 </div>
                 <div className="space-y-2">
@@ -1420,20 +1417,20 @@ const OfficePage = ({
                         value={link.label}
                         onChange={(e) => updateNewActivationLinkField(idx, 'label', e.target.value)}
                         placeholder="Etichetta link"
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        className={ox.inp}
                       />
                       <input
                         type="url"
                         value={link.url}
                         onChange={(e) => updateNewActivationLinkField(idx, 'url', e.target.value)}
                         placeholder="https://..."
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        className={ox.inp}
                       />
                       <button
                         type="button"
                         onClick={() => removeNewActivationLinkRow(idx)}
                         disabled={(newActivation.links || []).length <= 1}
-                        className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition-colors disabled:opacity-50"
+                        className={ox.btnRedGhost}
                       >
                         Rimuovi
                       </button>
@@ -1441,11 +1438,7 @@ const OfficePage = ({
                   ))}
                 </div>
                 <div className="mt-3">
-                  <button
-                    type="button"
-                    onClick={addNewActivationLinkRow}
-                    className="mr-2 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
-                  >
+                  <button type="button" onClick={addNewActivationLinkRow} className={`mr-2 ${ox.btnGhostMd}`}>
                     Aggiungi link
                   </button>
                   <button
@@ -1462,20 +1455,16 @@ const OfficePage = ({
             )}
 
             {loadingActivationGuides ? (
-              <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
-                <Loader size={24} className="animate-spin text-blue-600 mx-auto mb-2" />
-                <p className="text-sm text-gray-600">Caricamento guide attivazione...</p>
+              <div className={ox.panelLoading}>
+                <Loader size={24} className={ox.spinSm} />
+                <p className={ox.msgLoadingSm}>Caricamento guide attivazione...</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {activationError && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
-                    {activationError}
-                  </div>
-                )}
+                {activationError && <div className={ox.errStrip}>{activationError}</div>}
                 {activationGuides.length === 0 && !activationError && (
-                  <div className="bg-white border border-gray-200 rounded-lg p-6 text-sm text-gray-500 italic">
-                    Nessuna guida attivazione configurata per questa azienda
+                  <div className={ox.inlineErr}>
+                    <p className={ox.inlineEmptyMsg}>Nessuna guida attivazione configurata per questa azienda</p>
                   </div>
                 )}
                 {activationGuides.map((guide) => {
@@ -1484,7 +1473,7 @@ const OfficePage = ({
                   return (
                     <div
                       key={guide.id}
-                      className={`bg-white border rounded-lg p-4 transition-colors ${isDragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200'}`}
+                      className={ox.listCardDrag(isDragOver)}
                       draggable={isTecnico && !isEditing}
                       onDragStart={() => {
                         if (!isTecnico || isEditing) return;
@@ -1512,14 +1501,14 @@ const OfficePage = ({
                             value={editingActivation.title}
                             onChange={(e) => setEditingActivation((prev) => ({ ...prev, title: e.target.value }))}
                             placeholder="Titolo"
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                            className={ox.inp}
                           />
                           <input
                             type="text"
                             value={editingActivation.description}
                             onChange={(e) => setEditingActivation((prev) => ({ ...prev, description: e.target.value }))}
                             placeholder="Descrizione"
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                            className={ox.inp}
                           />
                           {(editingActivation.links || []).map((editLink, idx) => (
                             <div key={`edit-activation-link-${idx}`} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
@@ -1528,46 +1517,42 @@ const OfficePage = ({
                                 value={editLink.label}
                                 onChange={(e) => updateEditingActivationLinkField(idx, 'label', e.target.value)}
                                 placeholder="Etichetta link"
-                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                className={ox.inp}
                               />
                               <input
                                 type="url"
                                 value={editLink.url}
                                 onChange={(e) => updateEditingActivationLinkField(idx, 'url', e.target.value)}
                                 placeholder="https://..."
-                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                className={ox.inp}
                               />
                               <button
                                 type="button"
                                 onClick={() => removeEditingActivationLinkRow(idx)}
                                 disabled={(editingActivation.links || []).length <= 1}
-                                className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition-colors disabled:opacity-50"
+                                className={ox.btnRedGhost}
                               >
                                 Rimuovi
                               </button>
                             </div>
                           ))}
-                          <button
-                            type="button"
-                            onClick={addEditingActivationLinkRow}
-                            className="w-fit px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
-                          >
+                          <button type="button" onClick={addEditingActivationLinkRow} className={ox.btnGhostWFit}>
                             Aggiungi link
                           </button>
                         </div>
                       ) : (
                         <div className="flex flex-col gap-1">
-                          <p className="text-sm font-semibold text-gray-900">{guide.title}</p>
-                          {guide.description ? <p className="text-xs text-gray-600">{guide.description}</p> : null}
+                          <p className={ox.titleLink}>{guide.title}</p>
+                          {guide.description ? <p className={ox.descLink}>{guide.description}</p> : null}
                           <div className="mt-1 space-y-1">
                             {(guide.links || []).map((item, idx) => (
                               <div key={`${guide.id}-activation-item-${idx}`} className="flex items-center justify-between gap-3">
-                                <span className="text-xs text-gray-700 truncate">{item.label}</span>
+                                <span className={ox.lblLinkRow}>{item.label}</span>
                                 <a
                                   href={item.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="shrink-0 px-2 py-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors"
+                                  className={ox.linkOpenPill}
                                 >
                                   Apri
                                 </a>
@@ -1579,10 +1564,7 @@ const OfficePage = ({
 
                       <div className="mt-3 flex items-center gap-2">
                         {isTecnico && !isEditing && (
-                          <div
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-500 bg-gray-50 border border-gray-200 rounded"
-                            title="Trascina per riordinare"
-                          >
+                          <div className={ox.dragBadge} title="Trascina per riordinare">
                             <GripVertical size={12} />
                             Trascina
                           </div>
@@ -1608,7 +1590,7 @@ const OfficePage = ({
                                   : [{ label: '', url: '' }]
                               });
                             }}
-                            className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
+                            className={ox.btnGhostMd}
                           >
                             Modifica
                           </button>
@@ -1629,7 +1611,7 @@ const OfficePage = ({
                                 setEditingActivationId(null);
                                 setEditingActivation({ title: '', description: '', links: [{ label: '', url: '' }] });
                               }}
-                              className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
+                              className={ox.btnGhostMd}
                             >
                               Annulla
                             </button>
@@ -1640,7 +1622,7 @@ const OfficePage = ({
                             type="button"
                             onClick={() => handleDeleteActivationGuide(guide.id)}
                             disabled={savingActivation}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition-colors disabled:opacity-50"
+                            className={ox.btnDelDanger}
                           >
                             <Trash2 size={12} />
                             Elimina
