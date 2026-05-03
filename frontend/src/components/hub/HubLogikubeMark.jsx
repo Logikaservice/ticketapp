@@ -14,6 +14,19 @@ const KUBE_CLIP_X = 705;
 const ICON_MARK_VIEWBOX = '158 268 252 268';
 
 /**
+ * Solo icona wireframe (stesso taglio della sidebar rail), per login / badge.
+ * Se `fill` è omesso, il path usa `currentColor` (es. `fill-[color:var(--hub-accent)]` sul `<svg>`).
+ * @param {{ className?: string, fill?: string }} p
+ */
+export function LogikubeWireIcon({ className = '', fill }) {
+  return (
+    <svg viewBox={ICON_MARK_VIEWBOX} className={className} overflow="hidden" aria-hidden>
+      <path fill={fill ?? 'currentColor'} d={LOGIKUBE_WORDMARK_PATH} />
+    </svg>
+  );
+}
+
+/**
  * Wordmark Logikube (SVG brand in repo: `src/assets/logikube-wordmark.svg`).
  * — Base in `var(--hub-chrome-text)` (leggibile su tema chiaro/scuro).
  * — Il tratto a destra di `KUBE_CLIP_X` è ridisegnato in `var(--hub-accent)` con glow (come concordato per “KUBE”).
@@ -24,13 +37,7 @@ export default function HubLogikubeMark({ railMode = false, className = '' }) {
   if (railMode) {
     return (
       <div className={`flex w-full justify-center ${className}`} role="img" aria-label="Logikube">
-        <svg
-          viewBox={ICON_MARK_VIEWBOX}
-          className="h-[2.65rem] w-[2.65rem] shrink-0 overflow-hidden fill-[color:var(--hub-accent)] [filter:drop-shadow(0_0_10px_var(--hub-accent-glow))]"
-          aria-hidden
-        >
-          <path d={LOGIKUBE_WORDMARK_PATH} />
-        </svg>
+        <LogikubeWireIcon className="h-[2.65rem] w-[2.65rem] shrink-0 text-[color:var(--hub-accent)] [filter:drop-shadow(0_0_10px_var(--hub-accent-glow))]" />
       </div>
     );
   }

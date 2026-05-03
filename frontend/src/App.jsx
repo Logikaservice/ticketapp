@@ -3766,8 +3766,9 @@ export default function TicketApp() {
               buttonColor: 'bg-emerald-600 hover:bg-emerald-700',
               linkColor: 'text-emerald-600 hover:text-emerald-800'
             } : {
-              title: 'Sistema Ticketing',
-              subtitle: 'Accedi per gestire i tuoi ticket',
+              useLogikubeHeader: true,
+              title: 'Sistema LOGIKUBE',
+              subtitle: "La complessità con Logika. Effettua l'accesso",
               bgGradient: 'from-sky-400 to-sky-600',
               iconBgColor: 'bg-sky-100',
               iconColor: 'text-sky-500',
