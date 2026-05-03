@@ -11,7 +11,7 @@ const LoginScreen = ({
   handleLogin,
   onQuickRequest,
   existingClients = [],
-  /** Ticket: logo Logikube (blu) + titolo “Sistema LOGIKUBE” con “kube” evidenziato. */
+  /** Ticket: logo Logikube (blu) + titolo “Sistema LOGIKUBE” con “KUBE” evidenziato. */
   useLogikubeHeader = false,
   // Props per personalizzazione
   title = 'Sistema LOGIKUBE',
@@ -152,7 +152,9 @@ const LoginScreen = ({
             <h1 className="text-2xl sm:text-2xl md:text-3xl font-bold text-gray-900">
               {useLogikubeHeader ? (
                 <>
-                  Sistema LOGI<span className="text-sky-400">KUBE</span>
+                  Sistema{' '}
+                  <span className="text-gray-900">LOGI</span>
+                  <span className="text-sky-600">KUBE</span>
                 </>
               ) : (
                 title
