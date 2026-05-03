@@ -3,7 +3,17 @@ import { X, MessageSquare, Check, AlertTriangle, Clock, Calendar, Trash2, Edit2,
 import { formatDate, formatTimeLogDate } from '../utils/formatters';
 import { formatTimeIntervals, normalizeTimeLog, calculateTotalHoursFromIntervals } from '../utils/helpers';
 
-const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessage, handleDeleteMessage, handleUpdateMessage, handleChangeStatus, users = [] }) => {
+const ChatInterface = ({
+  ticket,
+  currentUser,
+  setSelectedTicket,
+  handleSendMessage,
+  handleDeleteMessage,
+  handleUpdateMessage,
+  handleChangeStatus,
+  users = [],
+  hubEmbed = false
+}) => {
   const [newMessage, setNewMessage] = useState('');
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editingContent, setEditingContent] = useState('');
@@ -149,25 +159,46 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
     return 'delivered'; // Due spunte grigie
   };
 
+  const H = hubEmbed === true;
+
   return (
-    <div className="bg-white rounded-xl shadow-lg border-t">
-      <div className="p-4 border-b flex items-center justify-between bg-blue-50 rounded-t-xl">
-        <h3 className="font-bold text-lg">Conversazione Ticket {ticket.numero}</h3>
-        <button 
+    <div
+      className={
+        H
+          ? 'rounded-b-xl border-x border-b border-white/[0.08] bg-[#171717]'
+          : 'rounded-xl border-t bg-white shadow-lg'
+      }
+    >
+      <div
+        className={
+          H
+            ? 'flex items-center justify-between border-b border-white/[0.08] bg-black/35 px-4 py-3'
+            : 'flex items-center justify-between rounded-t-xl border-b bg-blue-50 p-4'
+        }
+      >
+        <h3 className={`font-bold text-lg ${H ? 'text-white' : ''}`}>Conversazione Ticket {ticket.numero}</h3>
+        <button
           onClick={(e) => {
             e.stopPropagation();
             setSelectedTicket(null);
-          }} 
-          className="text-gray-500 hover:text-gray-700"
+          }}
+          type="button"
+          className={H ? 'text-white/55 transition hover:text-white' : 'text-gray-500 hover:text-gray-700'}
         >
           <X size={20} />
         </button>
       </div>
 
-      <div className="p-4 max-h-[50vh] overflow-y-auto space-y-3">
+      <div className={`space-y-3 overflow-y-auto p-4 ${H ? 'max-h-[50vh] bg-[#171717]' : 'max-h-[50vh] bg-white'}`}>
         {ticket.timeLogs && ticket.timeLogs.length > 0 && (
-          <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg mt-4 space-y-3">
-            <h4 className="font-bold text-sm text-blue-800 flex items-center gap-2">
+          <div
+            className={
+              H
+                ? 'mt-4 space-y-3 rounded-lg border-l-4 border-sky-500/45 bg-sky-500/10 p-4'
+                : 'mt-4 space-y-3 rounded-lg border-l-4 border-blue-400 bg-blue-50 p-4'
+            }
+          >
+            <h4 className={`flex items-center gap-2 text-sm font-bold ${H ? 'text-sky-100' : 'text-blue-800'}`}>
               <Clock size={16} />
               Log Interventi
             </h4>
@@ -203,17 +234,38 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                 const timeIntervalsFormatted = formatTimeIntervals(log);
 
                 return (
-                  <div key={index} className="bg-white p-3 rounded-lg border">
-                    <div className="flex justify-between items-center text-sm mb-2 pb-1 border-b">
-                      <span className="font-bold text-blue-600 flex items-center gap-1">
+                  <div
+                    key={index}
+                    className={
+                      H
+                        ? 'rounded-lg border border-white/[0.1] bg-black/30 p-3'
+                        : 'rounded-lg border bg-white p-3'
+                    }
+                  >
+                    <div
+                      className={`mb-2 flex items-center justify-between border-b pb-1 text-sm ${
+                        H ? 'border-white/[0.1]' : ''
+                      }`}
+                    >
+                      <span
+                        className={`flex items-center gap-1 font-bold ${H ? 'text-sky-300' : 'text-blue-600'}`}
+                      >
                         <Calendar size={14} />
                         {formatTimeLogDate(log.data)}
                       </span>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold bg-gray-100 px-2 py-1 rounded-full text-sm">
+                        <span
+                          className={`rounded-full px-2 py-1 text-sm font-bold ${
+                            H ? 'bg-white/10 text-white/88' : 'bg-gray-100'
+                          }`}
+                        >
                           {timeIntervalsFormatted}
                         </span>
-                        <span className="font-bold bg-gray-100 px-2 py-1 rounded-full text-sm">
+                        <span
+                          className={`rounded-full px-2 py-1 text-sm font-bold ${
+                            H ? 'bg-white/10 text-white/88' : 'bg-gray-100'
+                          }`}
+                        >
                           Durata: {duration}
                         </span>
                       </div>
@@ -284,26 +336,26 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
               let alignmentClass = '';
               
               if (isReclamo) {
-                messageColorClass = 'bg-red-50 border-2 border-red-500';
-                textColorClass = 'text-red-900';
+                messageColorClass = H ? 'border-2 border-red-400 bg-red-500/25' : 'bg-red-50 border-2 border-red-500';
+                textColorClass = H ? 'text-red-100' : 'text-red-900';
                 alignmentClass = 'text-left';
               } else if (isTecnico) {
-                messageColorClass = 'bg-green-600 text-white';
+                messageColorClass = H ? 'border border-emerald-500/40 bg-emerald-600/85 text-white' : 'bg-green-600 text-white';
                 textColorClass = 'text-white';
                 alignmentClass = 'text-right';
               } else if (isRichiedenteOriginale) {
-                messageColorClass = 'bg-gray-100';
-                textColorClass = 'text-gray-800';
+                messageColorClass = H ? 'border border-white/[0.12] bg-white/[0.09]' : 'bg-gray-100';
+                textColorClass = H ? 'text-white/88' : 'text-gray-800';
                 alignmentClass = 'text-left';
               } else if (isAmministratore) {
-                // Amministratore che scrive (non è il richiedente originale)
-                messageColorClass = 'bg-blue-100 border-2 border-blue-300';
-                textColorClass = 'text-blue-900';
+                messageColorClass = H
+                  ? 'border-2 border-sky-500/45 bg-sky-500/20'
+                  : 'bg-blue-100 border-2 border-blue-300';
+                textColorClass = H ? 'text-sky-50' : 'text-blue-900';
                 alignmentClass = 'text-left';
               } else {
-                // Fallback
-                messageColorClass = 'bg-gray-100';
-                textColorClass = 'text-gray-800';
+                messageColorClass = H ? 'border border-white/[0.08] bg-white/[0.07]' : 'bg-gray-100';
+                textColorClass = H ? 'text-white/85' : 'text-gray-800';
                 alignmentClass = 'text-left';
               }
               
@@ -331,12 +383,20 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                         e.currentTarget.style.height = 'auto';
                         e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
                       }}
-                      className={`w-full px-4 py-3 border-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden whitespace-pre-wrap ${
-                        m.reclamo 
-                          ? 'bg-red-50 border-red-500 text-red-900'
+                      className={`w-full rounded-lg border-2 px-4 py-3 text-sm outline-none focus:ring-2 ${
+                        H ? 'focus:ring-[color:var(--hub-accent)]' : 'focus:ring-blue-500'
+                      } resize-none overflow-hidden whitespace-pre-wrap ${
+                        m.reclamo
+                          ? H
+                            ? 'border-red-400 bg-red-500/20 text-red-100'
+                            : 'border-red-500 bg-red-50 text-red-900'
                           : m.autore === ticket.nomerichiedente || m.autore === 'Cliente'
-                            ? 'bg-gray-100 border-gray-300 text-gray-900'
-                            : 'bg-blue-50 border-blue-300 text-gray-900'
+                            ? H
+                              ? 'border-white/20 bg-black/30 text-white/90'
+                              : 'border-gray-300 bg-gray-100 text-gray-900'
+                            : H
+                              ? 'border-sky-500/40 bg-sky-500/15 text-white/90'
+                              : 'border-blue-300 bg-blue-50 text-gray-900'
                       }`}
                       rows={1}
                       autoFocus
@@ -345,7 +405,11 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                     <div className="flex gap-2 justify-end">
                       <button
                         onClick={handleCancelEdit}
-                        className="px-3 py-2 text-sm bg-gray-200 hover:bg-gray-300 rounded transition-colors flex items-center gap-1"
+                        className={
+                          H
+                            ? 'flex items-center gap-1 rounded bg-white/10 px-3 py-2 text-sm text-white/88 transition hover:bg-white/15'
+                            : 'flex items-center gap-1 rounded bg-gray-200 px-3 py-2 text-sm transition-colors hover:bg-gray-300'
+                        }
                       >
                         <XIcon size={14} />
                         Annulla
@@ -353,7 +417,9 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                       <button
                         onClick={handleSaveEdit}
                         disabled={!editingContent.trim()}
-                        className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                        className={`flex items-center gap-1 rounded px-3 py-2 text-sm text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                          H ? 'bg-[color:var(--hub-accent)] text-white hover:brightness-110' : 'bg-blue-600 hover:bg-blue-700'
+                        }`}
                       >
                         <Save size={14} />
                         Salva
@@ -370,7 +436,9 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                           const container = e.currentTarget.closest('.inline-block');
                           handleStartEdit(m, container);
                         }}
-                        className="absolute top-2 right-2 p-1 rounded hover:bg-blue-200 transition-colors"
+                        className={`absolute right-2 top-2 rounded p-1 transition-colors ${
+                          H ? 'hover:bg-white/10' : 'hover:bg-blue-200'
+                        }`}
                         title="Modifica messaggio"
                       >
                         <Edit2 size={14} className={m.autore === ticket.nomerichiedente || m.autore === 'Cliente' ? 'text-blue-600' : 'text-white'} />
@@ -383,7 +451,9 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                             handleDeleteMessage(ticket.id, m.id);
                           }
                         }}
-                        className={`absolute ${canEditMessage(m) && handleUpdateMessage ? 'top-2 right-10' : 'top-2 right-2'} p-1 rounded hover:bg-red-200 transition-colors`}
+                        className={`absolute p-1 transition-colors ${
+                          canEditMessage(m) && handleUpdateMessage ? 'right-10 top-2' : 'right-2 top-2'
+                        } ${H ? 'rounded hover:bg-red-500/25' : 'rounded hover:bg-red-200'}`}
                         title="Elimina messaggio"
                       >
                         <Trash2 size={14} className={m.autore === ticket.nomerichiedente || m.autore === 'Cliente' ? 'text-red-600' : 'text-white'} />
@@ -453,17 +523,21 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
       </div>
 
       {!['chiuso', 'fatturato', 'inviato'].includes(ticket.stato) && (
-        <div className="p-4 border-t">
+        <div className={H ? 'border-t border-white/[0.08] p-4 bg-[#171717]' : 'border-t p-4'}>
           {currentUser.ruolo === 'cliente' && ticket.stato === 'risolto' ? (
             <div className="space-y-3">
-              <div className="bg-yellow-50 border p-3 text-sm">
+              <div
+                className={
+                  H ? 'rounded-lg border border-amber-500/35 bg-amber-500/12 p-3 text-sm text-amber-50' : 'border bg-yellow-50 p-3 text-sm'
+                }
+              >
                 <p className="font-medium">Intervento risolto.</p>
                 <p className="mt-1">Puoi Accettare o inviare un Reclamo.</p>
               </div>
 
               <button
                 onClick={() => handleChangeStatus(ticket.id, 'chiuso')}
-                className="w-full px-4 py-3 bg-green-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-3 font-bold text-white"
               >
                 <Check size={18} />
                 Accetta e Chiudi
@@ -475,9 +549,17 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                   onChange={(e) => setNewMessage(e.target.value)}
                   placeholder="Motivo del reclamo..."
                   rows={3}
-                  className="w-full px-3 py-2 border-2 border-red-500 bg-red-50 rounded-lg placeholder-red-400"
+                  className={
+                    H
+                      ? 'w-full rounded-lg border-2 border-red-500 bg-red-500/15 px-3 py-2 text-white placeholder-red-300/70'
+                      : 'w-full rounded-lg border-2 border-red-500 bg-red-50 px-3 py-2 placeholder-red-400'
+                  }
                 />
-                <div className="absolute top-2 right-2 bg-red-100 px-2 py-1 text-xs font-bold text-red-700 flex items-center gap-1">
+                <div
+                  className={`absolute right-2 top-2 flex items-center gap-1 px-2 py-1 text-xs font-bold ${
+                    H ? 'rounded bg-red-500/35 text-red-100' : 'bg-red-100 text-red-700'
+                  }`}
+                >
                   <AlertTriangle size={12} />
                   RECLAMO
                 </div>
@@ -509,13 +591,19 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                   }}
                   placeholder="Scrivi messaggio... (Invio per inviare, Shift+Invio per nuova riga)"
                   rows={1}
-                  className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden text-sm whitespace-pre-wrap"
+                  className={`flex-1 rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 resize-none overflow-hidden whitespace-pre-wrap ${
+                    H
+                      ? 'border-white/[0.15] bg-black/35 text-white placeholder:text-white/40 focus:ring-[color:var(--hub-accent)]'
+                      : 'border-gray-300 focus:ring-blue-500'
+                  }`}
                   style={{ minHeight: '48px', maxHeight: '200px' }}
                 />
                 <button
                   onClick={() => onSendMessage(false)}
                   disabled={!newMessage.trim()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  className={`rounded-lg px-4 py-2 text-white disabled:opacity-50 ${
+                    H ? 'bg-[color:var(--hub-accent)] text-white hover:brightness-110' : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
                 >
                   <MessageSquare size={18} />
                 </button>
@@ -537,7 +625,13 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
       )}
 
       {['chiuso', 'fatturato', 'inviato'].includes(ticket.stato) && (
-        <div className="p-4 border-t bg-gray-50 text-center text-gray-600 font-medium rounded-b-xl">
+        <div
+          className={
+            H
+              ? 'rounded-b-xl border-t border-white/[0.08] bg-black/30 p-4 text-center text-sm font-medium text-white/55'
+              : 'rounded-b-xl border-t bg-gray-50 p-4 text-center font-medium text-gray-600'
+          }
+        >
           {ticket.stato === 'chiuso' && (
             <span>Ticket chiuso il {formatDate(ticket.datachiusura)}.</span>
           )}

@@ -5,7 +5,7 @@ import { formatDate } from '../utils/formatters';
 import ChatInterface from './ChatInterface';
 import { generateSingleTicketHTML } from '../utils/reportGenerator';
 
-const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, getUnreadCount, users = [] }) => {
+const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, getUnreadCount, users = [], hubEmbed = false }) => {
   // console.log debug rimosso
   
   const {
@@ -44,8 +44,16 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
   const canManagePhotos = allowedPhotoStates.includes(ticket.stato);
   const photos = ticket.photos || [];
   const hasPhotos = photos.length > 0;
-  
-  // Icona graffetta sempre visibile quando ci sono file allegati (indipendentemente dallo stato)
+  const H = hubEmbed === true;
+  const ib = {
+    mute: `rounded-full p-1 ${H ? 'text-white/65 hover:bg-white/[0.1]' : 'text-gray-600 hover:bg-gray-100'}`,
+    blue: `rounded-full p-1 ${H ? 'text-sky-400 hover:bg-white/[0.1]' : 'text-blue-500 hover:bg-blue-100'}`,
+    yellow: `rounded-full p-1 ${H ? 'text-amber-300 hover:bg-white/[0.1]' : 'text-yellow-500 hover:bg-yellow-100'}`,
+    green: `rounded-full p-1 ${H ? 'text-emerald-400 hover:bg-white/[0.1]' : 'text-green-500 hover:bg-green-100'}`,
+    indigo: `rounded-full p-1 ${H ? 'text-indigo-300 hover:bg-white/[0.1]' : 'text-indigo-500 hover:bg-indigo-100'}`,
+    red: `rounded-full p-1 ${H ? 'text-red-400 hover:bg-red-500/20' : 'text-red-500 hover:bg-red-100'}`,
+    dis: `cursor-not-allowed rounded-full p-1 ${H ? 'text-white/30' : 'text-gray-400'}`
+  };
 
   const handlePrint = (e) => {
     e.stopPropagation();
@@ -70,15 +78,32 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
     }
   };
 
+  const rowBase = `relative cursor-pointer overflow-hidden border-b transition-colors transition-shadow ${
+    H ? 'border-white/[0.07]' : 'border-gray-200'
+  } `;
+  let rowTone = '';
+  if (ticket.isNew) {
+    rowTone = H
+      ? 'border-amber-500/35 bg-amber-500/15 shadow-md animate-pulse-slow hover:bg-amber-500/22'
+      : 'border-yellow-300 bg-yellow-50 shadow-md animate-pulse-slow hover:bg-yellow-100';
+  } else if (selectedTicket?.id === ticket.id) {
+    rowTone = H ? 'border-[color:var(--hub-accent-border)] bg-white/[0.1]' : 'border-blue-300 bg-blue-100';
+  } else {
+    rowTone = H ? 'border-transparent bg-black/20 hover:bg-white/[0.06]' : 'border-transparent bg-white hover:bg-gray-50';
+  }
+  const rowUnread =
+    hasUnread && selectedTicket?.id !== ticket.id
+      ? H
+        ? 'animate-pulse-slow border-l-4 border-yellow-400 bg-amber-500/12 shadow-lg'
+        : 'animate-pulse-slow border-l-4 border-yellow-400 bg-yellow-50 shadow-lg'
+      : '';
+
   return (
     <>
       <div
         data-ticket-id={ticket.id}
         onClick={() => handleSelectTicket(ticket)}
-        className={'cursor-pointer border-b relative overflow-hidden transition-shadow transition-colors ' + 
-  (ticket.isNew ? 'bg-yellow-50 border-yellow-300 animate-pulse-slow shadow-md hover:bg-yellow-100' : 
-   selectedTicket?.id === ticket.id ? 'bg-blue-100 border-blue-300' : 'bg-white hover:bg-gray-50') + ' ' +
-  (hasUnread && selectedTicket?.id !== ticket.id ? 'border-l-4 border-yellow-400 shadow-lg animate-pulse-slow bg-yellow-50' : '')}
+        className={`${rowBase} ${rowTone} ${rowUnread}`}
       >
         <div className="p-4 pl-5 relative">
           <div className={'absolute top-0 left-0 h-full w-1 ' + getPrioritySolidBgClass(ticket.priorita)}></div>
@@ -86,12 +111,20 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <span className="text-sm font-mono text-gray-500 font-semibold">{ticket.numero}</span>
+                <span
+                  className={`text-sm font-mono font-semibold ${H ? 'text-white/45' : 'text-gray-500'}`}
+                >
+                  {ticket.numero}
+                </span>
                 
                 {currentUser.ruolo === 'tecnico' && (
                   (cliente && cliente.azienda) || ticket.cliente_azienda
                 ) && (
-                  <span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800 flex items-center gap-1">
+                  <span
+                    className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
+                      H ? 'bg-purple-500/25 text-purple-100' : 'bg-purple-100 text-purple-800'
+                    }`}
+                  >
                     <User size={12} />
                     {cliente?.azienda || ticket.cliente_azienda || 'Senza azienda'}
                   </span>
@@ -103,34 +136,44 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
                 </span>
 
                 {hasUnread && (
-                  <span className="px-2 py-0.5 text-xs rounded-full bg-yellow-500 text-white font-bold flex items-center gap-1 animate-bounce">
+                  <span className="flex animate-bounce items-center gap-1 rounded-full bg-yellow-500 px-2 py-0.5 text-xs font-bold text-white">
                     💬 {unreadCount}
                   </span>
                 )}
                 
                 {/* Badge per presenza di commenti (anche se letti) */}
                 {hasMessages && !hasUnread && (
-                  <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-medium flex items-center gap-1" title={`${messagesCount} commento${messagesCount !== 1 ? 'i' : ''}`}>
+                  <span
+                    className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                      H ? 'bg-sky-500/20 text-sky-100' : 'bg-blue-100 text-blue-700'
+                    }`}
+                    title={`${messagesCount} commento${messagesCount !== 1 ? 'i' : ''}`}
+                  >
                     💬 {messagesCount}
                   </span>
                 )}
                 
                 {/* Badge per presenza di file allegati (sempre visibile) */}
                 {hasPhotos && (
-                  <span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-700 font-medium flex items-center gap-1" title={`${photos.length} file allegato${photos.length !== 1 ? 'i' : ''}`}>
+                  <span
+                    className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                      H ? 'bg-fuchsia-500/20 text-fuchsia-100' : 'bg-purple-100 text-purple-700'
+                    }`}
+                    title={`${photos.length} file allegato${photos.length !== 1 ? 'i' : ''}`}
+                  >
                     <Paperclip size={12} />
                     {photos.length}
                   </span>
                 )}
               </div>
 
-              <h3 className="text-lg font-bold">{ticket.titolo}</h3>
-              
-              <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+              <h3 className={`text-lg font-bold ${H ? 'text-white/95' : ''}`}>{ticket.titolo}</h3>
+
+              <p className={`mt-1 line-clamp-2 text-sm ${H ? 'text-white/58' : 'text-gray-600'}`}>
                 Richiedente: <span className="font-semibold">{ticket.nomerichiedente}</span> - {ticket.descrizione}
               </p>
 
-              <div className="flex items-center gap-3 mt-2 text-xs text-gray-500 flex-wrap">
+              <div className={`mt-2 flex flex-wrap items-center gap-3 text-xs ${H ? 'text-white/45' : 'text-gray-500'}`}>
                 <span className={'flex items-center gap-1 font-medium ' + getPrioritaColor(ticket.priorita)}>
                   <AlertCircle size={14} />
                   {ticket.priorita.toUpperCase()}
@@ -169,11 +212,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
                     setPhotosModalTicket(ticket);
                   }}
                   title={hasPhotos ? `Visualizza file (${photos.length})` : 'Aggiungi file'}
-                  className={`p-1 rounded-full relative ${
-                    hasPhotos 
-                      ? 'text-purple-600 hover:bg-purple-100' 
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
+                  className={`relative ${hasPhotos ? (H ? 'rounded-full p-1 text-fuchsia-300 hover:bg-white/10' : 'rounded-full p-1 text-purple-600 hover:bg-purple-100') : ib.mute}`}
                 >
                   <Paperclip size={18} />
                   {hasPhotos && (
@@ -188,7 +227,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
               <button
                 onClick={handlePrint}
                 title="Stampa ticket"
-                className="p-1 rounded-full text-gray-600 hover:bg-gray-100"
+                className={ib.mute}
               >
                 <Printer size={18} />
               </button>
@@ -197,7 +236,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
                   <button
                     onClick={(e) => { e.stopPropagation(); handleOpenEditModal(ticket); }}
                     title="Modifica ticket"
-                    className="p-1 rounded-full text-blue-500 hover:bg-blue-100"
+                    className={ib.blue}
                   >
                     <Settings size={18} />
                   </button>
@@ -209,21 +248,21 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
                       <button
                         onClick={(e) => { e.stopPropagation(); handleResendEmail && handleResendEmail(ticket); }}
                         title="Rinvia email"
-                        className="p-1 rounded-full text-blue-500 hover:bg-blue-100"
+                        className={ib.blue}
                       >
                         <Mail size={18} />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleReopenInLavorazione(ticket.id); }}
                         title="Riapri"
-                        className="p-1 rounded-full text-yellow-500 hover:bg-yellow-100"
+                        className={ib.yellow}
                       >
                         <CornerDownLeft size={18} />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleChangeStatus(ticket.id, 'chiuso'); }}
                         title="Chiudi"
-                        className="p-1 rounded-full text-green-500 hover:bg-green-100"
+                        className={ib.green}
                       >
                         <Check size={18} />
                       </button>
@@ -235,14 +274,14 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
                       <button
                         onClick={(e) => { e.stopPropagation(); handleReopenAsRisolto(ticket.id); }}
                         title="Sposta in Risolto"
-                        className="p-1 rounded-full text-yellow-500 hover:bg-yellow-100"
+                        className={ib.yellow}
                       >
                         <CornerDownLeft size={18} />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleSetInviato(ticket.id); }}
                         title="Invia"
-                        className="p-1 rounded-full text-green-500 hover:bg-green-100"
+                        className={ib.green}
                       >
                         <Check size={18} />
                       </button>
@@ -254,14 +293,14 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
                       <button
                         onClick={(e) => { e.stopPropagation(); handleArchiveTicket(ticket.id); }}
                         title="Archivia"
-                        className="p-1 rounded-full text-yellow-500 hover:bg-yellow-100"
+                        className={ib.yellow}
                       >
                         <CornerDownLeft size={18} />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleInvoiceTicket(ticket.id); }}
                         title="Fattura"
-                        className="p-1 rounded-full text-indigo-500 hover:bg-indigo-100"
+                        className={ib.indigo}
                       >
                         <Euro size={18} />
                       </button>
@@ -272,7 +311,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
                     <button
                       onClick={(e) => { e.stopPropagation(); handleSetInviato(ticket.id); }}
                       title="Riporta a Inviato"
-                      className="p-1 rounded-full text-yellow-500 hover:bg-yellow-100"
+                      className={ib.yellow}
                     >
                       <CornerDownLeft size={18} />
                     </button>
@@ -282,7 +321,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
                     <button
                       onClick={(e) => { e.stopPropagation(); handleInvoiceTicket(ticket.id); }}
                       title="Fattura"
-                      className="p-1 rounded-full text-indigo-500 hover:bg-indigo-100"
+                      className={ib.indigo}
                     >
                       <Euro size={18} />
                     </button>
@@ -301,7 +340,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
                     }
                   }}
                   title={!canDelete && currentUser.ruolo === 'cliente' ? 'Non eliminabile' : 'Elimina'}
-                  className={'p-1 rounded-full ' + (canDelete ? 'text-red-500 hover:bg-red-100' : 'text-gray-400 cursor-not-allowed')}
+                  className={canDelete ? ib.red : ib.dis}
                 >
                   <Trash2 size={18} />
                 </button>
@@ -317,10 +356,14 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
                 console.log('🔍 DEBUG FORNITURE: Pulsante cliccato per ticket:', ticket.id, ticket.numero);
                 handleOpenForniture(ticket);
               }}
-              className={`absolute bottom-2 right-2 p-2 rounded-full shadow-lg transition-all ${
+              className={`absolute bottom-2 right-2 rounded-full p-2 shadow-lg transition-all ${
                 ticket.fornitureCount > 0
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-gray-300 text-gray-600 hover:bg-gray-400'
+                  ? H
+                    ? 'bg-[color:var(--hub-accent)] text-[#121212] hover:brightness-110'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                  : H
+                    ? 'bg-white/15 text-white/75 hover:bg-white/25'
+                    : 'bg-gray-300 text-gray-600 hover:bg-gray-400'
               }`}
               title="Forniture Temporanee"
             >
@@ -341,7 +384,11 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
               e.stopPropagation(); // non aprire/chiudere la chat
               handleViewTimeLog(ticket);
             }}
-            className="w-full py-3 px-4 bg-gradient-to-r from-yellow-100 via-yellow-50 to-yellow-100 hover:from-yellow-200 hover:via-yellow-100 hover:to-yellow-200 border-t border-yellow-200 flex items-center justify-center gap-2 text-yellow-800 font-semibold text-sm transition-all duration-200 hover:shadow-md"
+            className={
+              H
+                ? 'flex w-full items-center justify-center gap-2 border-t border-amber-500/35 bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-500/25'
+                : 'flex w-full items-center justify-center gap-2 border-t border-yellow-200 bg-gradient-to-r from-yellow-100 via-yellow-50 to-yellow-100 px-4 py-3 text-sm font-semibold text-yellow-800 transition duration-200 hover:bg-gradient-to-r hover:from-yellow-200 hover:via-yellow-100 hover:to-yellow-200 hover:shadow-md'
+            }
           >
             <Eye size={18} />
             Visualizza Registro Intervento
@@ -355,7 +402,11 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
               e.stopPropagation(); // non aprire/chiudere la chat
               handleChangeStatus(ticket.id, 'risolto');
             }}
-            className="w-full py-3 px-4 bg-gradient-to-r from-green-100 via-green-50 to-green-100 hover:from-green-200 hover:via-green-100 hover:to-green-200 border-t border-green-200 flex items-center justify-center gap-2 text-green-800 font-semibold text-sm transition-all duration-200 hover:shadow-md"
+            className={
+              H
+                ? 'flex w-full items-center justify-center gap-2 border-t border-emerald-500/35 bg-emerald-500/15 px-4 py-3 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/25'
+                : 'flex w-full items-center justify-center gap-2 border-t border-green-200 bg-gradient-to-r from-green-100 via-green-50 to-green-100 px-4 py-3 text-sm font-semibold text-green-800 transition duration-200 hover:bg-gradient-to-r hover:from-green-200 hover:via-green-100 hover:to-green-200 hover:shadow-md'
+            }
           >
             <Check size={18} />
             Segna come risolto
@@ -364,8 +415,9 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
       </div>
 
       {selectedTicket?.id === ticket.id && (
-        <div className="bg-gray-50">
+        <div className={H ? 'border-t border-white/[0.08] bg-black/35' : 'bg-gray-50'}>
           <ChatInterface
+            hubEmbed={H}
             ticket={ticket}
             currentUser={currentUser}
             setSelectedTicket={handleSelectTicket}

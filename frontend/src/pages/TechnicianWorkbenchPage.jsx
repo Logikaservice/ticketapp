@@ -51,6 +51,7 @@ import {
   getStoredTechHubAccent
 } from '../utils/techHubAccent';
 import HubOverviewSection from '../components/hub/HubOverviewSection';
+import TicketsHubEmbedded from '../components/hub/TicketsHubEmbedded';
 import { loadHubLayout, getDefaultHubLayout, sanitizeLayoutItems } from '../utils/hubOverviewLayout';
 
 const SURFACE = '#1E1E1E';
@@ -435,6 +436,9 @@ export default function TechnicianWorkbenchPage({
   hubEmbedAntiVirusKick = 0,
   hubEmbedDispositiviKick = 0,
   hubEmbedSpeedtestKick = 0,
+  hubEmbedTicketsKick = 0,
+  /** Lista ticket nella colonna centrale (stesso state/handlers di App). */
+  ticketHubListProps = null,
   dispositiviHighlightMac = null,
   socket = null
 }) {
@@ -449,7 +453,7 @@ export default function TechnicianWorkbenchPage({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   /** Centro Hub: panoramica a griglia oppure modulo integrato (Comunicazioni, Email, Anti-Virus…). */
   const [hubCenterView, setHubCenterView] = useState(
-    /** @type {'overview' | 'comunicazioni' | 'comm-agent-manager' | 'email' | 'office' | 'antivirus' | 'dispositivi' | 'network-monitoring' | 'speedtest' | 'contratti' | 'avvisi'} */ ('overview')
+    /** @type {'overview' | 'comunicazioni' | 'comm-agent-manager' | 'email' | 'office' | 'antivirus' | 'dispositivi' | 'network-monitoring' | 'speedtest' | 'contratti' | 'avvisi' | 'tickets'} */ ('overview')
   );
   const isTechnician = currentUser?.ruolo === 'tecnico';
   const canSpeedTest = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
@@ -524,6 +528,10 @@ export default function TechnicianWorkbenchPage({
   useEffect(() => {
     if (hubEmbedSpeedtestKick > 0 && canSpeedTest) setHubCenterView('speedtest');
   }, [hubEmbedSpeedtestKick, canSpeedTest]);
+
+  useEffect(() => {
+    if (hubEmbedTicketsKick > 0) setHubCenterView('tickets');
+  }, [hubEmbedTicketsKick]);
 
   const userMenuRef = useRef(null);
   const accentPickerRef = useRef(null);
@@ -740,7 +748,8 @@ export default function TechnicianWorkbenchPage({
             icon={TicketHomeIcon}
             label="Ticket"
             accentHex={accentHex}
-            onClick={() => onNavigateHome?.()}
+            active={hubCenterView === 'tickets'}
+            onClick={() => setHubCenterView('tickets')}
           />
           <SidebarLink
             railMode={railMode}
@@ -930,9 +939,11 @@ export default function TechnicianWorkbenchPage({
                               ? 'Speed Test'
                               : hubCenterView === 'contratti'
                                 ? 'Contratti attivi'
-                                : hubCenterView === 'avvisi'
-                                  ? 'Avvisi importanti'
-                                  : 'Panoramica'}
+                                  : hubCenterView === 'avvisi'
+                                    ? 'Avvisi importanti'
+                                    : hubCenterView === 'tickets'
+                                      ? 'Ticket'
+                                      : 'Panoramica'}
                 </span>
               </div>
             </div>
@@ -1023,7 +1034,8 @@ export default function TechnicianWorkbenchPage({
               hubCenterView === 'speedtest' ||
               hubCenterView === 'network-monitoring' ||
               hubCenterView === 'contratti' ||
-              hubCenterView === 'avvisi'
+              hubCenterView === 'avvisi' ||
+              hubCenterView === 'tickets'
                 ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-2 md:px-5 md:pb-5'
                 : 'min-h-0 flex-1 overflow-y-auto p-4 md:p-5'
             }
@@ -1047,6 +1059,18 @@ export default function TechnicianWorkbenchPage({
                 getAuthHeader={getAuthHeader}
                 notify={notify}
                 onOpenCreateContract={onOpenCreateContract ?? undefined}
+              />
+            ) : hubCenterView === 'tickets' && ticketHubListProps ? (
+              <TicketsHubEmbedded
+                accentHex={accentHex}
+                currentUser={currentUser}
+                tickets={tickets}
+                users={ticketHubListProps.users}
+                selectedTicket={ticketHubListProps.selectedTicket}
+                setSelectedTicket={ticketHubListProps.setSelectedTicket}
+                handlers={ticketHubListProps.handlers}
+                getUnreadCount={ticketHubListProps.getUnreadCount}
+                externalViewState={ticketHubListProps.externalViewState}
               />
             ) : hubCenterView === 'email' ? (
               <EmailPage

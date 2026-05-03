@@ -7,7 +7,18 @@ import TicketItem from './TicketItem';
 // ====================================================================
 // COMPONENTE PRINCIPALE
 // ====================================================================
-const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, handlers, getUnreadCount, showFilters = true, externalViewState }) => {
+const TicketListContainer = ({
+  currentUser,
+  tickets,
+  users,
+  selectedTicket,
+  setSelectedTicket,
+  handlers,
+  getUnreadCount,
+  showFilters = true,
+  externalViewState,
+  hubEmbed = false
+}) => {
   const [viewState, setViewState] = useState(externalViewState || 'aperto');
   useEffect(() => {
     if (externalViewState && externalViewState !== viewState) {
@@ -291,23 +302,29 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
   // Scroll automatico al ticket selezionato
   useEffect(() => {
     if (selectedTicket) {
-      // Aspetta che il DOM si aggiorni
+      const embed = hubEmbed;
       setTimeout(() => {
         const ticketElement = document.querySelector(`[data-ticket-id="${selectedTicket.id}"]`);
         if (ticketElement) {
-          ticketElement.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'center' 
+          ticketElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
           });
-          // Evidenzia temporaneamente il ticket
-          ticketElement.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50');
-          setTimeout(() => {
-            ticketElement.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50');
-          }, 2000);
+          if (embed) {
+            ticketElement.classList.add('ring-2', 'ring-[color:var(--hub-accent)]', 'bg-white/[0.12]');
+            setTimeout(() => {
+              ticketElement.classList.remove('ring-2', 'ring-[color:var(--hub-accent)]', 'bg-white/[0.12]');
+            }, 2000);
+          } else {
+            ticketElement.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50');
+            setTimeout(() => {
+              ticketElement.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50');
+            }, 2000);
+          }
         }
       }, 100);
     }
-  }, [selectedTicket]);
+  }, [selectedTicket, hubEmbed]);
 
   const markAsViewed = (status) => {
     const newLastSeen = {
@@ -318,12 +335,106 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
     localStorage.setItem(`lastSeenCounts_${currentUser.id}`, JSON.stringify(newLastSeen));
     setChangedStates(prev => prev.filter(s => s !== status));
   };
-  
+
+  const lc = hubEmbed
+    ? {
+        shell: 'rounded-xl border border-white/[0.06] bg-black/20',
+        hdrSep: 'p-4 border-b border-white/[0.08]',
+        h2: 'text-xl font-semibold mb-3 text-white',
+        statDis: 'opacity-50 cursor-not-allowed border border-white/[0.06] bg-black/30',
+        statOn:
+          'border border-[color:var(--hub-accent-border)] bg-white/[0.08] shadow-[0_0_0_1px_var(--hub-accent-glow)]',
+        statOff: 'border border-white/[0.1] bg-black/25 hover:bg-white/[0.06]',
+        statLbl: 'text-sm text-white/55 mb-1 capitalize flex items-center justify-center gap-2',
+        statNum: 'text-3xl font-extrabold text-white tabular-nums',
+        btnNeutral: 'flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-white/[0.12] hover:bg-white/[0.18] whitespace-nowrap',
+        btnIndigo: 'flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-indigo-500/85 hover:bg-indigo-600 whitespace-nowrap',
+        lbl: 'block text-sm font-medium mb-2 text-white/75',
+        sel: 'w-full px-2 py-2 rounded-lg text-sm border border-white/[0.12] bg-black/[0.28] text-white outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]',
+        ddBtn:
+          'w-full px-3 py-2 rounded-lg border border-white/[0.12] bg-black/[0.28] text-left flex items-center justify-between focus:ring-2 focus:ring-[color:var(--hub-accent)] hover:border-[color:var(--hub-accent-border)] transition min-w-0',
+        ddCaret: 'text-white/45',
+        ddMuted: 'text-white/50',
+        ddTxt: 'text-white',
+        ddPanel: 'absolute z-20 w-full mt-1 rounded-xl border border-white/[0.12] bg-[#252525] shadow-2xl max-h-96 overflow-y-auto',
+        ddRowAllOff: 'border-transparent',
+        ddRowAllOn: 'bg-white/[0.08] border-[color:var(--hub-accent)]',
+        ddRowHover: 'hover:bg-white/[0.06]',
+        ddAllTitleOn: 'text-[color:var(--hub-accent)]',
+        ddAllTitleOff: 'text-white',
+        coWrap: 'border-b border-white/[0.06] last:border-b-0',
+        coBtn:
+          'flex-1 px-3 py-2 bg-black/30 hover:bg-white/[0.06] transition flex items-center justify-between text-left rounded-lg border border-transparent',
+        coBtnSel: 'ring-2 ring-[color:var(--hub-accent-border)]',
+        coIcon: 'w-6 h-6 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0 bg-[color:var(--hub-accent)] bg-opacity-40',
+        coTitle: 'text-sm font-bold text-white truncate',
+        coSub: 'text-xs text-white/55',
+        nest: 'bg-black/25',
+        rowSelOff: 'border-transparent',
+        rowSelOn: 'bg-white/[0.08] border-[color:var(--hub-accent)]',
+        rowNameOn: 'text-[color:var(--hub-accent)]',
+        rowNameOff: 'text-white',
+        rowMeta: 'text-xs text-white/50',
+        rowMailIcon: 'text-white/45',
+        rowMailTxt: 'text-xs text-white/55 truncate',
+        iconToggle: 'px-2 py-2 text-white/55 hover:text-white/90 transition',
+        nestChevron: 'text-white/50 shrink-0',
+        listSep: 'divide-y divide-white/[0.06]',
+        empty: 'p-8 text-center text-white/50',
+        badgeDot: 'bg-[color:var(--hub-accent)]'
+      }
+    : {
+        shell: 'bg-white rounded-xl shadow-lg',
+        hdrSep: 'p-4 border-b',
+        h2: 'text-xl font-semibold mb-3',
+        statDis: 'opacity-50 cursor-not-allowed border border-gray-200 bg-white',
+        statOn: 'border border-blue-300 bg-blue-50',
+        statOff: 'border border-gray-200 bg-white hover:bg-gray-50',
+        statLbl: 'text-sm text-gray-500 mb-1 capitalize flex items-center justify-center gap-2',
+        statNum: 'text-3xl font-extrabold gradient-text',
+        btnNeutral: 'flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-gray-600 hover:bg-gray-700 whitespace-nowrap',
+        btnIndigo: 'flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-indigo-600 hover:bg-indigo-700 whitespace-nowrap',
+        lbl: 'block text-sm font-medium mb-2',
+        sel: 'w-full px-2 py-2 border rounded-lg text-sm',
+        ddBtn:
+          'w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-400 transition min-w-0',
+        ddCaret: 'text-gray-400',
+        ddMuted: 'text-gray-500',
+        ddTxt: 'text-gray-900',
+        ddPanel: 'absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-96 overflow-y-auto',
+        ddRowAllOff: 'border-transparent',
+        ddRowAllOn: 'bg-blue-50 border-blue-500',
+        ddRowHover: 'hover:bg-blue-50',
+        ddAllTitleOn: 'text-blue-700',
+        ddAllTitleOff: 'text-gray-900',
+        coWrap: 'border-b border-gray-100 last:border-b-0',
+        coBtn:
+          'flex-1 px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-all flex items-center justify-between text-left',
+        coBtnSel: 'ring-2 ring-blue-500',
+        coIcon:
+          'w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0',
+        coTitle: 'text-sm font-bold text-gray-800 truncate',
+        coSub: 'text-xs text-gray-600',
+        nest: 'bg-gray-50',
+        rowSelOff: 'border-transparent',
+        rowSelOn: 'bg-blue-50 border-blue-500',
+        rowNameOn: 'text-blue-700',
+        rowNameOff: 'text-gray-900',
+        rowMeta: 'text-xs text-gray-500',
+        rowMailIcon: 'text-gray-400',
+        rowMailTxt: 'text-xs text-gray-600 truncate',
+        iconToggle: 'px-2 py-2 text-gray-500 hover:text-gray-700 transition',
+        nestChevron: 'text-gray-500 shrink-0',
+        listSep: 'divide-y',
+        empty: 'p-8 text-center text-gray-500',
+        badgeDot: 'bg-blue-500'
+      };
+
   return (
     <>
-      <div className="bg-white rounded-xl shadow-lg">
-        <div className="p-4 border-b">
-          <h2 className="text-xl font-semibold mb-3">
+      <div className={lc.shell}>
+        <div className={lc.hdrSep}>
+          <h2 className={lc.h2}>
             {currentUser.ruolo === 'cliente' ? 'I Miei Interventi' : 'Lista Ticket'}
           </h2>
           
@@ -338,9 +449,9 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                     key={status}
                     onClick={() => !disabled && setViewState(status)}
                     disabled={disabled}
-                    className={`p-4 rounded-xl border text-center ${disabled ? 'opacity-50 cursor-not-allowed bg-white' : active ? 'bg-blue-50 border-blue-300' : 'bg-white hover:bg-gray-50'}`}
+                    className={`p-4 rounded-xl text-center ${disabled ? lc.statDis : active ? lc.statOn : lc.statOff}`}
                   >
-                    <div className="text-sm text-gray-500 mb-1 capitalize flex items-center justify-center gap-2">
+                    <div className={lc.statLbl}>
                       {status === 'aperto' && <FileText size={14} />}
                       {status === 'in_lavorazione' && <PlayCircle size={14} />}
                       {status === 'risolto' && <CheckCircle size={14} />}
@@ -349,7 +460,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                       {status === 'fatturato' && <FileCheck2 size={14} />}
                       <span>{status.replace('_',' ')}</span>
                     </div>
-                    <div className="text-3xl font-extrabold gradient-text">{count}</div>
+                    <div className={lc.statNum}>{count}</div>
                   </button>
                 );
               })}
@@ -361,17 +472,17 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
             <div className="mt-3 flex gap-3 items-end">
               <button
                 onClick={() => handlers.handleGenerateSentReport(displayTickets)}
-                className="flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-gray-600 hover:bg-gray-700 whitespace-nowrap"
+                className={lc.btnNeutral}
               >
                 <FileText size={18} />
                 Genera Report
               </button>
               <div className="w-36 md:w-40 flex-shrink-0">
-                <label className="block text-sm font-medium mb-2">Mese</label>
+                <label className={lc.lbl}>Mese</label>
                 <select
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="w-full px-2 py-2 border rounded-lg text-sm"
+                  className={lc.sel}
                 >
                   <option value="all">Tutti i mesi</option>
                   <option value="1">Gennaio</option>
@@ -389,11 +500,11 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                 </select>
               </div>
               <div className="w-36 md:w-40 flex-shrink-0">
-                <label className="block text-sm font-medium mb-2">Anno</label>
+                <label className={lc.lbl}>Anno</label>
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
-                  className="w-full px-2 py-2 border rounded-lg text-sm"
+                  className={lc.sel}
                 >
                   <option value="all">Tutti gli anni</option>
                   {(() => {
@@ -415,11 +526,11 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
           {currentUser.ruolo === 'cliente' && viewState !== 'inviato' && (
             <div className="mt-3 flex flex-col md:flex-row md:items-end md:gap-4">
               <div className="w-36 md:w-40 flex-shrink-0">
-                <label className="block text-sm font-medium mb-2">Mese</label>
+                <label className={lc.lbl}>Mese</label>
                 <select
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="w-full px-2 py-2 border rounded-lg text-sm"
+                  className={lc.sel}
                 >
                   <option value="all">Tutti i mesi</option>
                   <option value="1">Gennaio</option>
@@ -437,11 +548,11 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                 </select>
               </div>
               <div className="w-36 md:w-40 flex-shrink-0">
-                <label className="block text-sm font-medium mb-2">Anno</label>
+                <label className={lc.lbl}>Anno</label>
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
-                  className="w-full px-2 py-2 border rounded-lg text-sm"
+                  className={lc.sel}
                 >
                   <option value="all">Tutti gli anni</option>
                   {(() => {
@@ -465,7 +576,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
               {viewState === 'inviato' && handlers.handleGenerateSentReport && (
                 <button
                   onClick={() => handlers.handleGenerateSentReport(displayTickets)}
-                  className="flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-gray-600 hover:bg-gray-700 whitespace-nowrap"
+                  className={lc.btnNeutral}
                 >
                   <FileText size={18} />
                   Genera Report
@@ -474,30 +585,32 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
               {viewState === 'fatturato' && handlers.handleGenerateInvoiceReport && (
                 <button
                   onClick={() => handlers.handleGenerateInvoiceReport(displayTickets)}
-                  className="flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-indigo-600 hover:bg-indigo-700 whitespace-nowrap"
+                  className={lc.btnIndigo}
                 >
                   <FileText size={18} />
                   Genera Lista Fatture
                 </button>
               )}
               <div className="flex-1 min-w-0 relative">
-                <label className="block text-sm font-medium mb-2">Filtra per cliente</label>
+                <label className={lc.lbl}>Filtra per cliente</label>
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setIsDropdownOpen1(!isDropdownOpen1)}
-                    className="w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-400 transition min-w-0"
+                    className={lc.ddBtn}
                   >
-                    <span className={`${selectedClientFilter === 'all' ? 'text-gray-500' : 'text-gray-900'} flex items-center gap-2 flex-1 min-w-0`}>
+                    <span className={`${selectedClientFilter === 'all' ? lc.ddMuted : lc.ddTxt} flex items-center gap-2 flex-1 min-w-0`}>
                       {!isCompanyFilter && selectedClientFilter !== 'all' && selectedClient && isAdminOfCompany(selectedClient) && (
                         <Crown size={16} className="text-yellow-500 flex-shrink-0" />
                       )}
-                      {isCompanyFilter && <Building size={16} className="text-blue-500 flex-shrink-0" />}
+                      {isCompanyFilter && (
+                        <Building size={16} className={hubEmbed ? 'flex-shrink-0 text-[color:var(--hub-accent)]' : 'text-blue-500 flex-shrink-0'} />
+                      )}
                       <span className="truncate">{selectedClientName}</span>
                     </span>
                     <ChevronDown 
                       size={20} 
-                      className={`text-gray-400 transition-transform flex-shrink-0 ${isDropdownOpen1 ? 'rotate-180' : ''}`} 
+                      className={`${lc.ddCaret} transition-transform flex-shrink-0 ${isDropdownOpen1 ? 'rotate-180' : ''}`} 
                     />
                   </button>
 
@@ -507,23 +620,21 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                         className="fixed inset-0 z-10" 
                         onClick={() => setIsDropdownOpen1(false)}
                       ></div>
-                      <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-96 overflow-y-auto">
+                      <div className={lc.ddPanel}>
                         <button
                           type="button"
                           onClick={() => handleSelectClient('all', 1)}
-                          className={`w-full px-4 py-2.5 text-left hover:bg-blue-50 transition flex items-center gap-3 border-l-2 ${
-                            selectedClientFilter === 'all'
-                              ? 'bg-blue-50 border-blue-500' 
-                              : 'border-transparent'
+                          className={`w-full px-4 py-2.5 text-left transition flex items-center gap-3 border-l-2 ${lc.ddRowHover} ${
+                            selectedClientFilter === 'all' ? lc.ddRowAllOn : lc.ddRowAllOff
                           }`}
                         >
                           <div className="flex-1 min-w-0">
-                            <span className={`text-sm font-medium ${selectedClientFilter === 'all' ? 'text-blue-700' : 'text-gray-900'}`}>
+                            <span className={`text-sm font-medium ${selectedClientFilter === 'all' ? lc.ddAllTitleOn : lc.ddAllTitleOff}`}>
                               Tutti i clienti
                             </span>
                           </div>
                           {selectedClientFilter === 'all' && (
-                            <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                            <div className={`h-2 w-2 shrink-0 rounded-full ${lc.badgeDot}`} />
                           )}
                         </button>
                         {Object.entries(clientiPerAzienda).map(([azienda, clientiAzienda]) => {
@@ -542,30 +653,28 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                           const isCompanySelected = selectedClientFilter === `company:${azienda}`;
 
                           return (
-                            <div key={azienda} className="border-b border-gray-100 last:border-b-0">
+                            <div key={azienda} className={lc.coWrap}>
                               <div className="flex items-center">
                                 <button
                                   type="button"
                                   onClick={() => handleSelectCompany(azienda, 1)}
-                                  className={`flex-1 px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-all flex items-center justify-between text-left ${
-                                    isCompanySelected ? 'ring-2 ring-blue-500' : ''
-                                  }`}
+                                  className={`${lc.coBtn} ${isCompanySelected ? lc.coBtnSel : ''}`}
                                 >
                                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                                    <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                    <div className={lc.coIcon}>
                                       {isNoCompany ? <Building size={12} /> : azienda.charAt(0).toUpperCase()}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <h3 className="text-sm font-bold text-gray-800 truncate">
+                                      <h3 className={lc.coTitle}>
                                         {isNoCompany ? 'Senza azienda' : azienda}
                                       </h3>
-                                      <p className="text-xs text-gray-600">
+                                      <p className={lc.coSub}>
                                         {clientsWithTickets.length} {clientsWithTickets.length === 1 ? 'cliente con ticket' : 'clienti con ticket'}
                                       </p>
                                     </div>
                                   </div>
                                   {isCompanySelected && (
-                                    <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                                    <div className={`h-2 w-2 shrink-0 rounded-full ${lc.badgeDot}`} />
                                   )}
                                 </button>
                                 <button
@@ -574,18 +683,18 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                                     e.stopPropagation();
                                     toggleCompany(azienda);
                                   }}
-                                  className="px-2 py-2 text-gray-500 hover:text-gray-700 transition"
+                                  className={lc.iconToggle}
                                 >
                                   {isExpanded ? (
-                                    <ChevronDown size={16} className="text-gray-500 flex-shrink-0" />
+                                    <ChevronDown size={16} className={lc.nestChevron} />
                                   ) : (
-                                    <ChevronRight size={16} className="text-gray-500 flex-shrink-0" />
+                                    <ChevronRight size={16} className={lc.nestChevron} />
                                   )}
                                 </button>
                               </div>
                               
                               {isExpanded && (
-                                <div className="bg-gray-50">
+                                <div className={lc.nest}>
                                   {clientsWithTickets.map((cliente) => {
                                     const isAdmin = isAdminOfCompany(cliente);
                                     const isSelected = cliente.id.toString() === selectedClientFilter;
@@ -596,10 +705,8 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                                         key={cliente.id}
                                         type="button"
                                         onClick={() => handleSelectClient(cliente.id, 1)}
-                                        className={`w-full px-4 py-2.5 text-left hover:bg-blue-50 transition flex items-center gap-3 border-l-2 ${
-                                          isSelected 
-                                            ? 'bg-blue-50 border-blue-500' 
-                                            : 'border-transparent'
+                                        className={`w-full px-4 py-2.5 text-left transition flex items-center gap-3 border-l-2 ${lc.ddRowHover} ${
+                                          isSelected ? lc.rowSelOn : lc.rowSelOff
                                         }`}
                                       >
                                         <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -611,15 +718,15 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                                           </div>
                                           <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2">
-                                              <span className={`text-sm font-medium ${isSelected ? 'text-blue-700' : 'text-gray-900'}`}>
+                                              <span className={`text-sm font-medium ${isSelected ? lc.rowNameOn : lc.rowNameOff}`}>
                                                 {cliente.nome} {cliente.cognome}
                                               </span>
-                                              <span className="text-xs text-gray-500">({ticketsForThisClient})</span>
+                                              <span className={lc.rowMeta}>({ticketsForThisClient})</span>
                                             </div>
                                             {cliente.email && (
                                               <div className="flex items-center gap-1 mt-0.5">
-                                                <Mail size={12} className="text-gray-400" />
-                                                <span className="text-xs text-gray-600 truncate">
+                                                <Mail size={12} className={lc.rowMailIcon} />
+                                                <span className={lc.rowMailTxt}>
                                                   {cliente.email}
                                                 </span>
                                               </div>
@@ -627,7 +734,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                                           </div>
                                         </div>
                                         {isSelected && (
-                                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                                          <div className={`h-2 w-2 shrink-0 rounded-full ${lc.badgeDot}`} />
                                         )}
                                       </button>
                                     );
@@ -643,11 +750,11 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                 </div>
               </div>
               <div className="w-36 md:w-40 flex-shrink-0">
-                <label className="block text-sm font-medium mb-2">Mese</label>
+                <label className={lc.lbl}>Mese</label>
                 <select
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="w-full px-2 py-2 border rounded-lg text-sm"
+                  className={lc.sel}
                 >
                   <option value="all">Tutti i mesi</option>
                   <option value="1">Gennaio</option>
@@ -665,11 +772,11 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                 </select>
               </div>
               <div className="w-36 md:w-40 flex-shrink-0">
-                <label className="block text-sm font-medium mb-2">Anno</label>
+                <label className={lc.lbl}>Anno</label>
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
-                  className="w-full px-2 py-2 border rounded-lg text-sm"
+                  className={lc.sel}
                 >
                   <option value="all">Tutti gli anni</option>
                   {(() => {
@@ -691,23 +798,25 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
           {currentUser.ruolo === 'tecnico' && !['inviato', 'fatturato'].includes(viewState) && (
             <div className="mt-3 flex flex-col md:flex-row md:items-end md:gap-4">
               <div className="flex-1 min-w-0 relative">
-                <label className="block text-sm font-medium mb-2">Filtra per cliente</label>
+                <label className={lc.lbl}>Filtra per cliente</label>
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setIsDropdownOpen2(!isDropdownOpen2)}
-                    className="w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-400 transition min-w-0"
+                    className={lc.ddBtn}
                   >
-                    <span className={`${selectedClientFilter === 'all' ? 'text-gray-500' : 'text-gray-900'} flex items-center gap-2 flex-1 min-w-0`}>
+                    <span className={`${selectedClientFilter === 'all' ? lc.ddMuted : lc.ddTxt} flex items-center gap-2 flex-1 min-w-0`}>
                       {!isCompanyFilter && selectedClientFilter !== 'all' && selectedClient && isAdminOfCompany(selectedClient) && (
                         <Crown size={16} className="text-yellow-500 flex-shrink-0" />
                       )}
-                      {isCompanyFilter && <Building size={16} className="text-blue-500 flex-shrink-0" />}
+                      {isCompanyFilter && (
+                        <Building size={16} className={hubEmbed ? 'flex-shrink-0 text-[color:var(--hub-accent)]' : 'text-blue-500 flex-shrink-0'} />
+                      )}
                       <span className="truncate">{selectedClientName}</span>
                     </span>
                     <ChevronDown 
                       size={20} 
-                      className={`text-gray-400 transition-transform flex-shrink-0 ${isDropdownOpen2 ? 'rotate-180' : ''}`} 
+                      className={`${lc.ddCaret} transition-transform flex-shrink-0 ${isDropdownOpen2 ? 'rotate-180' : ''}`} 
                     />
                   </button>
 
@@ -717,23 +826,21 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                         className="fixed inset-0 z-10" 
                         onClick={() => setIsDropdownOpen2(false)}
                       ></div>
-                      <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-96 overflow-y-auto">
+                      <div className={lc.ddPanel}>
                         <button
                           type="button"
                           onClick={() => handleSelectClient('all', 2)}
-                          className={`w-full px-4 py-2.5 text-left hover:bg-blue-50 transition flex items-center gap-3 border-l-2 ${
-                            selectedClientFilter === 'all'
-                              ? 'bg-blue-50 border-blue-500' 
-                              : 'border-transparent'
+                          className={`w-full px-4 py-2.5 text-left transition flex items-center gap-3 border-l-2 ${lc.ddRowHover} ${
+                            selectedClientFilter === 'all' ? lc.ddRowAllOn : lc.ddRowAllOff
                           }`}
                         >
                           <div className="flex-1 min-w-0">
-                            <span className={`text-sm font-medium ${selectedClientFilter === 'all' ? 'text-blue-700' : 'text-gray-900'}`}>
+                            <span className={`text-sm font-medium ${selectedClientFilter === 'all' ? lc.ddAllTitleOn : lc.ddAllTitleOff}`}>
                               Tutti i clienti
                             </span>
                           </div>
                           {selectedClientFilter === 'all' && (
-                            <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                            <div className={`h-2 w-2 shrink-0 rounded-full ${lc.badgeDot}`} />
                           )}
                         </button>
                         {Object.entries(clientiPerAzienda).map(([azienda, clientiAzienda]) => {
@@ -752,30 +859,28 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                           const isCompanySelected = selectedClientFilter === `company:${azienda}`;
 
                           return (
-                            <div key={azienda} className="border-b border-gray-100 last:border-b-0">
+                            <div key={azienda} className={lc.coWrap}>
                               <div className="flex items-center">
                                 <button
                                   type="button"
                                   onClick={() => handleSelectCompany(azienda, 2)}
-                                  className={`flex-1 px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-all flex items-center justify-between text-left ${
-                                    isCompanySelected ? 'ring-2 ring-blue-500' : ''
-                                  }`}
+                                  className={`${lc.coBtn} ${isCompanySelected ? lc.coBtnSel : ''}`}
                                 >
                                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                                    <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                    <div className={lc.coIcon}>
                                       {isNoCompany ? <Building size={12} /> : azienda.charAt(0).toUpperCase()}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <h3 className="text-sm font-bold text-gray-800 truncate">
+                                      <h3 className={lc.coTitle}>
                                         {isNoCompany ? 'Senza azienda' : azienda}
                                       </h3>
-                                      <p className="text-xs text-gray-600">
+                                      <p className={lc.coSub}>
                                         {clientsWithTickets.length} {clientsWithTickets.length === 1 ? 'cliente con ticket' : 'clienti con ticket'}
                                       </p>
                                     </div>
                                   </div>
                                   {isCompanySelected && (
-                                    <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                                    <div className={`h-2 w-2 shrink-0 rounded-full ${lc.badgeDot}`} />
                                   )}
                                 </button>
                                 <button
@@ -784,18 +889,18 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                                     e.stopPropagation();
                                     toggleCompany(azienda);
                                   }}
-                                  className="px-2 py-2 text-gray-500 hover:text-gray-700 transition"
+                                  className={lc.iconToggle}
                                 >
                                   {isExpanded ? (
-                                    <ChevronDown size={16} className="text-gray-500 flex-shrink-0" />
+                                    <ChevronDown size={16} className={lc.nestChevron} />
                                   ) : (
-                                    <ChevronRight size={16} className="text-gray-500 flex-shrink-0" />
+                                    <ChevronRight size={16} className={lc.nestChevron} />
                                   )}
                                 </button>
                               </div>
                               
                               {isExpanded && (
-                                <div className="bg-gray-50">
+                                <div className={lc.nest}>
                                   {clientsWithTickets.map((cliente) => {
                                     const isAdmin = isAdminOfCompany(cliente);
                                     const isSelected = cliente.id.toString() === selectedClientFilter;
@@ -806,10 +911,8 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                                         key={cliente.id}
                                         type="button"
                                         onClick={() => handleSelectClient(cliente.id, 2)}
-                                        className={`w-full px-4 py-2.5 text-left hover:bg-blue-50 transition flex items-center gap-3 border-l-2 ${
-                                          isSelected 
-                                            ? 'bg-blue-50 border-blue-500' 
-                                            : 'border-transparent'
+                                        className={`w-full px-4 py-2.5 text-left transition flex items-center gap-3 border-l-2 ${lc.ddRowHover} ${
+                                          isSelected ? lc.rowSelOn : lc.rowSelOff
                                         }`}
                                       >
                                         <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -821,15 +924,15 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                                           </div>
                                           <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2">
-                                              <span className={`text-sm font-medium ${isSelected ? 'text-blue-700' : 'text-gray-900'}`}>
+                                              <span className={`text-sm font-medium ${isSelected ? lc.rowNameOn : lc.rowNameOff}`}>
                                                 {cliente.nome} {cliente.cognome}
                                               </span>
-                                              <span className="text-xs text-gray-500">({ticketsForThisClient})</span>
+                                              <span className={lc.rowMeta}>({ticketsForThisClient})</span>
                                             </div>
                                             {cliente.email && (
                                               <div className="flex items-center gap-1 mt-0.5">
-                                                <Mail size={12} className="text-gray-400" />
-                                                <span className="text-xs text-gray-600 truncate">
+                                                <Mail size={12} className={lc.rowMailIcon} />
+                                                <span className={lc.rowMailTxt}>
                                                   {cliente.email}
                                                 </span>
                                               </div>
@@ -837,7 +940,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                                           </div>
                                         </div>
                                         {isSelected && (
-                                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                                          <div className={`h-2 w-2 shrink-0 rounded-full ${lc.badgeDot}`} />
                                         )}
                                       </button>
                                     );
@@ -853,11 +956,11 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                 </div>
               </div>
               <div className="w-36 md:w-40 flex-shrink-0">
-                <label className="block text-sm font-medium mb-2">Mese</label>
+                <label className={lc.lbl}>Mese</label>
                 <select
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="w-full px-2 py-2 border rounded-lg text-sm"
+                  className={lc.sel}
                 >
                   <option value="all">Tutti i mesi</option>
                   <option value="1">Gennaio</option>
@@ -875,11 +978,11 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                 </select>
               </div>
               <div className="w-36 md:w-40 flex-shrink-0">
-                <label className="block text-sm font-medium mb-2">Anno</label>
+                <label className={lc.lbl}>Anno</label>
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
-                  className="w-full px-2 py-2 border rounded-lg text-sm"
+                  className={lc.sel}
                 >
                   <option value="all">Tutti gli anni</option>
                   {(() => {
@@ -898,9 +1001,9 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
           )}
         </div>
 
-        <div className="divide-y" style={{ scrollBehavior: 'auto' }}>
+        <div className={lc.listSep} style={{ scrollBehavior: 'auto' }}>
           {displayTickets.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className={lc.empty}>
               <FileText size={48} className="mx-auto mb-3 opacity-30" />
               <p>Nessun intervento con lo stato selezionato.</p>
             </div>
@@ -911,6 +1014,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
               .map(t => (
                 <TicketItem
                   key={t.id}
+                  hubEmbed={hubEmbed}
                   ticket={t}
                   cliente={usersMap[t.clienteid]}
                   currentUser={currentUser}

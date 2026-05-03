@@ -272,6 +272,8 @@ export default function TicketApp() {
   const [hubEmbedDispositiviKick, setHubEmbedDispositiviKick] = useState(0);
   /** Speed Test nel centro Hub (solo tecnici/admin). */
   const [hubEmbedSpeedtestKick, setHubEmbedSpeedtestKick] = useState(0);
+  /** Lista ticket nel centro Hub (stessa lista della dashboard). */
+  const [hubEmbedTicketsKick, setHubEmbedTicketsKick] = useState(0);
 
   const [dispositiviAziendaliHighlightMac, setDispositiviAziendaliHighlightMac] = useState(null);
   const [showDeviceAnalysisStandalone, setShowDeviceAnalysisStandalone] = useState(false);
@@ -3895,8 +3897,7 @@ export default function TicketApp() {
             tickets={tickets}
             onOpenTicketState={(state) => {
               setDashboardTargetState(state || 'aperto');
-              setShowTechnicianWorkbench(false);
-              setShowDashboard(false);
+              setHubEmbedTicketsKick((n) => n + 1);
             }}
             getAuthHeader={getAuthHeader}
             alertsRefreshTrigger={alertsRefreshTrigger}
@@ -3948,6 +3949,38 @@ export default function TicketApp() {
             hubEmbedAntiVirusKick={hubEmbedAntiVirusKick}
             hubEmbedDispositiviKick={hubEmbedDispositiviKick}
             hubEmbedSpeedtestKick={hubEmbedSpeedtestKick}
+            hubEmbedTicketsKick={hubEmbedTicketsKick}
+            ticketHubListProps={{
+              users,
+              selectedTicket,
+              setSelectedTicket,
+              getUnreadCount,
+              externalViewState: dashboardTargetState,
+              handlers: {
+                handleSelectTicket,
+                handleOpenEditModal,
+                handleOpenTimeLogger,
+                handleViewTimeLog,
+                handleOpenForniture,
+                handleReopenInLavorazione,
+                handleChangeStatus,
+                handleReopenAsRisolto,
+                handleSetInviato,
+                handleArchiveTicket,
+                handleInvoiceTicket,
+                handleDeleteTicket: wrappedHandleDeleteTicket,
+                showNotification,
+                handleSendMessage,
+                handleDeleteMessage,
+                handleUpdateMessage,
+                handleGenerateSentReport,
+                handleGenerateInvoiceReport,
+                handleUploadTicketPhotos,
+                handleDeleteTicketPhoto,
+                setPhotosModalTicket,
+                handleResendEmail
+              }
+            }}
             dispositiviHighlightMac={dispositiviAziendaliHighlightMac}
             socket={socket}
           />
