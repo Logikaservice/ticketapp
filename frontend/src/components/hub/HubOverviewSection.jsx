@@ -131,8 +131,8 @@ function TicketHubStatCard({
       </span>
     </div>
   ) : (
-    <>
-      <div className="mb-2 flex gap-3">
+    <div className="flex min-h-0 w-full flex-1 flex-col">
+      <div className="mb-2 flex w-full min-w-0 gap-3">
         <div
           className={`inline-flex shrink-0 rounded-xl p-2.5 transition ${active ? '' : 'bg-white/[0.06]'}`}
           style={active ? { backgroundColor: hexToRgba(accentHex, 0.14) } : undefined}
@@ -153,14 +153,14 @@ function TicketHubStatCard({
         </div>
       </div>
       <div
-        className={`text-5xl font-extrabold leading-none tabular-nums md:text-[3.25rem] ${
+        className={`mt-auto text-5xl font-extrabold leading-none tabular-nums md:text-[3.25rem] ${
           active ? '' : 'text-white/[0.28]'
         }`}
         style={active ? { color: accentHex } : undefined}
       >
         {count}
       </div>
-    </>
+    </div>
   );
 
   const surfaceStyle = { backgroundColor: SURFACE_LOCAL };
@@ -170,7 +170,9 @@ function TicketHubStatCard({
   if (!active) {
     return (
       <div
-        className={`flex h-full min-h-0 rounded-2xl border border-white/[0.08] p-4 text-left ${iconOnly ? 'items-center justify-center' : ''} ${veil} ${noPtr}`}
+        className={`flex h-full min-h-0 rounded-2xl border border-white/[0.08] p-4 text-left ${
+          iconOnly ? 'items-center justify-center' : 'w-full flex-col items-stretch'
+        } ${veil} ${noPtr}`}
         style={surfaceStyle}
         role="status"
         aria-label={`${title}: ${count} ticket`}
@@ -187,7 +189,9 @@ function TicketHubStatCard({
       type="button"
       disabled={Boolean(subdued)}
       aria-label={ariaLbl}
-      className={`flex h-full min-h-0 rounded-2xl border border-white/[0.08] p-4 text-left transition hover:bg-white/[0.04] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] ${iconOnly ? 'items-center justify-center' : ''} ${veil} ${noPtr}`}
+      className={`flex h-full min-h-0 rounded-2xl border border-white/[0.08] p-4 text-left transition hover:bg-white/[0.04] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] ${
+        iconOnly ? 'items-center justify-center' : 'w-full flex-col items-stretch'
+      } ${veil} ${noPtr}`}
       style={surfaceStyle}
       onClick={() => !subdued && onOpenTicketState?.(stateKey)}
     >
