@@ -45,7 +45,13 @@ import SpeedTestPage from './pages/SpeedTestPage';
 import VpnManagerPage from './pages/VpnManagerPage';
 import TechnicianWorkbenchPage from './pages/TechnicianWorkbenchPage';
 import { buildApiUrl } from './utils/apiConfig';
-import { HUB_PAGE_BG } from './utils/techHubAccent';
+import { getStoredTechHubSurfaceMode, hubChromeCssVariables } from './utils/techHubAccent';
+
+/** Sfondo pagina sotto l’Hub (stesso del workbench chiaro/scuro), per `html`/`body` e wrapper App. */
+function ticketHubShellDocumentBackground() {
+  const skin = getStoredTechHubSurfaceMode();
+  return hubChromeCssVariables(skin)['--hub-chrome-page'];
+}
 
 const INITIAL_NEW_CLIENT_DATA = {
   nome: '',
@@ -274,6 +280,8 @@ export default function TicketApp() {
   const [hubEmbedSpeedtestKick, setHubEmbedSpeedtestKick] = useState(0);
   /** Lista ticket nel centro Hub (stessa lista della dashboard). */
   const [hubEmbedTicketsKick, setHubEmbedTicketsKick] = useState(0);
+  /** Forza re-render sfondo App quando dal Hub si cambia chiaro/scuro (`tech-hub-surface`). */
+  const [hubShellSurfaceEpoch, setHubShellSurfaceEpoch] = useState(0);
 
   const [dispositiviAziendaliHighlightMac, setDispositiviAziendaliHighlightMac] = useState(null);
   const [showDeviceAnalysisStandalone, setShowDeviceAnalysisStandalone] = useState(false);
@@ -1052,7 +1060,13 @@ export default function TicketApp() {
     }
   }, [showTechnicianWorkbench]);
 
-  /** Overscroll / area sotto il layer fixed dell’Hub: evita fascia chiara (#body / vuoto dopo lo zoom wrapper). */
+  useEffect(() => {
+    const bump = () => setHubShellSurfaceEpoch((n) => n + 1);
+    window.addEventListener('tech-hub-surface', bump);
+    return () => window.removeEventListener('tech-hub-surface', bump);
+  }, []);
+
+  /** Overscroll / area sotto il layer fixed dell’Hub: stesso `--hub-chrome-page` del tema (chiaro = continuo bianco/grigio). */
   useEffect(() => {
     const hub =
       isLoggedIn &&
@@ -1061,13 +1075,17 @@ export default function TicketApp() {
     if (!hub) return undefined;
     const prevHtml = document.documentElement.style.backgroundColor;
     const prevBody = document.body.style.backgroundColor;
-    document.documentElement.style.backgroundColor = HUB_PAGE_BG;
-    document.body.style.backgroundColor = HUB_PAGE_BG;
+    const apply = () => {
+      const bg = ticketHubShellDocumentBackground();
+      document.documentElement.style.backgroundColor = bg;
+      document.body.style.backgroundColor = bg;
+    };
+    apply();
     return () => {
       document.documentElement.style.backgroundColor = prevHtml;
       document.body.style.backgroundColor = prevBody;
     };
-  }, [isLoggedIn, showTechnicianWorkbench, currentUser]);
+  }, [isLoggedIn, showTechnicianWorkbench, currentUser, hubShellSurfaceEpoch]);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -3873,7 +3891,7 @@ export default function TicketApp() {
   return (
     <div
       className={hubShellBackdrop ? 'min-h-screen' : 'min-h-screen bg-gray-50'}
-      style={hubShellBackdrop ? { backgroundColor: HUB_PAGE_BG } : undefined}
+      style={hubShellBackdrop ? { backgroundColor: ticketHubShellDocumentBackground() } : undefined}
     >
       <div className="fixed bottom-5 right-5 z-[100] flex flex-col-reverse gap-2">
         {notifications.map((notif) => (
