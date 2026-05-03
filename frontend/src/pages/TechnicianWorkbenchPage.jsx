@@ -94,7 +94,7 @@ function NavGroup({ title, open, onToggle, children, railMode }) {
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-widest text-[color:var(--hub-chrome-text-fainter)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)]"
+        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-widest text-[color:var(--hub-chrome-text-muted)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)]"
       >
         <span>{title}</span>
         {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -138,6 +138,12 @@ function SidebarLink({ icon: Icon, label, onClick, nested, railMode, active = fa
       </button>
     );
   }
+  const labelColorClass = active
+    ? ''
+    : nested
+      ? 'text-[color:var(--hub-chrome-text-muted)]'
+      : 'text-[color:var(--hub-chrome-text-secondary)]';
+
   return (
     <button
       type="button"
@@ -146,8 +152,8 @@ function SidebarLink({ icon: Icon, label, onClick, nested, railMode, active = fa
       className={`group flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left text-sm transition ${
         active
           ? 'font-semibold shadow-sm hover:brightness-105'
-          : 'text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)] hover:[border-color:var(--hub-accent-border)]'
-      } ${nested && !active ? 'pl-6 text-[13px] text-[color:var(--hub-chrome-text-muted)]' : nested ? 'pl-6 text-[13px]' : ''}`}
+          : 'hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)]'
+      } ${nested ? 'pl-6 text-[13px]' : ''}`}
       style={activeStyle}
     >
       <Icon
@@ -155,11 +161,16 @@ function SidebarLink({ icon: Icon, label, onClick, nested, railMode, active = fa
         className={
           active
             ? 'shrink-0'
-            : 'shrink-0 text-[color:var(--hub-chrome-text-faint)] transition group-hover:text-[color:var(--hub-accent)]'
+            : 'shrink-0 text-[color:var(--hub-chrome-text-muted)] transition group-hover:text-[color:var(--hub-accent)]'
         }
         style={active ? { color: onAccent } : undefined}
       />
-      {label}
+      <span
+        className={`min-w-0 flex-1 truncate ${active ? '' : `${labelColorClass} group-hover:text-[color:var(--hub-accent)]`}`}
+        style={active ? { color: onAccent } : undefined}
+      >
+        {label}
+      </span>
     </button>
   );
 }
@@ -670,12 +681,12 @@ export default function TechnicianWorkbenchPage({
     <div className="fixed inset-0 z-[70] flex min-h-0 flex-col md:flex-row" style={accentStyle}>
       {/* Colonna sinistra */}
       <aside
-        className={`flex w-full shrink-0 flex-col border-[color:var(--hub-chrome-border-soft)] py-5 transition-[width,padding] duration-200 ease-out max-md:w-full max-md:px-5 md:h-full md:border-r ${
+        className={`flex w-full shrink-0 flex-col border-[color:var(--hub-chrome-border-soft)] py-5 text-[color:var(--hub-chrome-text-secondary)] transition-[width,padding] duration-200 ease-out max-md:w-full max-md:px-5 md:h-full md:border-r ${
           railMode
             ? 'md:w-[76px] md:items-center md:px-2 md:overflow-visible'
             : 'md:w-[280px] md:px-5 lg:w-[292px]'
         }`}
-        style={{ backgroundColor: 'var(--hub-chrome-sidebar)' }}
+        style={{ backgroundColor: 'var(--hub-chrome-sidebar)', color: 'var(--hub-chrome-text-secondary)' }}
       >
         <div ref={userMenuRef} className={`relative ${railMode ? 'flex w-full justify-center md:overflow-visible' : ''}`}>
           <button

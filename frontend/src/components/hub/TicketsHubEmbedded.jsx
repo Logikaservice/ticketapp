@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import TicketListContainer from '../TicketListContainer';
 import TicketsHubTicketChrome from './TicketsHubTicketChrome';
-import { formatDateItalian } from '../../utils/formatters';
 import { hubModalCssVars } from '../../utils/techHubAccent';
 import { ticketMatchesAdvancedSearch } from '../../utils/ticketAdvancedSearch';
 
@@ -62,7 +61,7 @@ export default function TicketsHubEmbedded({
   const [selectedCompany, setSelectedCompany] = useState('');
   const visibleTickets = useVisibleTicketsForHub({ currentUser, users, tickets, selectedCompany });
 
-  const [advancedSearchTerm, setAdvancedSearchTerm] = useState(() => formatDateItalian(new Date().toISOString()));
+  const [advancedSearchTerm, setAdvancedSearchTerm] = useState('');
   const [advancedSearchResults, setAdvancedSearchResults] = useState([]);
 
   useEffect(() => {
