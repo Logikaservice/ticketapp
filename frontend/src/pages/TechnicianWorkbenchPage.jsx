@@ -52,6 +52,7 @@ import {
 } from '../utils/techHubAccent';
 import HubOverviewSection from '../components/hub/HubOverviewSection';
 import TicketsHubEmbedded from '../components/hub/TicketsHubEmbedded';
+import HubTimeCard from '../components/hub/HubTimeCard';
 import TicketsCalendar from '../components/TicketsCalendar';
 import { loadHubLayout, getDefaultHubLayout, sanitizeLayoutItems } from '../utils/hubOverviewLayout';
 import { hubModalCssVars } from '../utils/techHubAccent';
@@ -1286,6 +1287,7 @@ export default function TechnicianWorkbenchPage({
           className="flex min-h-0 shrink-0 flex-col gap-3 overflow-hidden border-white/[0.06] px-4 py-5 lg:h-full lg:w-[300px] lg:border-l xl:w-[320px]"
           style={{ backgroundColor: PAGE_BG }}
         >
+          <HubTimeCard accentHex={accentHex} />
           {hubCenterView === 'tickets' && ticketHubListProps ? (
             <RightPanel
               title="Calendario"
