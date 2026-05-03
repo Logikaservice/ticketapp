@@ -364,6 +364,12 @@ const TimeLoggerModal = ({
           const discount = parseFloat(normalizedLog.sconto) || 0;
           const total = (costPerHour * (1 - (discount / 100))) * hours;
 
+          /** Evita wrapper vuoti con solo `border-t` (in sola lettura senza manodopera/materiali). */
+          const showManodoperaSection =
+            !fieldsDisabled || isSectionExpanded(normalizedLog.id, 'manodopera', normalizedLog);
+          const showMaterialiSection =
+            !fieldsDisabled || isSectionExpanded(normalizedLog.id, 'materiali', normalizedLog);
+
           return (
             <div
               key={log.id}
@@ -547,8 +553,9 @@ const TimeLoggerModal = ({
                   style={{ height: 'auto' }}
                 />
 
+                {showManodoperaSection ? (
                 <div className="mt-5 border-t border-[color:var(--hub-chrome-border-soft)] pt-4">
-                  {isSectionExpanded(log.id, 'manodopera', normalizedLog) ? (
+                  {isSectionExpanded(normalizedLog.id, 'manodopera', normalizedLog) ? (
                     <>
                       <div className="mb-3 flex items-center justify-between">
                         <h4 className="text-sm font-bold text-[color:var(--hub-chrome-text)]">Costo Manodopera</h4>
@@ -629,7 +636,9 @@ const TimeLoggerModal = ({
                     </>
                   )}
                 </div>
+                ) : null}
 
+                {showMaterialiSection ? (
                 <div className="mt-5 border-t border-[color:var(--hub-chrome-border-soft)] pt-4">
                   {isSectionExpanded(normalizedLog.id, 'materiali', normalizedLog) ? (
                     <>
@@ -750,6 +759,7 @@ const TimeLoggerModal = ({
                     </>
                   )}
                 </div>
+                ) : null}
 
                 {/* Sezione Come da Offerta - LEGATA A QUESTO INTERVENTO */}
                 {normalizedLog.offerte && normalizedLog.offerte.length > 0 && (
