@@ -497,12 +497,12 @@ const TicketsCalendar = ({
   const HS = sidebarHubEmbed === true;
 
   const shellCls = HS
-    ? 'flex min-h-0 flex-col rounded-xl border border-white/[0.1] bg-[#1e1e1e] text-[13px] text-white/90'
+    ? 'flex min-h-0 w-full min-w-0 flex-col bg-transparent text-[13px] text-white/90'
     : 'rounded-xl border bg-white';
 
   return (
     <div className={shellCls}>
-      <div className={`${HS ? 'border-b border-white/[0.08] px-3 py-2.5' : 'border-b p-4'}`}>
+      <div className={`${HS ? 'border-b border-white/[0.08] px-0 py-2' : 'border-b p-4'}`}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h3 className={HS ? 'text-xs font-semibold uppercase tracking-wide text-white/45' : 'font-semibold'}>
             Calendario ticket
@@ -537,8 +537,8 @@ const TicketsCalendar = ({
         </div>
       </div>
 
-      <div className={`${HS ? 'min-h-0 flex-1 p-3' : 'p-4'}`}>
-        <div className={`${HS ? 'rounded-xl border border-white/[0.1] bg-black/25 p-2' : ''} space-y-2`}>
+      <div className={`${HS ? 'min-h-0 flex-1 px-0 py-1' : 'p-4'}`}>
+        <div className="space-y-2">
         {/* Header giorni settimana */}
         <div className={`grid grid-cols-7 ${HS ? 'mb-1 gap-px' : 'mb-2 gap-1'}`}>
           {['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].map((day) => (
@@ -923,8 +923,6 @@ const TicketsCalendar = ({
             )}
           </div>
         </div>
-
-        {/* chiusura blocco unico hub sidebar */}
         </div>
 
       </div>

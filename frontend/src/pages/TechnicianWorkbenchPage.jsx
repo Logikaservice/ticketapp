@@ -174,19 +174,34 @@ function RightPanel({
   titleAccessory = null,
   onMouseEnter,
   onMouseLeave,
-  scrollBody = true
+  scrollBody = true,
+  /** Se false non mostra la riga titolo (es. calendario con titolo interno nel componente). */
+  showTitle = true,
+  /** `flush`: senza cornice/card per massimizzare larghezza nel contenuto. */
+  variant = 'card'
 }) {
+  const isFlush = variant === 'flush';
   return (
     <div
-      className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.08] p-4 ${className}`}
-      style={{ backgroundColor: SURFACE }}
+      className={`flex min-h-0 flex-1 flex-col overflow-hidden ${
+        isFlush
+          ? 'rounded-none border-0 bg-transparent p-0'
+          : 'rounded-2xl border border-white/[0.08] p-4'
+      } ${className}`}
+      style={isFlush ? undefined : { backgroundColor: SURFACE }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
-        <h3 className="min-w-0 flex-1 text-xs font-bold uppercase tracking-widest text-white/40">{title}</h3>
-        {titleAccessory ? <div className="flex shrink-0 items-center">{titleAccessory}</div> : null}
-      </div>
+      {showTitle && (title ?? titleAccessory) ? (
+        <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
+          {title ? (
+            <h3 className="min-w-0 flex-1 text-xs font-bold uppercase tracking-widest text-white/40">{title}</h3>
+          ) : (
+            <span className="min-w-0 flex-1" aria-hidden />
+          )}
+          {titleAccessory ? <div className="flex shrink-0 items-center">{titleAccessory}</div> : null}
+        </div>
+      ) : null}
       <div
         className={`min-h-0 flex-1 ${scrollBody ? 'overflow-y-auto pr-1' : 'overflow-hidden'} ${bodyClassName}`}
       >
@@ -1330,13 +1345,16 @@ export default function TechnicianWorkbenchPage({
 
         {/* Colonna destra */}
         <aside
-          className="flex min-h-0 shrink-0 flex-col gap-3 overflow-hidden border-white/[0.06] px-4 py-5 lg:h-full lg:w-[300px] lg:border-l xl:w-[320px]"
+          className={`flex min-h-0 shrink-0 flex-col gap-3 overflow-hidden border-white/[0.06] py-5 lg:h-full lg:w-[300px] lg:border-l xl:w-[320px] ${
+            hubCenterView === 'tickets' && ticketHubListProps ? 'px-2' : 'px-4'
+          }`}
           style={{ backgroundColor: PAGE_BG }}
         >
           <HubTimeCard accentHex={accentHex} />
           {hubCenterView === 'tickets' && ticketHubListProps ? (
             <RightPanel
-              title="Calendario"
+              showTitle={false}
+              variant="flush"
               className="min-h-0 flex-1"
               bodyClassName="flex min-h-0 flex-col overflow-hidden p-0"
               scrollBody={false}
