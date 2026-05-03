@@ -699,6 +699,7 @@ export default function HubOverviewSection({
             technicianOnly={hubCanNetworkMonitoring}
             subdued={veil}
             suppressInteraction={suppressInteraction}
+            iconOnly={io}
           />
         );
       case 'launch-antivirus':

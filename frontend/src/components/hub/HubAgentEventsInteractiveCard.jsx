@@ -1,13 +1,21 @@
 import React, { useState, useMemo, useRef, useLayoutEffect, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, ChevronDown, ChevronUp, Trash2, Wifi } from 'lucide-react';
-import { hexToRgba } from '../../utils/techHubAccent';
+import {
+  hexToRgba,
+  hubChromeCssVariables,
+  hubModalCssVars,
+  hubCardInnerGlowCssVars,
+  HUB_CARD_INNER_GLOW_CLASS
+} from '../../utils/techHubAccent';
 import { useAgentMonitoringEvents, getAgentEventVisual, getAgentEventMessage } from '../../hooks/useAgentMonitoringEvents';
 
 const SURFACE = '#1E1E1E';
-const BUBBLE_SURFACE = '#1a1e24';
 const POPOVER_Z_BACKDROP = 119;
 const POPOVER_Z_PANEL = 120;
+
+/** Alone pulsante per notifiche non lette (armonizza con ticket/forniture ma in rosso). */
+const NOTIFY_UNREAD_GLOW_HEX = '#ef4444';
 
 function computePopoverBox(anchorRect) {
   const margin = 10;
@@ -51,12 +59,13 @@ export default function HubAgentEventsInteractiveCard({
   onOpenNetworkMonitoring,
   /** Con `light` la card segue `--hub-chrome-*` come il resto della panoramica Chiara. */
   hubSurfaceMode = 'dark',
-  title = 'Notifiche agent',
+  title = 'Notifiche',
   subtitle = 'Eventi rete sugli agent',
   subdued,
   suppressInteraction,
   /** Ruoli con accesso al monitoraggio rete (allineato a Hub: tecnico, admin, cliente multi-azienda). */
-  technicianOnly = false
+  technicianOnly = false,
+  iconOnly = false
 }) {
   const hubLight = hubSurfaceMode === 'light';
   const [expanded, setExpanded] = useState(false);
@@ -71,6 +80,19 @@ export default function HubAgentEventsInteractiveCard({
   );
 
   const accentSoft = useMemo(() => hexToRgba(accentHex, 0.14), [accentHex]);
+  const hasUnread = unreadCount > 0;
+  const unreadGlowStyle = useMemo(
+    () => (hasUnread ? hubCardInnerGlowCssVars(NOTIFY_UNREAD_GLOW_HEX) : null),
+    [hasUnread]
+  );
+
+  const popoverThemeStyle = useMemo(
+    () => ({
+      ...hubChromeCssVariables(hubLight ? 'light' : 'dark'),
+      ...hubModalCssVars(accentHex)
+    }),
+    [hubLight, accentHex]
+  );
 
   const closePopover = useCallback(() => setExpanded(false), []);
 
@@ -120,17 +142,35 @@ export default function HubAgentEventsInteractiveCard({
   }, [expanded, closePopover]);
 
   if (!technicianOnly) {
+    const veilCls = subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : '';
+    const blockedCls = suppressInteraction ? 'pointer-events-none' : '';
+    const shellCls = `flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border ${
+      hubLight ? 'border-[color:var(--hub-chrome-border-soft)]' : 'border-white/[0.08]'
+    } ${veilCls} ${blockedCls}`;
+    const shellStyle = {
+      backgroundColor: hubLight ? 'var(--hub-chrome-surface)' : SURFACE,
+      boxShadow: 'var(--hub-chrome-card-shadow)'
+    };
+
+    if (iconOnly) {
+      return (
+        <div className={shellCls} style={shellStyle} role="status" aria-label={title}>
+          <div className="flex h-full flex-col items-center justify-center gap-1 p-2 text-center">
+            <div
+              className={`rounded-xl p-2 ${hubLight ? 'bg-[color:var(--hub-chrome-muted-fill)] text-[color:var(--hub-chrome-text-fainter)]' : 'bg-white/[0.06] text-white/35'}`}
+            >
+              <Wifi size={22} aria-hidden />
+            </div>
+            <span className={`max-w-full px-1 text-[10px] leading-tight ${hubLight ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-white/38'}`}>
+              Accesso rete
+            </span>
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div
-        className={`flex h-full min-h-0 flex-col rounded-2xl border p-4 ${
-          hubLight ? 'border-[color:var(--hub-chrome-border-soft)]' : 'border-white/[0.08]'
-        } ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
-        style={{
-          backgroundColor: hubLight ? 'var(--hub-chrome-surface)' : SURFACE,
-          boxShadow: 'var(--hub-chrome-card-shadow)'
-        }}
-        role="status"
-      >
+      <div className={`${shellCls} p-4`} style={shellStyle} role="status">
         <div className="flex items-center gap-3">
           <div
             className={`rounded-xl p-2.5 ${hubLight ? 'bg-[color:var(--hub-chrome-muted-fill)] text-[color:var(--hub-chrome-text-fainter)]' : 'bg-white/[0.06] text-white/35'}`}
@@ -166,75 +206,102 @@ export default function HubAgentEventsInteractiveCard({
 
   const popoverMounted = expanded && !blocked && popoverBox != null && typeof document !== 'undefined';
 
+  const triangleUnreadCls = hubLight ? 'text-red-600' : 'text-red-400';
+  const triangleIdleCls = hubLight ? 'text-[color:var(--hub-chrome-text-fainter)]' : 'text-white/45';
+
+  const countBlock = (
+    <span
+      className={`shrink-0 tabular-nums text-2xl font-bold leading-none ${
+        hasUnread ? triangleUnreadCls : hubLight ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-white/40'
+      }`}
+    >
+      {unreadCount > 99 ? '99+' : unreadCount}
+    </span>
+  );
+
   return (
     <>
       <div
         ref={wrapRef}
-        className={`relative flex h-full max-h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border ${hubLight ? 'border-[color:var(--hub-chrome-border-soft)]' : 'border-white/[0.08]'} ${veil} ${blocked ? 'pointer-events-none' : ''}`}
+        className={`relative flex h-full max-h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border ${hubLight ? 'border-[color:var(--hub-chrome-border-soft)]' : 'border-white/[0.08]'} ${hasUnread ? HUB_CARD_INNER_GLOW_CLASS : ''} ${veil} ${blocked ? 'pointer-events-none' : ''}`}
         style={{
           backgroundColor: hubLight ? 'var(--hub-chrome-surface)' : SURFACE,
-          boxShadow: 'var(--hub-chrome-card-shadow)'
+          boxShadow: 'var(--hub-chrome-card-shadow)',
+          ...unreadGlowStyle
         }}
       >
-        <button
-          type="button"
-          onClick={toggleExpanded}
-          disabled={blocked}
-          className={`flex h-full max-h-full min-h-0 w-full min-w-0 shrink-0 flex-col justify-center gap-0 p-4 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] disabled:pointer-events-none ${hubLight ? 'hover:bg-[color:var(--hub-chrome-hover)]' : 'hover:bg-white/[0.04]'}`}
-          aria-expanded={expanded}
-          aria-haspopup="dialog"
-        >
-          <div className="flex min-h-0 w-full min-w-0 shrink-0 items-center gap-3">
-            <div className="relative inline-flex shrink-0 rounded-xl p-2.5" style={{ backgroundColor: accentSoft }}>
-              <AlertTriangle
-                size={24}
-                className={
-                  unreadCount > 0
-                    ? hubLight
-                      ? 'text-[color:var(--hub-chrome-tone-warn-icon)]'
-                      : 'text-amber-400'
-                    : hubLight
-                      ? 'text-[color:var(--hub-chrome-text-fainter)]'
-                      : 'text-white/45'
-                }
-                strokeWidth={2}
-                aria-hidden
-              />
-              {unreadCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
+        {iconOnly ? (
+          <button
+            type="button"
+            onClick={toggleExpanded}
+            disabled={blocked}
+            className={`flex h-full max-h-full min-h-0 w-full min-w-0 flex-col items-center justify-center gap-1 p-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] disabled:pointer-events-none ${hubLight ? 'hover:bg-[color:var(--hub-chrome-hover)]' : 'hover:bg-white/[0.04]'}`}
+            aria-expanded={expanded}
+            aria-haspopup="dialog"
+            aria-label={hasUnread ? `${title}: ${unreadCount} non ${unreadCount === 1 ? 'letta' : 'lette'}` : title}
+          >
+            <div className="inline-flex shrink-0 rounded-xl p-2.5" style={{ backgroundColor: accentSoft }}>
+              <AlertTriangle size={26} className={hasUnread ? triangleUnreadCls : triangleIdleCls} strokeWidth={2} aria-hidden />
             </div>
-            <div className="min-w-0 flex-1 leading-tight">
-              <div className="flex min-w-0 items-start gap-2">
-                <span
-                  className={`min-w-0 flex-1 break-words text-base font-semibold ${hubLight ? 'text-[color:var(--hub-chrome-text)]' : 'text-white/90'}`}
-                >
-                  {title}
-                </span>
-                {expanded ? (
-                  <ChevronUp
-                    size={18}
-                    className={`mt-0.5 shrink-0 ${hubLight ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-white/45'}`}
-                    aria-hidden
-                  />
-                ) : (
-                  <ChevronDown
-                    size={18}
-                    className={`mt-0.5 shrink-0 ${hubLight ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-white/45'}`}
-                    aria-hidden
-                  />
-                )}
+            <span
+              className={`tabular-nums text-base font-semibold ${hasUnread ? triangleUnreadCls : hubLight ? 'text-[color:var(--hub-chrome-text-fainter)]' : 'text-white/40'}`}
+            >
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={toggleExpanded}
+            disabled={blocked}
+            className={`flex h-full max-h-full min-h-0 w-full min-w-0 shrink-0 flex-col justify-center gap-0 p-4 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] disabled:pointer-events-none ${hubLight ? 'hover:bg-[color:var(--hub-chrome-hover)]' : 'hover:bg-white/[0.04]'}`}
+            aria-expanded={expanded}
+            aria-haspopup="dialog"
+          >
+            <div className="flex min-h-0 w-full min-w-0 shrink-0 items-start gap-3">
+              <div className="inline-flex shrink-0 rounded-xl p-2.5" style={{ backgroundColor: accentSoft }}>
+                <AlertTriangle
+                  size={24}
+                  className={hasUnread ? triangleUnreadCls : triangleIdleCls}
+                  strokeWidth={2}
+                  aria-hidden
+                />
               </div>
-              <p
-                className={`mt-1 break-words text-xs leading-snug ${hubLight ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-white/45'}`}
-              >
-                {expanded ? 'Lista in overlay: clic fuori o Esc per chiudere' : `${subtitle} · clic per aprire`}
-              </p>
+              <div className="min-w-0 flex-1 leading-tight">
+                <div className="flex min-w-0 items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-start gap-2">
+                      <span
+                        className={`min-w-0 flex-1 break-words text-base font-semibold ${hubLight ? 'text-[color:var(--hub-chrome-text)]' : 'text-white/90'}`}
+                      >
+                        {title}
+                      </span>
+                      {expanded ? (
+                        <ChevronUp
+                          size={18}
+                          className={`mt-0.5 shrink-0 ${hubLight ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-white/45'}`}
+                          aria-hidden
+                        />
+                      ) : (
+                        <ChevronDown
+                          size={18}
+                          className={`mt-0.5 shrink-0 ${hubLight ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-white/45'}`}
+                          aria-hidden
+                        />
+                      )}
+                    </div>
+                  </div>
+                  {countBlock}
+                </div>
+                <p
+                  className={`mt-1 break-words text-xs leading-snug ${hubLight ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-white/45'}`}
+                >
+                  {expanded ? 'Lista in overlay: clic fuori o Esc per chiudere' : `${subtitle} · clic per aprire`}
+                </p>
+              </div>
             </div>
-          </div>
-        </button>
+          </button>
+        )}
       </div>
 
       {popoverMounted
@@ -245,7 +312,7 @@ export default function HubAgentEventsInteractiveCard({
                 className="pointer-events-none fixed inset-0 animate-in fade-in"
                 style={{
                   zIndex: POPOVER_Z_BACKDROP,
-                  background: hubLight ? 'rgba(15,23,42,0.15)' : 'rgba(0,0,0,0.38)'
+                  background: hubLight ? 'rgba(15,23,42,0.08)' : 'rgba(0,0,0,0.38)'
                 }}
               />
               <div
@@ -263,22 +330,23 @@ export default function HubAgentEventsInteractiveCard({
                   height: popoverBox.height,
                   maxHeight: popoverBox.height,
                   zIndex: POPOVER_Z_PANEL,
-                  backgroundColor: hubLight ? 'var(--hub-chrome-surface)' : BUBBLE_SURFACE,
+                  ...popoverThemeStyle,
+                  backgroundColor: 'var(--hub-chrome-surface)',
                   boxShadow: hubLight
                     ? '0 0 0 1px var(--hub-chrome-border-soft), 0 20px 44px rgba(15,23,42,0.08)'
                     : '0 0 0 1px rgba(255,255,255,0.06), 0 20px 50px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.06)'
                 }}
               >
-                  {popoverBox.arrowAtTop ? (
-                    <div className="pointer-events-none absolute -top-px left-1/2 z-[1] -translate-x-1/2 translate-y-[1px]" aria-hidden>
-                      <div className="h-0 w-0 border-x-[10px] border-b-[11px] border-x-transparent border-b-[color:var(--hub-accent-border)]" />
-                    </div>
-                  ) : (
-                    <div className="pointer-events-none absolute -bottom-px left-1/2 z-[1] -translate-x-1/2 -translate-y-[1px]" aria-hidden>
-                      <div className="h-0 w-0 border-x-[10px] border-t-[11px] border-x-transparent border-t-[color:var(--hub-accent-border)]" />
-                    </div>
-                  )}
-                  <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl pt-px">
+                {popoverBox.arrowAtTop ? (
+                  <div className="pointer-events-none absolute -top-px left-1/2 z-[1] -translate-x-1/2 translate-y-[1px]" aria-hidden>
+                    <div className="h-0 w-0 border-x-[10px] border-b-[11px] border-x-transparent border-b-[color:var(--hub-accent-border)]" />
+                  </div>
+                ) : (
+                  <div className="pointer-events-none absolute -bottom-px left-1/2 z-[1] -translate-x-1/2 -translate-y-[1px]" aria-hidden>
+                    <div className="h-0 w-0 border-x-[10px] border-t-[11px] border-x-transparent border-t-[color:var(--hub-accent-border)]" />
+                  </div>
+                )}
+                <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl pt-px">
                   <div
                     className={`flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2 pl-4 ${
                       hubLight ? 'border-[color:var(--hub-chrome-border-soft)]' : 'border-white/[0.08]'
@@ -372,7 +440,7 @@ export default function HubAgentEventsInteractiveCard({
                       })
                     )}
                   </div>
-                  </div>
+                </div>
               </div>
             </>,
             document.body

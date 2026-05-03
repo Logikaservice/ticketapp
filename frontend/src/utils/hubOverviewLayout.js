@@ -44,9 +44,9 @@ export const HUB_MODULE_META = {
   },
   /** Eventi agent monitoraggio: card espandibile sulla panoramica (triangolo header). */
   'agent-events': {
-    label: 'Notifiche agent',
+    label: 'Notifiche',
     category: 'Moduli',
-    resizeBounds: { minW: 2, maxW: 7, minH: 2, maxH: 4 },
+    resizeBounds: { minW: 1, maxW: 7, minH: 1, maxH: 4 },
     /** Fila 6: sotto i KPI, sopra Office/Dispositivi — resta visibile senza scroll lungo. */
     defaultPlacement: { col: 1, row: 6, w: 5, h: 2 }
   },
@@ -137,7 +137,7 @@ export function getDefaultHubLayout() {
 }
 
 export function hubModuleSupportsIconOnly(moduleId) {
-  return Boolean(moduleId) && moduleId !== 'contracts' && moduleId !== 'agent-events';
+  return Boolean(moduleId) && moduleId !== 'contracts';
 }
 
 /**
