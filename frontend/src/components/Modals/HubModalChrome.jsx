@@ -168,12 +168,13 @@ export function HubModalPrimaryButton({ children, onClick, type = 'button', disa
   );
 }
 
-export function HubModalSecondaryButton({ children, onClick, type = 'button', className = '' }) {
+export function HubModalSecondaryButton({ children, onClick, type = 'button', disabled, className = '' }) {
   return (
     <button
       type={type}
       onClick={onClick}
-      className={`rounded-lg bg-[color:var(--hub-chrome-muted-fill)] px-4 py-2 text-sm font-medium text-[color:var(--hub-chrome-text)] transition hover:bg-[color:var(--hub-chrome-hover)] ${className}`}
+      disabled={disabled}
+      className={`rounded-lg bg-[color:var(--hub-chrome-muted-fill)] px-4 py-2 text-sm font-medium text-[color:var(--hub-chrome-text)] transition hover:bg-[color:var(--hub-chrome-hover)] disabled:cursor-not-allowed disabled:opacity-45 ${className}`}
     >
       {children}
     </button>
