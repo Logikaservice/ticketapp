@@ -1228,6 +1228,8 @@ export default function TechnicianWorkbenchPage({
                 onNavigateTicketTabState={ticketHubListProps.onNavigateTicketTabState}
                 onOpenUnreadModal={ticketHubExtras?.onOpenUnreadMessages}
                 hubUnreadMessagesTotal={ticketHubExtras?.unreadMessagesTotal ?? 0}
+                hubTemporarySuppliesCount={hubTemporarySuppliesCount}
+                onOpenHubTemporarySupplies={() => setFornitureResocontoOpen(true)}
               />
             ) : hubCenterView === 'email' ? (
               <EmailPage

@@ -56,7 +56,9 @@ export default function TicketsHubEmbedded({
   onOpenNewTicket,
   onNavigateTicketTabState,
   onOpenUnreadModal,
-  hubUnreadMessagesTotal = 0
+  hubUnreadMessagesTotal = 0,
+  hubTemporarySuppliesCount = undefined,
+  onOpenHubTemporarySupplies = null
 }) {
   const [selectedCompany, setSelectedCompany] = useState('');
   const visibleTickets = useVisibleTicketsForHub({ currentUser, users, tickets, selectedCompany });
@@ -113,6 +115,8 @@ export default function TicketsHubEmbedded({
           getUnreadCount={getUnreadCount}
           showFilters
           externalViewState={externalViewState}
+          hubTemporarySuppliesCount={hubTemporarySuppliesCount}
+          onOpenHubTemporarySupplies={onOpenHubTemporarySupplies ?? undefined}
         />
       </div>
     </div>

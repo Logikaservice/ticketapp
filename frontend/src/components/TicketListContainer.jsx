@@ -1,7 +1,20 @@
 // src/components/TicketListContainer.jsx
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { FileText, PlayCircle, CheckCircle, Send, FileCheck2, Archive, ChevronDown, ChevronRight, Crown, Building, Mail } from 'lucide-react';
+import {
+  FileText,
+  PlayCircle,
+  CheckCircle,
+  Send,
+  FileCheck2,
+  Archive,
+  ChevronDown,
+  ChevronRight,
+  Crown,
+  Building,
+  Mail,
+  Package
+} from 'lucide-react';
 import TicketItem from './TicketItem';
 import { HUB_MODAL_FIELD_CLS } from '../utils/techHubAccent';
 
@@ -19,7 +32,11 @@ const TicketListContainer = ({
   showFilters = true,
   externalViewState,
   hubEmbed = false,
-  hubSurfaceMode = 'dark'
+  hubSurfaceMode = 'dark',
+  /** Vista Hub ticket: conteggio forniture visibili; `undefined` durante caricamento. */
+  hubTemporarySuppliesCount = undefined,
+  /** Vista Hub ticket: apre il resoconto forniture (modale). */
+  onOpenHubTemporarySupplies = null
 }) => {
   const [viewState, setViewState] = useState(externalViewState || 'aperto');
   useEffect(() => {
@@ -501,8 +518,14 @@ const TicketListContainer = ({
           )}
 
           {showFilters && (
-            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
-              {['aperto','in_lavorazione','risolto','chiuso','inviato','fatturato'].map(status => {
+            <div
+              className={`grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 ${
+                hubEmbed && typeof onOpenHubTemporarySupplies === 'function'
+                  ? 'lg:grid-cols-7'
+                  : 'lg:grid-cols-6'
+              }`}
+            >
+              {['aperto', 'in_lavorazione', 'risolto', 'chiuso', 'inviato', 'fatturato'].map((status) => {
                 const count = ticketCounts[status] || 0;
                 const disabled = count === 0;
                 const active = viewState === status;
@@ -511,7 +534,7 @@ const TicketListContainer = ({
                     key={status}
                     onClick={() => !disabled && setViewState(status)}
                     disabled={disabled}
-                    className={`p-4 rounded-xl text-center ${disabled ? lc.statDis : active ? lc.statOn : lc.statOff}`}
+                    className={`rounded-xl p-4 text-center ${disabled ? lc.statDis : active ? lc.statOn : lc.statOff}`}
                   >
                     <div className={lc.statLbl}>
                       {status === 'aperto' && <FileText size={14} />}
@@ -520,12 +543,34 @@ const TicketListContainer = ({
                       {status === 'chiuso' && <Archive size={14} />}
                       {status === 'inviato' && <Send size={14} />}
                       {status === 'fatturato' && <FileCheck2 size={14} />}
-                      <span>{status.replace('_',' ')}</span>
+                      <span>{status.replace('_', ' ')}</span>
                     </div>
                     <div className={lc.statNum}>{count}</div>
                   </button>
                 );
               })}
+              {hubEmbed && typeof onOpenHubTemporarySupplies === 'function' ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenHubTemporarySupplies()}
+                  title="Apri resoconto forniture temporanee dai ticket"
+                  className={`rounded-xl p-4 text-center transition ${lc.statOff} hover:[border-color:var(--hub-accent-border)]`}
+                >
+                  <div className={lc.statLbl}>
+                    <Package size={14} className="shrink-0" aria-hidden />
+                    <span className="normal-case leading-tight">Forniture</span>
+                  </div>
+                  <div
+                    className={`${lc.statNum} ${
+                      typeof hubTemporarySuppliesCount === 'number' && hubTemporarySuppliesCount > 0
+                        ? 'text-[#15803d]'
+                        : ''
+                    }`}
+                  >
+                    {typeof hubTemporarySuppliesCount === 'number' ? hubTemporarySuppliesCount : '…'}
+                  </div>
+                </button>
+              ) : null}
             </div>
           )}
 
