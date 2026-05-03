@@ -46,6 +46,9 @@ import {
 
 const SURFACE_LOCAL = '#1E1E1E';
 
+/** Verde KPI Hub (stesso di Contratti attivi / «pagato»): unico colore evidenza per le card ticket con dato &gt; 0. */
+const HUB_TICKET_KPI_GREEN = '#15803d';
+
 const HUB_REFRESH_TICKET_STAT_IDS = new Set(['stat-aperto', 'stat-lavorazione']);
 
 /** Gruppi nel pannello «Modifica layout»: per tipo d’uso della card. */
@@ -146,15 +149,14 @@ function ModuleLaunchCard({
 }
 
 /**
- * KPI ticket: icona sinistra · titolo (+ sottotitolo opz.) centrati · numero a destra (≈ grande come l’area icona).
- * Zero → numero grigio; &gt;0 → colore accent hub.
+ * KPI ticket: icona sinistra · titolo (+ sottotitolo opz.) centrati · numero a destra.
+ * Zero → grigio; &gt;0 → solo verde KPI hub {@link HUB_TICKET_KPI_GREEN} (nessun accent personalizzato).
  */
 function TicketHubStatCard({
   icon: Icon,
   title,
   subtitle = '',
   count,
-  accentHex,
   stateKey,
   onOpenTicketState,
   subdued,
@@ -162,23 +164,24 @@ function TicketHubStatCard({
   iconOnly = false
 }) {
   const active = count > 0;
+  const g = HUB_TICKET_KPI_GREEN;
 
   const body = iconOnly ? (
     <div className="flex h-full flex-col items-center justify-center gap-1 py-2">
       <div
         className={`inline-flex rounded-xl p-2.5 ${active ? '' : 'bg-white/[0.06]'}`}
-        style={active ? { backgroundColor: hexToRgba(accentHex, 0.12) } : undefined}
+        style={active ? { backgroundColor: hexToRgba(g, 0.12) } : undefined}
       >
         <Icon
           size={26}
           className="shrink-0"
-          style={{ color: active ? accentHex : 'rgba(255,255,255,0.38)' }}
+          style={{ color: active ? g : 'rgba(255,255,255,0.38)' }}
           aria-hidden
         />
       </div>
       <span
-        className={`tabular-nums text-base font-semibold ${active ? 'text-white/90' : 'text-white/[0.28]'}`}
-        style={active ? { color: accentHex } : undefined}
+        className={`tabular-nums text-base font-semibold ${active ? '' : 'text-white/[0.28]'}`}
+        style={active ? { color: g } : undefined}
         aria-live="polite"
       >
         {count}
@@ -188,12 +191,12 @@ function TicketHubStatCard({
     <div className="flex w-full min-w-0 items-center gap-3">
       <div
         className={`inline-flex shrink-0 rounded-xl p-2.5 transition ${active ? '' : 'bg-white/[0.06]'}`}
-        style={active ? { backgroundColor: hexToRgba(accentHex, 0.12) } : undefined}
+        style={active ? { backgroundColor: hexToRgba(g, 0.12) } : undefined}
       >
         <Icon
           size={26}
           className="shrink-0"
-          style={{ color: active ? accentHex : 'rgba(255,255,255,0.38)' }}
+          style={{ color: active ? g : 'rgba(255,255,255,0.38)' }}
         />
       </div>
       <div className="flex min-h-[3rem] min-w-0 flex-1 flex-col items-center justify-center px-1 text-center">
@@ -206,7 +209,7 @@ function TicketHubStatCard({
         className={`shrink-0 tabular-nums text-[2.65rem] font-bold leading-none tracking-tight sm:text-[2.85rem] ${
           active ? '' : 'text-white/[0.38]'
         }`}
-        style={active ? { color: accentHex } : undefined}
+        style={active ? { color: g } : undefined}
         aria-hidden
       >
         {count}
@@ -240,7 +243,7 @@ function TicketHubStatCard({
       type="button"
       disabled={Boolean(subdued)}
       aria-label={ariaLbl}
-      className={`${fullRow} transition hover:bg-white/[0.04] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] ${
+      className={`${fullRow} transition hover:bg-white/[0.04] hover:[border-color:rgba(21,128,61,0.55)] hover:shadow-[0_0_0_1px_rgba(21,128,61,0.22)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#15803d] ${
         iconOnly ? 'justify-center' : ''
       } ${veil} ${noPtr}`}
       style={surfaceStyle}
@@ -523,7 +526,6 @@ export default function HubOverviewSection({
             title={txt(item, 'Aperti')}
             subtitle={sub(item, '')}
             count={hubTicketCounts.aperto}
-            accentHex={accentHex}
             stateKey="aperto"
             onOpenTicketState={onOpenTicketState}
             subdued={veil}
@@ -538,7 +540,6 @@ export default function HubOverviewSection({
             title={txt(item, 'In lavorazione')}
             subtitle={sub(item, '')}
             count={hubTicketCounts.in_lavorazione}
-            accentHex={accentHex}
             stateKey="in_lavorazione"
             onOpenTicketState={onOpenTicketState}
             subdued={veil}
