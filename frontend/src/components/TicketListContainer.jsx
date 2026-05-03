@@ -17,7 +17,9 @@ const TicketListContainer = ({
   getUnreadCount,
   showFilters = true,
   externalViewState,
-  hubEmbed = false
+  hubEmbed = false,
+  /** Hub: limite opzionale righe lista (performance); null = nessun limite. */
+  hubEmbedMaxItems = null
 }) => {
   const [viewState, setViewState] = useState(externalViewState || 'aperto');
   useEffect(() => {
@@ -1010,22 +1012,38 @@ const TicketListContainer = ({
               <p>Nessun intervento con lo stato selezionato.</p>
             </div>
           ) : (
-            displayTickets
-              .sort((a, b) => new Date(b.dataapertura) - new Date(a.dataapertura))
-              .filter(t => t && t.id)
-              .map(t => (
-                <TicketItem
-                  key={t.id}
-                  hubEmbed={hubEmbed}
-                  ticket={t}
-                  cliente={usersMap[t.clienteid]}
-                  currentUser={currentUser}
-                  selectedTicket={selectedTicket}
-                  handlers={handlers}
-                  getUnreadCount={getUnreadCount}
-                  users={users}
-                />
-              ))
+            (() => {
+              const sorted = displayTickets
+                .filter((t) => t && t.id)
+                .sort((a, b) => new Date(b.dataapertura) - new Date(a.dataapertura));
+              const cap =
+                hubEmbed && hubEmbedMaxItems != null && Number(hubEmbedMaxItems) > 0
+                  ? Number(hubEmbedMaxItems)
+                  : null;
+              const rows = cap != null ? sorted.slice(0, cap) : sorted;
+              return (
+                <>
+                  {rows.map((t) => (
+                    <TicketItem
+                      key={t.id}
+                      hubEmbed={hubEmbed}
+                      ticket={t}
+                      cliente={usersMap[t.clienteid]}
+                      currentUser={currentUser}
+                      selectedTicket={selectedTicket}
+                      handlers={handlers}
+                      getUnreadCount={getUnreadCount}
+                      users={users}
+                    />
+                  ))}
+                  {cap != null && sorted.length > cap ? (
+                    <p className={hubEmbed ? 'px-3 py-2 text-center text-[11px] text-white/38' : 'px-3 py-2 text-center text-xs text-gray-500'}>
+                      Mostrati {cap} di {sorted.length}. Aumenta il limite dal menu «Card in lista» oppure scegli «Tutti».
+                    </p>
+                  ) : null}
+                </>
+              );
+            })()
           )}
         </div>
       </div>

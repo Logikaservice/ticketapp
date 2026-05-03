@@ -1152,10 +1152,11 @@ export default function TechnicianWorkbenchPage({
               hubCenterView === 'speedtest' ||
               hubCenterView === 'network-monitoring' ||
               hubCenterView === 'contratti' ||
-              hubCenterView === 'avvisi' ||
-              hubCenterView === 'tickets'
+              hubCenterView === 'avvisi'
                 ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-2 md:px-5 md:pb-5'
-                : 'min-h-0 flex-1 overflow-y-auto p-4 md:p-5'
+                : hubCenterView === 'tickets'
+                  ? 'custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 pb-4 pt-2 md:px-5 md:pb-5'
+                  : 'min-h-0 flex-1 overflow-y-auto p-4 md:p-5'
             }
           >
             {hubCenterView === 'avvisi' ? (
