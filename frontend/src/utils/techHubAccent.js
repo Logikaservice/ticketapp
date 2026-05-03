@@ -186,7 +186,8 @@ export function hubChromeCssVariables(surfaceMode = 'dark') {
   };
 }
 
-export const DEFAULT_TECH_HUB_ACCENT = '#C1FF72';
+/** Colore di default applicazione (brand): blu. */
+export const DEFAULT_TECH_HUB_ACCENT = '#2563eb';
 
 /** Sfondo principale Hub tecnico (stesso degli overlay modali «stile Hub»). */
 export const HUB_PAGE_BG = '#121212';
