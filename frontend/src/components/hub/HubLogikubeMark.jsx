@@ -23,7 +23,7 @@ export default function HubLogikubeMark({ railMode = false, className = '' }) {
       <div className={`flex w-full justify-center ${className}`} role="img" aria-label="Logikube">
         <svg
           viewBox="155 274 298 446"
-          className="h-8 w-auto shrink-0 overflow-visible fill-current text-[color:var(--hub-accent)] [filter:drop-shadow(0_0_7px_var(--hub-accent-glow))]"
+          className="h-14 w-auto max-w-[4.75rem] shrink-0 overflow-visible fill-current text-[color:var(--hub-accent)] [filter:drop-shadow(0_0_8px_var(--hub-accent-glow))]"
           aria-hidden
         >
           <path d={LOGIKUBE_WORDMARK_PATH} />
@@ -33,10 +33,10 @@ export default function HubLogikubeMark({ railMode = false, className = '' }) {
   }
 
   return (
-    <div className={`flex min-w-0 items-center ${className}`} role="img" aria-label="Logikube">
+    <div className={`flex min-w-0 items-center px-0.5 ${className}`} role="img" aria-label="Logikube">
       <svg
         viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-        className="h-[clamp(1.35rem,3.2vw,1.75rem)] w-auto max-w-[min(100%,14rem)] shrink-0 overflow-visible"
+        className="min-h-[2.75rem] h-12 w-auto max-w-full shrink-0 overflow-visible sm:h-14 md:h-[3.5rem]"
         aria-hidden
       >
         <defs>
