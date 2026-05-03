@@ -56,6 +56,7 @@ import HubTimeCard from '../components/hub/HubTimeCard';
 import TicketsCalendar from '../components/TicketsCalendar';
 import { loadHubLayout, getDefaultHubLayout, sanitizeLayoutItems } from '../utils/hubOverviewLayout';
 import { hubModalCssVars } from '../utils/techHubAccent';
+import { buildApiUrl } from '../utils/apiConfig';
 
 const SURFACE = '#1E1E1E';
 const PAGE_BG = '#121212';
@@ -450,6 +451,8 @@ export default function TechnicianWorkbenchPage({
   const [accentHex, setAccentHex] = useState(getStoredTechHubAccent);
   const [hubImportantAlerts, setHubImportantAlerts] = useState([]);
   const [hubImportantAlertsLoading, setHubImportantAlertsLoading] = useState(true);
+  /** Contratti per il calendario nella sidebar vista Ticket (stessa fonte della dashboard). */
+  const [hubCalendarContracts, setHubCalendarContracts] = useState([]);
   const [avvisiPanelHovered, setAvvisiPanelHovered] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [accentPickerOpen, setAccentPickerOpen] = useState(false);
@@ -537,6 +540,52 @@ export default function TechnicianWorkbenchPage({
   useEffect(() => {
     if (hubEmbedTicketsKick > 0) setHubCenterView('tickets');
   }, [hubEmbedTicketsKick]);
+
+  useEffect(() => {
+    if (hubCenterView !== 'tickets' || !getAuthHeader || !currentUser) return undefined;
+
+    let cancelled = false;
+    const load = async () => {
+      if (currentUser.ruolo === 'tecnico') {
+        try {
+          const res = await fetch(buildApiUrl('/api/contracts'), { headers: getAuthHeader() });
+          if (cancelled || !res.ok) return;
+          const data = await res.json();
+          if (!cancelled) setHubCalendarContracts(Array.isArray(data) ? data : []);
+        } catch (_) {
+          if (!cancelled) setHubCalendarContracts([]);
+        }
+        return;
+      }
+      if (currentUser.ruolo === 'cliente') {
+        const isAdmin =
+          Array.isArray(currentUser.admin_companies) && currentUser.admin_companies.length > 0;
+        if (!isAdmin) {
+          setHubCalendarContracts([]);
+          return;
+        }
+        try {
+          const res = await fetch(buildApiUrl('/api/contracts'), { headers: getAuthHeader() });
+          if (cancelled || !res.ok) return;
+          const allContracts = await res.json();
+          if (cancelled) return;
+          const list = Array.isArray(allContracts) ? allContracts : [];
+          const companyNames = currentUser.admin_companies;
+          setHubCalendarContracts(
+            list.filter((c) => c.azienda && companyNames.includes(c.azienda))
+          );
+        } catch (_) {
+          if (!cancelled) setHubCalendarContracts([]);
+        }
+        return;
+      }
+      setHubCalendarContracts([]);
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [hubCenterView, currentUser, getAuthHeader]);
 
   const userMenuRef = useRef(null);
   const accentPickerRef = useRef(null);
@@ -1300,7 +1349,7 @@ export default function TechnicianWorkbenchPage({
                   sidebarHubEmbed
                   tickets={tickets}
                   users={ticketHubListProps.users}
-                  contracts={[]}
+                  contracts={hubCalendarContracts}
                   currentUser={currentUser}
                   getAuthHeader={getAuthHeader}
                   onTicketClick={(ticket) => ticketHubListProps.onCalendarTicketClick?.(ticket)}
