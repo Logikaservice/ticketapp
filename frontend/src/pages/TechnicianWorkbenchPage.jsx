@@ -61,7 +61,6 @@ import { buildApiUrl } from '../utils/apiConfig';
 const SURFACE = '#1E1E1E';
 const PAGE_BG = '#121212';
 const STORAGE_KEY_SIDEBAR_COLLAPSED = 'techHubSidebarCollapsed';
-const STORAGE_KEY_SIDEBAR_WIDE = 'techHubSidebarWide';
 const HUB_ALERTS_PAGE_SIZE = 5;
 
 const hubTinyIconBtn =
@@ -83,14 +82,6 @@ function useMinMd() {
 function loadSidebarCollapsed() {
   try {
     return localStorage.getItem(STORAGE_KEY_SIDEBAR_COLLAPSED) === '1';
-  } catch (_) {
-    return false;
-  }
-}
-
-function loadSidebarWide() {
-  try {
-    return localStorage.getItem(STORAGE_KEY_SIDEBAR_WIDE) === '1';
   } catch (_) {
     return false;
   }
@@ -483,7 +474,6 @@ export default function TechnicianWorkbenchPage({
   const [navToolsOpen, setNavToolsOpen] = useState(true);
   const [navProjectsOpen, setNavProjectsOpen] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
-  const [sidebarWide, setSidebarWide] = useState(loadSidebarWide);
   /** Centro Hub: panoramica a griglia oppure modulo integrato (Comunicazioni, Email, Anti-Virus…). */
   const [hubCenterView, setHubCenterView] = useState(
     /** @type {'overview' | 'comunicazioni' | 'comm-agent-manager' | 'email' | 'office' | 'antivirus' | 'dispositivi' | 'network-monitoring' | 'speedtest' | 'contratti' | 'avvisi' | 'tickets'} */ ('overview')
@@ -634,14 +624,6 @@ export default function TechnicianWorkbenchPage({
   }, [sidebarCollapsed]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_SIDEBAR_WIDE, sidebarWide ? '1' : '0');
-    } catch (_) {
-      /* ignore */
-    }
-  }, [sidebarWide]);
-
-  useEffect(() => {
     const onDoc = (e) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) setUserMenuOpen(false);
       if (accentPickerRef.current && !accentPickerRef.current.contains(e.target)) setAccentPickerOpen(false);
@@ -714,9 +696,7 @@ export default function TechnicianWorkbenchPage({
         className={`flex w-full shrink-0 flex-col border-white/[0.06] py-5 transition-[width,padding] duration-200 ease-out max-md:w-full max-md:px-5 md:h-full md:border-r ${
           railMode
             ? 'md:w-[76px] md:items-center md:px-2 md:overflow-visible'
-            : sidebarWide
-              ? 'md:w-[350px] md:px-5 lg:w-[365px]'
-              : 'md:w-[280px] md:px-5 lg:w-[292px]'
+            : 'md:w-[280px] md:px-5 lg:w-[292px]'
         }`}
         style={{ backgroundColor: '#171717' }}
       >
@@ -972,33 +952,8 @@ export default function TechnicianWorkbenchPage({
 
         {minMd && (
           <div
-            className={`mt-auto w-full space-y-2 border-t border-white/[0.06] pt-3 ${railMode ? 'flex flex-col items-center' : ''}`}
+            className={`mt-auto w-full border-t border-white/[0.06] pt-3 ${railMode ? 'flex flex-col items-center' : ''}`}
           >
-            {!railMode && (
-              <button
-                type="button"
-                onClick={() => setSidebarWide((w) => !w)}
-                title={
-                  sidebarWide
-                    ? 'Ripristina larghezza barra predefinita'
-                    : 'Allarga la barra del 25% (verso il contenuto)'
-                }
-                aria-pressed={sidebarWide}
-                className={`${hubHoverIconBtn} flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-white/50`}
-              >
-                {sidebarWide ? (
-                  <>
-                    <ChevronsRight size={22} aria-hidden />
-                    <span className="min-w-0 truncate">Larghezza standard</span>
-                  </>
-                ) : (
-                  <>
-                    <ChevronLeft size={22} aria-hidden />
-                    <span className="min-w-0 truncate">Più spazio (+25%)</span>
-                  </>
-                )}
-              </button>
-            )}
             <button
               type="button"
               onClick={() => setSidebarCollapsed((c) => !c)}
