@@ -17,6 +17,10 @@ import {
   HubModalSecondaryButton,
 } from './HubModalChrome';
 
+/** Pulsanti «Aggiungi offerta»: viola come la sezione «Come da Offerta» (non il blu accento generico). */
+const ADD_OFFERTA_BTN_CLS =
+  'flex w-full items-center justify-center gap-2 rounded-lg border border-violet-400/40 bg-violet-500/10 p-2 text-sm font-medium text-[color:var(--hub-chrome-palette-violet-fg)] transition hover:border-violet-400/60 hover:bg-violet-500/18';
+
 const TimeLoggerModal = ({
   selectedTicket,
   setSelectedTicket,
@@ -882,7 +886,7 @@ const TimeLoggerModal = ({
                         <button
                           type="button"
                           onClick={() => handleAddOfferta(normalizedLog.id)}
-                          className="flex w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--hub-accent-border)] p-2 text-sm font-medium text-[color:var(--hub-accent)] transition hover:bg-[color:var(--hub-chrome-hover)]"
+                          className={ADD_OFFERTA_BTN_CLS}
                         >
                           <Plus size={16} />
                           Aggiungi Offerta
@@ -896,7 +900,7 @@ const TimeLoggerModal = ({
                   <button
                     type="button"
                     onClick={() => handleAddOfferta(log.id)}
-                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--hub-accent-border)] p-2 text-sm font-medium text-[color:var(--hub-accent)] transition hover:bg-[color:var(--hub-chrome-hover)]"
+                    className={`mt-5 ${ADD_OFFERTA_BTN_CLS}`}
                   >
                     <Plus size={16} />
                     Aggiungi Offerta
