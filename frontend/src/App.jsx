@@ -3767,7 +3767,6 @@ export default function TicketApp() {
               linkColor: 'text-emerald-600 hover:text-emerald-800'
             } : {
               useLogikubeHeader: true,
-              title: 'Sistema LOGIKUBE',
               subtitle: "La complessità con Logika. Effettua l'accesso",
               bgGradient: 'from-sky-400 to-sky-600',
               iconBgColor: 'bg-sky-100',

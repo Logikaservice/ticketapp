@@ -3,6 +3,7 @@ import { User } from 'lucide-react';
 import QuickRequestModal from './Modals/QuickRequestModal';
 import { buildApiUrl } from '../utils/apiConfig';
 import { LogikubeWireIcon } from './hub/HubLogikubeMark';
+import { DEFAULT_TECH_HUB_ACCENT } from '../utils/techHubAccent';
 
 const LoginScreen = ({
   loginData,
@@ -137,10 +138,10 @@ const LoginScreen = ({
         >
           <div className="text-center mb-4 sm:mb-6">
             {useLogikubeHeader ? (
-              <div className="mx-auto mb-2 flex justify-center sm:mb-3" aria-hidden>
+              <div className="mx-auto mb-2 flex justify-center sm:mb-3" role="img" aria-label="Logikube">
                 <LogikubeWireIcon
-                  fill="#0284c7"
-                  className="h-14 w-14 sm:h-16 sm:w-16 md:h-[4.25rem] md:w-[4.25rem]"
+                  fill={DEFAULT_TECH_HUB_ACCENT}
+                  className="h-14 w-14 sm:h-16 sm:w-16 md:h-[4.25rem] md:w-[4.25rem] shrink-0"
                 />
               </div>
             ) : (
@@ -151,7 +152,7 @@ const LoginScreen = ({
             <h1 className="text-2xl sm:text-2xl md:text-3xl font-bold text-gray-900">
               {useLogikubeHeader ? (
                 <>
-                  Sistema LOGI<span className="text-sky-600">kube</span>
+                  Sistema LOGI<span className="text-sky-400">KUBE</span>
                 </>
               ) : (
                 title
