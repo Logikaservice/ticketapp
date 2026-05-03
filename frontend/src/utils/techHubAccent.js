@@ -320,6 +320,19 @@ export function hubKpiActiveForegroundHex(accentHex, hubSurfaceMode = 'dark') {
   return lightenHex(a, 0.14);
 }
 
+/** Classe globale (`index.css`): alone interno accento + respiro lento se valore &gt; 0. */
+export const HUB_CARD_INNER_GLOW_CLASS = 'hub-card-inner-glow';
+
+/** Variabili CSS per `HUB_CARD_INNER_GLOW_CLASS` (inset, colore accento Hub). */
+export function hubCardInnerGlowCssVars(accentHex) {
+  const a = normalizeHex(accentHex) || DEFAULT_TECH_HUB_ACCENT;
+  return {
+    ['--hub-card-glow-edge']: hexToRgba(a, 0.36),
+    ['--hub-card-glow-mid']: hexToRgba(a, 0.1),
+    ['--hub-card-glow-core']: hexToRgba(a, 0.04)
+  };
+}
+
 /** Testo leggibile su sfondo pieno colore accent. */
 export function readableOnAccent(hex) {
   const normalized = normalizeHex(hex);

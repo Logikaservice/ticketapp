@@ -19,7 +19,12 @@ import {
   Lock,
   Package
 } from 'lucide-react';
-import { hexToRgba, hubKpiActiveForegroundHex } from '../../utils/techHubAccent';
+import {
+  hexToRgba,
+  hubKpiActiveForegroundHex,
+  hubCardInnerGlowCssVars,
+  HUB_CARD_INNER_GLOW_CLASS
+} from '../../utils/techHubAccent';
 import HubContractsActiveCard from './HubContractsActiveCard';
 import HubAgentEventsInteractiveCard from './HubAgentEventsInteractiveCard';
 import {
@@ -117,6 +122,7 @@ function ModuleLaunchCard({
   const g = hasCount ? hubKpiActiveForegroundHex(accent, hubSurfaceMode) : null;
   const n = hasCount ? Math.max(0, Math.floor(count)) : null;
   const countActive = hasCount && n > 0;
+  const innerGlowStyle = countActive ? hubCardInnerGlowCssVars(accent) : null;
 
   if (iconOnly) {
     return (
@@ -124,8 +130,12 @@ function ModuleLaunchCard({
         type="button"
         onClick={onClick}
         aria-label={hasCount ? `${label}: ${n}` : label}
-        className={`flex h-full min-h-[4.5rem] w-full flex-col items-center justify-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-3 text-[color:var(--hub-chrome-text)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
-        style={{ backgroundColor: 'var(--hub-chrome-surface)', ...hubOverviewCardLift }}
+        className={`flex h-full min-h-[4.5rem] w-full flex-col items-center justify-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-3 text-[color:var(--hub-chrome-text)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${countActive ? HUB_CARD_INNER_GLOW_CLASS : ''} ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
+        style={{
+          backgroundColor: 'var(--hub-chrome-surface)',
+          ...hubOverviewCardLift,
+          ...innerGlowStyle
+        }}
       >
         <div className="flex flex-col items-center justify-center gap-1 py-2">
           <div
@@ -163,8 +173,12 @@ function ModuleLaunchCard({
       type="button"
       onClick={onClick}
       aria-label={hasCount ? `${label}: ${n}` : label}
-      className={`flex h-full min-h-[6rem] w-full min-w-0 items-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-left transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
-      style={{ backgroundColor: 'var(--hub-chrome-surface)', ...hubOverviewCardLift }}
+      className={`flex h-full min-h-[6rem] w-full min-w-0 items-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-left transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${countActive ? HUB_CARD_INNER_GLOW_CLASS : ''} ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
+      style={{
+        backgroundColor: 'var(--hub-chrome-surface)',
+        ...hubOverviewCardLift,
+        ...innerGlowStyle
+      }}
     >
       <div className="flex w-full min-w-0 items-center gap-3">
         <div
@@ -226,10 +240,12 @@ function TicketHubStatCard({
   subdued,
   suppressInteraction = false,
   iconOnly = false,
-  kpiActiveHex
+  kpiActiveHex,
+  accentHex
 }) {
   const active = count > 0;
   const g = kpiActiveHex;
+  const innerGlowStyle = active && accentHex ? hubCardInnerGlowCssVars(accentHex) : null;
 
   const body = iconOnly ? (
     <div className="flex h-full flex-col items-center justify-center gap-1 py-2">
@@ -308,10 +324,10 @@ function TicketHubStatCard({
       type="button"
       disabled={Boolean(subdued)}
       aria-label={ariaLbl}
-      className={`${fullRow} transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] ${
+      className={`${fullRow} transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] ${HUB_CARD_INNER_GLOW_CLASS} ${
         iconOnly ? 'justify-center' : ''
       } ${veil} ${noPtr}`}
-      style={surfaceStyle}
+      style={{ ...surfaceStyle, ...innerGlowStyle }}
       onClick={() => !subdued && onOpenTicketState?.(stateKey)}
     >
       {body}
@@ -610,6 +626,7 @@ export default function HubOverviewSection({
             suppressInteraction={suppressInteraction}
             iconOnly={io}
             kpiActiveHex={hubKpiActiveColor}
+            accentHex={accentHex}
           />
         );
       case 'stat-lavorazione':
@@ -625,6 +642,7 @@ export default function HubOverviewSection({
             suppressInteraction={suppressInteraction}
             iconOnly={io}
             kpiActiveHex={hubKpiActiveColor}
+            accentHex={accentHex}
           />
         );
       case 'launch-email':

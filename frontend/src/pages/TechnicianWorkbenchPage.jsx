@@ -50,7 +50,9 @@ import {
   getStoredTechHubAccent,
   getStoredTechHubSurfaceMode,
   hubKpiActiveForegroundHex,
-  hubModalCssVars
+  hubModalCssVars,
+  hubCardInnerGlowCssVars,
+  HUB_CARD_INNER_GLOW_CLASS
 } from '../utils/techHubAccent';
 import HubOverviewSection from '../components/hub/HubOverviewSection';
 import TemporarySuppliesSummaryHubModal from '../components/hub/TemporarySuppliesSummaryHubModal';
@@ -1473,7 +1475,16 @@ export default function TechnicianWorkbenchPage({
                   type="button"
                   onClick={() => setFornitureResocontoOpen(true)}
                   title="Apri resoconto forniture temporanee dai ticket"
-                  className="flex w-full shrink-0 items-center justify-between gap-2 rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] px-3 py-2.5 text-left shadow-[var(--hub-chrome-card-shadow)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)]"
+                  className={`flex w-full shrink-0 items-center justify-between gap-2 rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] px-3 py-2.5 text-left shadow-[var(--hub-chrome-card-shadow)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] ${
+                    typeof hubTemporarySuppliesCount === 'number' && hubTemporarySuppliesCount > 0
+                      ? HUB_CARD_INNER_GLOW_CLASS
+                      : ''
+                  }`}
+                  style={
+                    typeof hubTemporarySuppliesCount === 'number' && hubTemporarySuppliesCount > 0
+                      ? hubCardInnerGlowCssVars(accentHex)
+                      : undefined
+                  }
                 >
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[color:var(--hub-chrome-row-nested-bg)] ring-1 ring-[color:var(--hub-accent-border)]">

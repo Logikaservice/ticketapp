@@ -104,6 +104,7 @@ export default function TicketsHubEmbedded({
         <TicketListContainer
           hubEmbed
           hubSurfaceMode={hubSurfaceMode}
+          hubAccentHex={accentHex}
           currentUser={currentUser}
           tickets={visibleTickets}
           users={users}

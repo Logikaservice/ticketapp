@@ -15,7 +15,11 @@ import {
   Mail
 } from 'lucide-react';
 import TicketItem from './TicketItem';
-import { HUB_MODAL_FIELD_CLS } from '../utils/techHubAccent';
+import {
+  HUB_MODAL_FIELD_CLS,
+  hubCardInnerGlowCssVars,
+  HUB_CARD_INNER_GLOW_CLASS
+} from '../utils/techHubAccent';
 
 // ====================================================================
 // COMPONENTE PRINCIPALE
@@ -31,7 +35,8 @@ const TicketListContainer = ({
   showFilters = true,
   externalViewState,
   hubEmbed = false,
-  hubSurfaceMode = 'dark'
+  hubSurfaceMode = 'dark',
+  hubAccentHex = null
 }) => {
   const [viewState, setViewState] = useState(externalViewState || 'aperto');
   useEffect(() => {
@@ -518,12 +523,15 @@ const TicketListContainer = ({
                 const count = ticketCounts[status] || 0;
                 const disabled = count === 0;
                 const active = viewState === status;
+                const statInnerGlow =
+                  hubEmbed && hubAccentHex && count > 0 ? hubCardInnerGlowCssVars(hubAccentHex) : null;
                 return (
                   <button
                     key={status}
                     onClick={() => !disabled && setViewState(status)}
                     disabled={disabled}
-                    className={`rounded-xl p-4 text-center ${disabled ? lc.statDis : active ? lc.statOn : lc.statOff}`}
+                    className={`rounded-xl p-4 text-center ${disabled ? lc.statDis : active ? lc.statOn : lc.statOff} ${statInnerGlow ? HUB_CARD_INNER_GLOW_CLASS : ''}`}
+                    style={statInnerGlow || undefined}
                   >
                     <div className={lc.statLbl}>
                       {status === 'aperto' && <FileText size={14} />}
