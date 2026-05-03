@@ -101,7 +101,6 @@ export function normalizeLayoutExtras(cur) {
       typeof cur?.customTitle === 'string' ? cur.customTitle.trim().slice(0, 120) : '',
     customSubtitle:
       typeof cur?.customSubtitle === 'string' ? cur.customSubtitle.trim().slice(0, 200) : '',
-    accentIntensity: clampExtrasInt(cur?.accentIntensity ?? 0, 0, 3),
     refreshIntervalSec: (() => {
       const s = parseInt(cur?.refreshIntervalSec, 10);
       if (!Number.isFinite(s) || s <= 0) return 0;
@@ -209,7 +208,6 @@ export function sanitizeLayoutItems(items) {
       iconOnly,
       customTitle: extras.customTitle,
       customSubtitle: extras.customSubtitle,
-      accentIntensity: extras.accentIntensity,
       refreshIntervalSec: extras.refreshIntervalSec
     });
   });
@@ -492,6 +490,8 @@ export function snapDropToCell(clientX, clientY, gridEl, layout = null) {
     const deepBoost = Math.floor((relY - rect.height * 0.42) / Math.max(unitH * 0.72, (ROW_MIN_TRACK_PX + gridGap) / 4));
     row += Math.max(0, deepBoost);
   }
-  row = clampInt(row, 1, Math.max(used + 50, 40));
+  /** Evita righe «virtuali» enormi quando l’area Hub è alta ma poche card: il drop resta vicino al contenuto reale. */
+  const sensibleMaxRow = layout ? Math.max(maxRowUsed(layout) + 8, 12) : 40;
+  row = clampInt(row, 1, sensibleMaxRow);
   return { col, row };
 }

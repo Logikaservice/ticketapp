@@ -36,24 +36,14 @@ import {
   sanitizeLayoutItems,
   saveHubLayout,
   swapGridPositions,
-  hubModuleSupportsIconOnly
+  hubModuleSupportsIconOnly,
+  findNearestFit,
+  maxRowUsed
 } from '../../utils/hubOverviewLayout';
 
 const SURFACE_LOCAL = '#1E1E1E';
 
 const HUB_REFRESH_TICKET_STAT_IDS = new Set(['stat-aperto', 'stat-lavorazione']);
-
-/** Contorno / alone leggero sulla cella usando l’accento (0 = spento … 3 = più marcato). */
-function slotAccentChrome(accentHex, level) {
-  const lv = typeof level === 'number' ? level : 1;
-  if (lv <= 0) return undefined;
-  const t = lv / 3;
-  const edge = hexToRgba(accentHex, 0.08 + t * 0.28);
-  const glow = hexToRgba(accentHex, 0.05 + t * 0.16);
-  return {
-    boxShadow: `inset 0 0 0 1px ${edge}, inset 0 1px 48px ${glow}`
-  };
-}
 
 function ModuleLaunchCard({
   icon: Icon,
@@ -206,14 +196,23 @@ function TicketHubStatCard({
   );
 }
 
-function HubNewTicketCard({ accentHex, onOpenNewTicket, subdued, suppressInteraction, iconOnly = false }) {
+function HubNewTicketCard({
+  accentHex,
+  title = 'Nuovo ticket',
+  subtitle = '',
+  onOpenNewTicket,
+  subdued,
+  suppressInteraction,
+  iconOnly = false
+}) {
+  const aria = `${title}. Crea nuovo ticket`;
   if (iconOnly) {
     return (
       <button
         type="button"
         disabled={Boolean(subdued)}
         onClick={() => !subdued && onOpenNewTicket?.()}
-        aria-label="Crea nuovo ticket"
+        aria-label={aria}
         className={`flex h-full min-h-[4.5rem] w-full items-center justify-center rounded-2xl border p-4 transition hover:brightness-110 active:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
         style={{
           backgroundColor: hexToRgba(accentHex, 0.24),
@@ -242,7 +241,7 @@ function HubNewTicketCard({ accentHex, onOpenNewTicket, subdued, suppressInterac
         borderColor: hexToRgba(accentHex, 0.55),
         boxShadow: `0 0 0 1px ${hexToRgba(accentHex, 0.12)} inset`
       }}
-      aria-label="Crea nuovo ticket"
+      aria-label={aria}
     >
       <div
         className="inline-flex shrink-0 self-center rounded-xl p-2.5"
@@ -251,7 +250,8 @@ function HubNewTicketCard({ accentHex, onOpenNewTicket, subdued, suppressInterac
         <Plus size={24} strokeWidth={2.4} aria-hidden />
       </div>
       <div className="min-w-0 flex-1 self-center leading-tight">
-        <div className="text-base font-bold text-white">Nuovo ticket</div>
+        <div className="text-base font-bold text-white">{title}</div>
+        {subtitle ? <div className="mt-1 text-xs text-white/52">{subtitle}</div> : null}
       </div>
     </button>
   );
@@ -394,11 +394,13 @@ export default function HubOverviewSection({
     }
 
     if (droppedOnId && droppedOnId !== dragId) {
-      setHubLayout(sanitizeLayoutItems(swapGridPositions(hubLayout, dragId, droppedOnId)));
+      setHubLayout((prev) => sanitizeLayoutItems(swapGridPositions(prev, dragId, droppedOnId)));
     } else {
-      const { col, row } = snapDropToCell(e.clientX, e.clientY, gridRef.current, hubLayout);
-      const next = applyPlacement(hubLayout, dragId, col, row);
-      setHubLayout(sanitizeLayoutItems(next));
+      setHubLayout((prev) => {
+        const { col, row } = snapDropToCell(e.clientX, e.clientY, gridRef.current, prev);
+        const next = applyPlacement(prev, dragId, col, row);
+        return sanitizeLayoutItems(next);
+      });
     }
     dragIdRef.current = null;
   };
@@ -437,6 +439,8 @@ export default function HubOverviewSection({
         return (
           <HubNewTicketCard
             accentHex={accentHex}
+            title={txt(item, 'Nuovo ticket')}
+            subtitle={sub(item, '')}
             onOpenNewTicket={onOpenNewTicket}
             subdued={veil}
             suppressInteraction={suppressInteraction}
@@ -696,8 +700,7 @@ export default function HubOverviewSection({
               style={{
                 gridColumn: `${item.col} / span ${item.w}`,
                 gridRow: `${item.row} / span ${item.h}`,
-                borderRadius: '1rem',
-                ...slotAccentChrome(accentHex, item.accentIntensity ?? 0)
+                borderRadius: '1rem'
               }}
               onDragOver={handleDragOverZone}
               onDrop={handleUnifiedDrop}
@@ -797,7 +800,9 @@ export default function HubOverviewSection({
               : Array.from({ length: HUB_MAX_ROW_SPAN }, (_, i) => i + 1);
             const dimDisabled = !!fixedSize || !!selectedItem.iconOnly;
             const patchItem = (patch) =>
-              setHubLayout(sanitizeLayoutItems(hubLayout.map((x) => (x.id === selectedId ? { ...x, ...patch } : x))));
+              setHubLayout((prev) =>
+                sanitizeLayoutItems(prev.map((x) => (x.id === selectedId ? { ...x, ...patch } : x)))
+              );
 
             return (
             <div className="border-t border-white/[0.08] pt-4">
@@ -824,29 +829,43 @@ export default function HubOverviewSection({
                     checked={Boolean(selectedItem.iconOnly)}
                     onChange={(e) => {
                       const v = e.target.checked;
-                      setHubLayout(
-                        sanitizeLayoutItems(
-                          hubLayout.map((x) => {
-                            if (x.id !== selectedId) return x;
-                            let next = { ...x, iconOnly: v };
-                            if (!v && x.iconOnly) {
-                              const m = meta;
-                              let dw = m.defaultPlacement.w;
-                              let dh = m.defaultPlacement.h;
-                              if (m.fixedSize) {
-                                dw = m.fixedSize.w;
-                                dh = m.fixedSize.h;
-                              } else if (m.resizeBounds) {
-                                const b = m.resizeBounds;
-                                dw = Math.min(Math.max(dw, b.minW), b.maxW);
-                                dh = Math.min(Math.max(dh, b.minH), b.maxH);
-                              }
-                              next = { ...next, w: dw, h: dh };
-                            }
-                            return next;
-                          })
-                        )
-                      );
+                      const sid = selectedId;
+                      setHubLayout((prev) => {
+                        const rowScan = Math.max(maxRowUsed(prev) + 12, 24);
+                        const nextItems = prev.map((x) => {
+                          if (x.id !== sid) return x;
+                          const m = meta;
+                          if (v) {
+                            const upd = { ...x, iconOnly: true, w: 1, h: 1 };
+                            const tentative = prev.map((p) => (p.id === sid ? upd : p));
+                            const fit = findNearestFit(tentative, 1, 1, sid, x.col, x.row, rowScan);
+                            return { ...upd, col: fit.col, row: fit.row };
+                          }
+                          let dw = m.defaultPlacement.w;
+                          let dh = m.defaultPlacement.h;
+                          if (m.fixedSize) {
+                            dw = m.fixedSize.w;
+                            dh = m.fixedSize.h;
+                          } else if (m.resizeBounds) {
+                            const b = m.resizeBounds;
+                            dw = Math.min(Math.max(dw, b.minW), b.maxW);
+                            dh = Math.min(Math.max(dh, b.minH), b.maxH);
+                          }
+                          const upd = { ...x, iconOnly: false, w: dw, h: dh };
+                          const tentative = prev.map((p) => (p.id === sid ? upd : p));
+                          const fit = findNearestFit(
+                            tentative,
+                            dw,
+                            dh,
+                            sid,
+                            m.defaultPlacement.col,
+                            m.defaultPlacement.row,
+                            rowScan
+                          );
+                          return { ...upd, col: fit.col, row: fit.row };
+                        });
+                        return sanitizeLayoutItems(nextItems);
+                      });
                     }}
                   />
                   Solo icona 1×1 (senza titolo)
@@ -878,19 +897,6 @@ export default function HubOverviewSection({
               </div>
               <div className="mb-3 flex flex-wrap items-center gap-3">
                 <label className="flex items-center gap-2 text-xs text-white/55">
-                  Intensità bordo / alone colore
-                  <select
-                    className="rounded-lg border border-white/[0.12] bg-black/35 px-2 py-1.5 text-sm text-white outline-none"
-                    value={Number(selectedItem.accentIntensity ?? 0)}
-                    onChange={(e) => patchItem({ accentIntensity: Number(e.target.value) })}
-                  >
-                    <option value={0}>Spento</option>
-                    <option value={1}>Leggero</option>
-                    <option value={2}>Medio</option>
-                    <option value={3}>Forte</option>
-                  </select>
-                </label>
-                <label className="flex items-center gap-2 text-xs text-white/55">
                   Refresh automatico
                   <select
                     className="rounded-lg border border-white/[0.12] bg-black/35 px-2 py-1.5 text-sm text-white outline-none"
@@ -919,8 +925,12 @@ export default function HubOverviewSection({
                     disabled={dimDisabled}
                     onChange={(e) => {
                       const nw = Number(e.target.value);
-                      let next = applyResize(hubLayout, selectedId, nw, selectedItem.h);
-                      setHubLayout(sanitizeLayoutItems(next));
+                      const sid = selectedId;
+                      setHubLayout((prev) => {
+                        const cur = prev.find((x) => x.id === sid);
+                        if (!cur) return prev;
+                        return sanitizeLayoutItems(applyResize(prev, sid, nw, cur.h));
+                      });
                     }}
                   >
                     {wChoices.map((n) => (
@@ -938,8 +948,12 @@ export default function HubOverviewSection({
                     disabled={dimDisabled}
                     onChange={(e) => {
                       const nh = Number(e.target.value);
-                      let next = applyResize(hubLayout, selectedId, selectedItem.w, nh);
-                      setHubLayout(sanitizeLayoutItems(next));
+                      const sid = selectedId;
+                      setHubLayout((prev) => {
+                        const cur = prev.find((x) => x.id === sid);
+                        if (!cur) return prev;
+                        return sanitizeLayoutItems(applyResize(prev, sid, cur.w, nh));
+                      });
                     }}
                   >
                     {hChoices.map((n) => (
