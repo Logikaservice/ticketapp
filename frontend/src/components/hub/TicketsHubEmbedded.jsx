@@ -1,9 +1,46 @@
-import React from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import TicketListContainer from '../TicketListContainer';
+import TicketsHubTicketChrome from './TicketsHubTicketChrome';
+import { formatDateItalian } from '../../utils/formatters';
 import { HUB_SURFACE, hubModalCssVars } from '../../utils/techHubAccent';
+import { ticketMatchesAdvancedSearch } from '../../utils/ticketAdvancedSearch';
+
+/** Stessa logica “ticket visibili” della dashboard per ruolo / filtro azienda. */
+function useVisibleTicketsForHub({ currentUser, users, tickets, selectedCompany }) {
+  const companyTickets = useMemo(() => {
+    if (currentUser?.ruolo !== 'tecnico' || !selectedCompany) return [];
+    const companyClients = users.filter((u) => u.ruolo === 'cliente' && u.azienda === selectedCompany);
+    const ids = companyClients.map((c) => c.id);
+    return tickets.filter((t) => ids.some((id) => Number(id) === Number(t.clienteid)));
+  }, [selectedCompany, tickets, users, currentUser]);
+
+  return useMemo(() => {
+    if (!currentUser) return [];
+    if (currentUser.ruolo === 'cliente') {
+      const isAdmin =
+        currentUser.admin_companies && Array.isArray(currentUser.admin_companies) && currentUser.admin_companies.length > 0;
+      if (isAdmin) {
+        const companyNames = currentUser.admin_companies;
+        const companyClients = users.filter(
+          (u) => u.ruolo === 'cliente' && u.azienda && companyNames.includes(u.azienda)
+        );
+        const companyClientIds = companyClients.map((c) => c.id);
+        if (companyClientIds.length > 0) {
+          return tickets.filter((t) => companyClientIds.some((id) => Number(id) === Number(t.clienteid)));
+        }
+      }
+      const currentUserId = Number(currentUser.id);
+      return tickets.filter((t) => Number(t.clienteid) === currentUserId);
+    }
+    if (currentUser.ruolo === 'tecnico') {
+      return selectedCompany ? companyTickets : tickets;
+    }
+    return tickets;
+  }, [tickets, currentUser, users, selectedCompany, companyTickets]);
+}
 
 /**
- * Lista ticket nel pannello centrale dell’Hub: stesso dominio dati/modali di App.jsx, tema scuro allineato agli altri moduli embedded.
+ * Lista ticket nel pannello centrale dell’Hub: toolbar (panoramica, nuovo ticket, notifiche, ricerche) + lista tema scuro.
  */
 export default function TicketsHubEmbedded({
   accentHex,
@@ -14,18 +51,65 @@ export default function TicketsHubEmbedded({
   setSelectedTicket,
   handlers,
   getUnreadCount,
-  externalViewState
+  externalViewState,
+  onBackToOverview,
+  onOpenNewTicket,
+  onNavigateTicketTabState,
+  getAuthHeader,
+  socket,
+  onOpenNetworkMonitoringAgents,
+  onOpenUnreadModal,
+  hubUnreadMessagesTotal = 0
 }) {
+  const [selectedCompany, setSelectedCompany] = useState('');
+  const visibleTickets = useVisibleTicketsForHub({ currentUser, users, tickets, selectedCompany });
+
+  const [advancedSearchTerm, setAdvancedSearchTerm] = useState(() => formatDateItalian(new Date().toISOString()));
+  const [advancedSearchResults, setAdvancedSearchResults] = useState([]);
+
+  useEffect(() => {
+    const q = advancedSearchTerm.trim();
+    if (q.length >= 2) {
+      const results = visibleTickets
+        .filter((ticket) => ticketMatchesAdvancedSearch(ticket, advancedSearchTerm))
+        .slice(0, 10);
+      setAdvancedSearchResults(results);
+    } else {
+      setAdvancedSearchResults([]);
+    }
+  }, [advancedSearchTerm, visibleTickets]);
+
   return (
     <div
       className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.08]"
       style={{ backgroundColor: HUB_SURFACE, ...hubModalCssVars(accentHex) }}
     >
       <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 md:px-4 md:py-4">
+        <TicketsHubTicketChrome
+          currentUser={currentUser}
+          users={users}
+          searchTerm={advancedSearchTerm}
+          setSearchTerm={setAdvancedSearchTerm}
+          searchResults={advancedSearchResults}
+          selectedCompany={selectedCompany}
+          setSelectedCompany={setSelectedCompany}
+          onOpenNewTicket={onOpenNewTicket}
+          onBackToOverview={onBackToOverview}
+          onAfterSearchPickTicket={(ticket) => {
+            if (!ticket) return;
+            handlers?.handleSelectTicket?.(ticket);
+            onNavigateTicketTabState?.(ticket.stato);
+          }}
+          getAuthHeader={getAuthHeader}
+          socket={socket}
+          onOpenNetworkMonitoringAgents={onOpenNetworkMonitoringAgents}
+          onOpenUnreadModal={onOpenUnreadModal}
+          unreadMessagesTotal={hubUnreadMessagesTotal}
+        />
         <TicketListContainer
           hubEmbed
           currentUser={currentUser}
-          tickets={tickets}
+          tickets={visibleTickets}
           users={users}
           selectedTicket={selectedTicket}
           setSelectedTicket={setSelectedTicket}

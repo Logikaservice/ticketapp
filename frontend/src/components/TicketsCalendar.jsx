@@ -4,7 +4,16 @@ import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 import { useAvailability } from '../hooks/useAvailability';
 import { SYNC_STATES } from '../config/googleConfig';
 
-const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, users = [], contracts = [] }) => {
+const TicketsCalendar = ({
+  tickets,
+  onTicketClick,
+  currentUser,
+  getAuthHeader,
+  users = [],
+  contracts = [],
+  /** Calendario compatto nell’aside hub: tema scuro, griglia più stretta, blocco unico calendario + giorni non disponibili */
+  sidebarHubEmbed = false
+}) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedDateTickets, setSelectedDateTickets] = useState([]);
@@ -485,46 +494,67 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, u
     'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'
   ];
 
+  const HS = sidebarHubEmbed === true;
+
+  const shellCls = HS
+    ? 'flex min-h-0 flex-col rounded-xl border border-white/[0.1] bg-[#1e1e1e] text-[13px] text-white/90'
+    : 'rounded-xl border bg-white';
+
   return (
-    <div className="bg-white rounded-xl border">
-      <div className="p-4 border-b">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold">Calendario Ticket</h3>
+    <div className={shellCls}>
+      <div className={`${HS ? 'border-b border-white/[0.08] px-3 py-2.5' : 'border-b p-4'}`}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className={HS ? 'text-xs font-semibold uppercase tracking-wide text-white/45' : 'font-semibold'}>
+            Calendario ticket
+          </h3>
           <div className="flex items-center gap-2">
-            {/* Navigazione mese */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={goToPreviousMonth}
-                className="p-1 hover:bg-gray-100 rounded"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <span className="text-sm font-medium min-w-[120px] text-center">
-                {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-              </span>
-              <button
-                onClick={goToNextMonth}
-                className="p-1 hover:bg-gray-100 rounded"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={goToPreviousMonth}
+              className={
+                HS
+                  ? 'rounded-lg p-1 text-white/60 transition hover:bg-white/[0.08]'
+                  : 'rounded p-1 hover:bg-gray-100'
+              }
+              aria-label="Mese precedente"
+            >
+              <ChevronLeft size={HS ? 15 : 16} />
+            </button>
+            <span className={`min-w-[96px] text-center font-medium ${HS ? 'text-[11px] text-white/78' : 'min-w-[120px] text-sm'}`}>
+              {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+            </span>
+            <button
+              type="button"
+              onClick={goToNextMonth}
+              className={
+                HS ? 'rounded-lg p-1 text-white/60 transition hover:bg-white/[0.08]' : 'rounded p-1 hover:bg-gray-100'
+              }
+              aria-label="Mese successivo"
+            >
+              <ChevronRight size={HS ? 15 : 16} />
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="p-4">
+      <div className={`${HS ? 'min-h-0 flex-1 p-3' : 'p-4'}`}>
+        <div className={`${HS ? 'rounded-xl border border-white/[0.1] bg-black/25 p-2' : ''} space-y-2`}>
         {/* Header giorni settimana */}
-        <div className="grid grid-cols-7 gap-1 mb-2">
-          {['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].map(day => (
-            <div key={day} className="text-xs font-medium text-gray-500 text-center py-2">
-              {day}
+        <div className={`grid grid-cols-7 ${HS ? 'mb-1 gap-px' : 'mb-2 gap-1'}`}>
+          {['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].map((day) => (
+            <div
+              key={day}
+              className={`text-center font-medium ${
+                HS ? 'py-0.5 text-[9px] uppercase tracking-tighter text-white/45' : 'py-2 text-xs text-gray-500'
+              }`}
+            >
+              {HS ? day.charAt(0) : day}
             </div>
           ))}
         </div>
 
         {/* Griglia calendario */}
-        <div className="grid grid-cols-7 gap-1">
+        <div className={HS ? 'grid grid-cols-7 gap-px' : 'grid grid-cols-7 gap-1'}>
           {calendarDays.map((day, index) => {
             const hasTickets = Object.values(day.tickets).flat().length > 0;
             const hasContracts = day.tickets.contratto && day.tickets.contratto.length > 0;
@@ -533,12 +563,24 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, u
             return (
               <div
                 key={index}
-                className={`min-h-[40px] p-1 border rounded cursor-pointer transition-all relative ${
+                className={`cursor-pointer rounded border transition-all relative ${
+                  HS ? 'min-h-[26px] p-0.5' : 'min-h-[40px] p-1'
+                } ${
+                  HS
+                    ? day.isCurrentMonth
+                      ? day.isUnavailable
+                        ? 'border-white/14 bg-neutral-600 text-white/95'
+                        : hasContracts
+                          ? 'border-amber-400/35 bg-amber-500/20'
+                          : 'border-white/10 bg-white/[0.06]'
+                      : 'border-transparent bg-black/35 text-white/28'
+                    : `${
                   day.isCurrentMonth ? (day.isUnavailable ? 'bg-gray-300 text-gray-800' : hasContracts ? 'bg-amber-50' : 'bg-white') : 'bg-gray-50'
-                } ${day.isToday ? 'ring-2 ring-blue-500' : ''} ${
-                  isSelected ? 'ring-2 ring-green-500 bg-green-50' : ''
-                } ${hasTickets ? 'hover:bg-blue-50 hover:border-blue-300' : ''} ${
-                  day.isUnavailable ? 'hover:bg-gray-400' : ''
+                }`
+                } ${day.isToday ? (HS ? 'ring-2 ring-[color:var(--hub-accent)]' : 'ring-2 ring-blue-500') : ''} ${
+                  isSelected ? (HS ? 'ring-1 ring-green-400/70 bg-green-500/25' : 'ring-2 ring-green-500 bg-green-50') : ''
+                } ${hasTickets ? (HS ? 'hover:border-[color:var(--hub-accent-border)]' : 'hover:bg-blue-50 hover:border-blue-300') : ''} ${
+                  day.isUnavailable ? (HS ? 'hover:bg-neutral-600' : 'hover:bg-gray-400') : ''
                 }`}
                 onClick={(e) => {
                   // Se si tiene premuto Ctrl/Cmd E l'utente è un tecnico, gestisci la disponibilità
@@ -558,17 +600,23 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, u
                       : currentUser?.ruolo === 'tecnico' ? `Ctrl+Click per impostare come non disponibile` : ''
                 }
               >
-                <div className={`text-xs font-medium ${day.isCurrentMonth ? (day.isUnavailable ? 'text-gray-800' : 'text-gray-900') : 'text-gray-400'}`}>
+                <div
+                  className={`font-medium leading-none ${
+                    HS
+                      ? `text-[10px] ${day.isCurrentMonth ? (day.isUnavailable ? 'text-white' : 'text-white/88') : 'text-white/28'}`
+                      : `text-xs ${day.isCurrentMonth ? (day.isUnavailable ? 'text-gray-800' : 'text-gray-900') : 'text-gray-400'}`
+                  }`}
+                >
                   {day.date.getDate()}
                 </div>
                 
                 {/* Pallini per priorità */}
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {Object.entries(day.tickets).map(([priorita, tickets]) => (
+                <div className={`flex flex-wrap ${HS ? 'mt-px gap-px' : 'mt-1 gap-1'}`}>
+                  {Object.entries(day.tickets).map(([priorita, tk]) => (
                     <div
                       key={priorita}
-                      className={`w-2 h-2 rounded-full ${getPriorityColor(priorita)}`}
-                      title={`${getPriorityName(priorita)}: ${tickets.length} ticket`}
+                      className={`rounded-full ${getPriorityColor(priorita)} ${HS ? 'h-1 w-1' : 'w-2 h-2'}`}
+                      title={`${getPriorityName(priorita)}: ${tk.length} ticket`}
                     />
                   ))}
                 </div>
@@ -578,8 +626,8 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, u
           })}
         </div>
 
-        {/* Lista ticket del giorno selezionato */}
-        {selectedDate && selectedDateTickets.length > 0 && (
+        {/* Lista ticket del giorno selezionato (sidebar hub: compattezza → nascosta) */}
+        {!HS && selectedDate && selectedDateTickets.length > 0 && (
           <div className="mt-4 pt-4 border-t">
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-semibold text-sm">
@@ -678,60 +726,92 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, u
 
         {/* Input per giorni non disponibili - Solo per tecnici */}
         {currentUser?.ruolo === 'tecnico' && (
-          <div className="mt-4 pt-4 border-t">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Giorni Non Disponibili</h3>
-            <div className="space-y-3">
+          <div className={HS ? 'mt-2 border-t border-white/[0.08] pt-2' : 'mt-4 border-t pt-4'}>
+            <h3 className={`mb-2 font-semibold ${HS ? 'text-[11px] text-white/70' : 'mb-3 text-sm text-gray-700'}`}>
+              Giorni non disponibili
+            </h3>
+            <div className="space-y-2">
               <div>
-                <label className="block text-xs text-gray-600 mb-1">
-                  Inserisci le date in cui non sarai presente (formato: GG/MM/AAAA)
+                <label className={`mb-1 block ${HS ? 'text-[10px] text-white/45' : 'text-xs text-gray-600'}`}>
+                  Date (GG/MM/AAAA), separate da virgola
                 </label>
                 <input
                   type="text"
-                  className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Es: 27/10/2025, 05/11/2025, 25/12/2025"
+                  className={`w-full rounded-md text-xs focus:outline-none focus:ring-2 ${
+                    HS
+                      ? 'border border-white/[0.12] bg-black/35 p-2 text-white placeholder:text-white/35 focus:ring-[color:var(--hub-accent)]'
+                      : 'border border-gray-300 p-2 text-sm focus:ring-blue-500'
+                  }`}
+                  placeholder="Es: 27/10/2025, 05/11/2025"
                   value={newUnavailableDaysInput}
                   onChange={(e) => setNewUnavailableDaysInput(e.target.value)}
                 />
               </div>
-              <div className="flex gap-2">
+              <div className={`flex flex-wrap gap-1.5 ${HS ? '' : 'gap-2'}`}>
                 <button
+                  type="button"
                   onClick={handleSaveNewUnavailableDays}
-                  className="px-3 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className={`rounded-md text-[11px] font-medium text-white ${
+                    HS
+                      ? 'bg-red-500/85 px-2 py-1.5 hover:bg-red-500'
+                      : 'bg-red-600 px-3 py-1 text-xs hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500'
+                  }`}
                 >
-                  Salva Giorni Non Disponibili
+                  Salva non disp.
                 </button>
                 <button
+                  type="button"
                   onClick={handleUnsetUnavailableDays}
-                  className="px-3 py-1 bg-gray-500 text-white text-xs rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  className={`rounded-md text-[11px] font-medium text-white ${
+                    HS
+                      ? 'border border-white/[0.12] bg-white/10 px-2 py-1.5 hover:bg-white/[0.14]'
+                      : 'bg-gray-500 px-3 py-1 text-xs hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500'
+                  }`}
                 >
-                  Cancella
+                  Rendi disp.
                 </button>
               </div>
-              <div className="text-xs text-gray-500">
-                <div>• <strong>Ctrl+Click</strong> su una data del calendario per pre-compilare il campo</div>
-                <div>• Formato: GG/MM/AAAA (es: 27/10/2025)</div>
-                <div>• Separa più date con virgola</div>
-                <div>• I giorni non disponibili appariranno in grigio nel calendario</div>
-              </div>
+              <p className={`${HS ? 'text-[9px] leading-snug text-white/38' : 'text-xs text-gray-500'}`}>
+                {HS ? (
+                  <>
+                    <strong>Ctrl+Click</strong> su un giorno per precompilare. Grigio = non disponibile.
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      • <strong>Ctrl+Click</strong> su una data del calendario per pre-compilare il campo
+                    </div>
+                    <div>• Formato: GG/MM/AAAA (es: 27/10/2025)</div>
+                    <div>• Separa più date con virgola</div>
+                    <div>• I giorni non disponibili appariranno in grigio nel calendario</div>
+                  </>
+                )}
+              </p>
             </div>
           </div>
         )}
 
         {/* Informazione per clienti sui giorni non disponibili */}
         {currentUser?.ruolo === 'cliente' && (
-          <div className="mt-4 pt-4 border-t">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Giorni Non Disponibili</h3>
-            <div className="text-xs text-gray-600">
-              <div>• I giorni in grigio indicano quando il tecnico non è disponibile</div>
-              <div>• Per informazioni sui giorni non disponibili, contatta il supporto</div>
+          <div className={HS ? 'mt-2 border-t border-white/[0.08] pt-2' : 'mt-4 border-t pt-4'}>
+            <h3 className={`font-semibold ${HS ? 'mb-1 text-[11px] text-white/70' : 'mb-3 text-sm text-gray-700'}`}>
+              Giorni non disponibili
+            </h3>
+            <div className={HS ? 'text-[10px] leading-snug text-white/45' : 'text-xs text-gray-600'}>
+              <div>• Il grigio indica giorni senza tecnico disponibile.</div>
+              {!HS && <div>• Per dubbi contatta il supporto.</div>}
             </div>
           </div>
         )}
 
         {/* Legenda */}
-        <div className="mt-4 pt-4 border-t">
-          <div className="text-xs text-gray-600 mb-2">Legenda:</div>
-          <div className="flex flex-wrap gap-3 text-xs">
+        <div className={HS ? 'mt-2 border-t border-white/[0.08] pt-2' : 'mt-4 border-t pt-4'}>
+          <div className={`mb-1 ${HS ? 'text-[9px] text-white/42' : 'mb-2 text-xs text-gray-600'}`}>
+            Legenda{HS ? ':' : ':'}
+          </div>
+          <div
+            className={`flex flex-wrap gap-x-2 gap-y-1 text-xs ${HS ? 'text-[9px] leading-relaxed text-white/55' : 'gap-3'}`}
+          >
             <div className="flex items-center gap-1">
               <div className="w-2 h-2 rounded-full bg-red-500"></div>
               <span>Urgente</span>
@@ -756,12 +836,24 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, u
               <div className="w-2 h-2 rounded-full bg-amber-500"></div>
               <span>Contratto</span>
             </div>
-            <div className="flex items-center gap-1">
-              <div className="w-4 h-4 rounded bg-gray-300 border border-gray-400"></div>
-              <span>Non disponibile (sfondo scuro)</span>
-            </div>
+            {!HS && (
+              <div className="flex items-center gap-1">
+                <div className="h-4 w-4 rounded border border-gray-400 bg-gray-300" />
+                <span>Non disponibile (sfondo scuro)</span>
+              </div>
+            )}
+            {HS && (
+              <div className="flex items-center gap-1">
+                <div className="h-2.5 w-2.5 rounded border border-white/14 bg-neutral-600" />
+                <span>No disp.</span>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* chiusura blocco unico hub sidebar */}
+        </div>
+
       </div>
 
     </div>

@@ -52,7 +52,9 @@ import {
 } from '../utils/techHubAccent';
 import HubOverviewSection from '../components/hub/HubOverviewSection';
 import TicketsHubEmbedded from '../components/hub/TicketsHubEmbedded';
+import TicketsCalendar from '../components/TicketsCalendar';
 import { loadHubLayout, getDefaultHubLayout, sanitizeLayoutItems } from '../utils/hubOverviewLayout';
+import { hubModalCssVars } from '../utils/techHubAccent';
 
 const SURFACE = '#1E1E1E';
 const PAGE_BG = '#121212';
@@ -439,6 +441,8 @@ export default function TechnicianWorkbenchPage({
   hubEmbedTicketsKick = 0,
   /** Lista ticket nella colonna centrale (stesso state/handlers di App). */
   ticketHubListProps = null,
+  /** Chrome ticket hub: messaggi non letti, agent, monitoraggio. */
+  ticketHubExtras = null,
   dispositiviHighlightMac = null,
   socket = null
 }) {
@@ -1071,6 +1075,14 @@ export default function TechnicianWorkbenchPage({
                 handlers={ticketHubListProps.handlers}
                 getUnreadCount={ticketHubListProps.getUnreadCount}
                 externalViewState={ticketHubListProps.externalViewState}
+                onBackToOverview={() => setHubCenterView('overview')}
+                onOpenNewTicket={onOpenNewTicket}
+                onNavigateTicketTabState={ticketHubListProps.onNavigateTicketTabState}
+                getAuthHeader={getAuthHeader}
+                socket={socket}
+                onOpenNetworkMonitoringAgents={ticketHubExtras?.onOpenNetworkMonitoringAgents}
+                onOpenUnreadModal={ticketHubExtras?.onOpenUnreadMessages}
+                hubUnreadMessagesTotal={ticketHubExtras?.unreadMessagesTotal ?? 0}
               />
             ) : hubCenterView === 'email' ? (
               <EmailPage
@@ -1274,38 +1286,64 @@ export default function TechnicianWorkbenchPage({
           className="flex min-h-0 shrink-0 flex-col gap-3 overflow-hidden border-white/[0.06] px-4 py-5 lg:h-full lg:w-[300px] lg:border-l xl:w-[320px]"
           style={{ backgroundColor: PAGE_BG }}
         >
-          <RightPanel
-            title="Avvisi importanti"
-            className="min-h-[12rem] flex-[1.25]"
-            bodyClassName="space-y-0"
-            scrollBody={false}
-            titleAccessory={
-              <button
-                type="button"
-                className={`${hubTinyIconBtn} p-1.5`}
-                title="Apri tutti gli avvisi nel centro Hub"
-                aria-label="Apri elenco completo degli avvisi importanti nell’hub"
-                onClick={() => setHubCenterView('avvisi')}
+          {hubCenterView === 'tickets' && ticketHubListProps ? (
+            <RightPanel
+              title="Calendario"
+              className="min-h-0 flex-1"
+              bodyClassName="flex min-h-0 flex-col overflow-hidden p-0"
+              scrollBody={false}
+            >
+              <div
+                className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+                style={hubModalCssVars(accentHex)}
               >
-                <ChevronsRight size={17} aria-hidden />
-              </button>
-            }
-            onMouseEnter={() => setAvvisiPanelHovered(true)}
-            onMouseLeave={() => setAvvisiPanelHovered(false)}
-          >
-            <ImportantAlertsCarousel
-              alerts={hubImportantAlerts}
-              loading={hubImportantAlertsLoading}
-              accentHex={accentHex}
-              rotationPaused={avvisiPanelHovered}
-            />
-          </RightPanel>
+                <TicketsCalendar
+                  sidebarHubEmbed
+                  tickets={tickets}
+                  users={ticketHubListProps.users}
+                  contracts={[]}
+                  currentUser={currentUser}
+                  getAuthHeader={getAuthHeader}
+                  onTicketClick={(ticket) => ticketHubListProps.onCalendarTicketClick?.(ticket)}
+                />
+              </div>
+            </RightPanel>
+          ) : (
+            <>
+              <RightPanel
+                title="Avvisi importanti"
+                className="min-h-[12rem] flex-[1.25]"
+                bodyClassName="space-y-0"
+                scrollBody={false}
+                titleAccessory={
+                  <button
+                    type="button"
+                    className={`${hubTinyIconBtn} p-1.5`}
+                    title="Apri tutti gli avvisi nel centro Hub"
+                    aria-label="Apri elenco completo degli avvisi importanti nell’hub"
+                    onClick={() => setHubCenterView('avvisi')}
+                  >
+                    <ChevronsRight size={17} aria-hidden />
+                  </button>
+                }
+                onMouseEnter={() => setAvvisiPanelHovered(true)}
+                onMouseLeave={() => setAvvisiPanelHovered(false)}
+              >
+                <ImportantAlertsCarousel
+                  alerts={hubImportantAlerts}
+                  loading={hubImportantAlertsLoading}
+                  accentHex={accentHex}
+                  rotationPaused={avvisiPanelHovered}
+                />
+              </RightPanel>
 
-          <RightPanel title="Ultimi eventi di rete">
-            <DummyRow accent={accentHex} title={'SNMP: uptime switch core > 99.9%'} meta="Dummy · timeline eventi agent" />
-            <DummyRow accent={accentHex} title="Ping medio ufficio: 14 ms" meta="Dummy · ultimo campionamento" />
-            <DummyRow accent={accentHex} title="Nuovo device rilevato in VLAN 20" meta="Dummy · log monitoraggio" />
-          </RightPanel>
+              <RightPanel title="Ultimi eventi di rete">
+                <DummyRow accent={accentHex} title={'SNMP: uptime switch core > 99.9%'} meta="Dummy · timeline eventi agent" />
+                <DummyRow accent={accentHex} title="Ping medio ufficio: 14 ms" meta="Dummy · ultimo campionamento" />
+                <DummyRow accent={accentHex} title="Nuovo device rilevato in VLAN 20" meta="Dummy · log monitoraggio" />
+              </RightPanel>
+            </>
+          )}
         </aside>
       </div>
     </div>

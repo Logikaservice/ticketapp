@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { AlertTriangle, X, CheckCircle, RefreshCw, WifiOff, Wifi, Trash2 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
-const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring }) => {
+const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring, hubTone = false }) => {
   const [events, setEvents] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -204,10 +204,25 @@ const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring }) 
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setShowDropdown(!showDropdown)}
-        className="relative p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
+        className={
+          hubTone
+            ? 'relative rounded-xl border border-white/[0.12] bg-black/35 p-2 text-white/80 transition hover:border-[color:var(--hub-accent-border)] hover:bg-white/[0.06]'
+            : 'relative rounded-lg p-2 text-gray-700 transition hover:bg-gray-100'
+        }
         title="Notifiche Agent"
       >
-        <AlertTriangle size={20} className={unreadCount > 0 ? 'text-yellow-600' : 'text-gray-600'} />
+        <AlertTriangle
+          size={20}
+          className={
+            unreadCount > 0
+              ? hubTone
+                ? 'text-amber-400'
+                : 'text-yellow-600'
+              : hubTone
+                ? 'text-white/55'
+                : 'text-gray-600'
+          }
+        />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
             {unreadCount > 9 ? '9+' : unreadCount}
@@ -216,16 +231,24 @@ const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring }) 
       </button>
 
       {showDropdown && (
-        <div className="absolute left-0 top-full mt-2 w-96 bg-white rounded-lg shadow-2xl border border-gray-200 max-h-96 overflow-y-auto" style={{
-          zIndex: 9999
-        }}>
-          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-            <h3 className="font-semibold text-gray-900">Notifiche Agent</h3>
+        <div
+          className={`absolute left-0 top-full z-[9999] mt-2 max-h-96 w-96 overflow-y-auto rounded-xl border shadow-2xl ${
+            hubTone
+              ? 'border-white/[0.12] bg-[#252525] text-white/90'
+              : 'border border-gray-200 bg-white'
+          }`}
+        >
+          <div className={`flex items-center justify-between border-b p-4 ${hubTone ? 'border-white/[0.1]' : 'border-gray-200'}`}>
+            <h3 className={`font-semibold ${hubTone ? 'text-white' : 'text-gray-900'}`}>Notifiche Agent</h3>
             <div className="flex items-center gap-2">
               {events.length > 0 && (
                 <button
                   onClick={clearAllNotifications}
-                  className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition"
+                  className={
+                    hubTone
+                      ? 'rounded p-1 text-red-400 transition hover:bg-red-500/20 hover:text-red-200'
+                      : 'rounded p-1 text-red-500 transition hover:bg-red-50 hover:text-red-700'
+                  }
                   title="Pulisci tutte le notifiche"
                 >
                   <Trash2 size={16} />
@@ -233,7 +256,9 @@ const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring }) 
               )}
               <button
                 onClick={() => setShowDropdown(false)}
-                className="p-1 text-gray-400 hover:text-gray-600"
+                className={
+                  hubTone ? 'rounded p-1 text-white/50 hover:text-white' : 'rounded p-1 text-gray-400 hover:text-gray-600'
+                }
               >
                 <X size={18} />
               </button>
@@ -241,11 +266,9 @@ const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring }) 
           </div>
 
           {events.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              Nessun evento
-            </div>
+            <div className={`p-8 text-center ${hubTone ? 'text-white/45' : 'text-gray-500'}`}>Nessun evento</div>
           ) : (
-            <div className="divide-y divide-gray-200">
+            <div className={hubTone ? 'divide-y divide-white/[0.08]' : 'divide-y divide-gray-200'}>
               {events.map((event) => {
                 const { icon: Icon, color, bg } = getEventIcon(event.event_type);
                 const isUnread = !event.is_read;
@@ -253,7 +276,11 @@ const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring }) 
                 return (
                   <div
                     key={event.id}
-                    className={`p-4 hover:bg-gray-50 cursor-pointer transition ${isUnread ? 'bg-blue-50' : ''}`}
+                    className={`cursor-pointer p-4 transition ${
+                      hubTone
+                        ? `hover:bg-white/[0.05] ${isUnread ? 'bg-sky-500/12' : ''}`
+                        : `hover:bg-gray-50 ${isUnread ? 'bg-blue-50' : ''}`
+                    }`}
                     onClick={() => {
                       if (!event.is_read) {
                         markAsRead(event.id);
@@ -269,10 +296,12 @@ const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring }) 
                         <Icon size={18} className={color} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm ${isUnread ? 'font-semibold' : 'font-medium'} text-gray-900`}>
+                        <p
+                          className={`text-sm ${isUnread ? 'font-semibold' : 'font-medium'} ${hubTone ? 'text-white/92' : 'text-gray-900'}`}
+                        >
                           {getEventMessage(event)}
                         </p>
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className={`mt-1 text-xs ${hubTone ? 'text-white/45' : 'text-gray-500'}`}>
                           {formatDate(event.detected_at)}
                           {event.azienda && ` • ${event.azienda}`}
                         </p>

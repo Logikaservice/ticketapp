@@ -3956,6 +3956,12 @@ export default function TicketApp() {
               setSelectedTicket,
               getUnreadCount,
               externalViewState: dashboardTargetState,
+              onNavigateTicketTabState: (st) => setDashboardTargetState(st || 'aperto'),
+              onCalendarTicketClick: (ticket) => {
+                if (!ticket) return;
+                handleSelectTicket(ticket);
+                setDashboardTargetState(ticket.stato || 'aperto');
+              },
               handlers: {
                 handleSelectTicket,
                 handleOpenEditModal,
@@ -3979,6 +3985,22 @@ export default function TicketApp() {
                 handleDeleteTicketPhoto,
                 setPhotosModalTicket,
                 handleResendEmail
+              }
+            }}
+            ticketHubExtras={{
+              onOpenUnreadMessages: () => setShowUnreadModal(true),
+              unreadMessagesTotal:
+                currentUser && Array.isArray(tickets)
+                  ? tickets.reduce((acc, t) => acc + getUnreadCount(t), 0)
+                  : 0,
+              onOpenNetworkMonitoringAgents: () => {
+                setShowTechnicianWorkbench(false);
+                setShowNetworkMonitoring(true);
+                setShowDashboard(false);
+                setShowOrariTurni(false);
+                setShowVivaldi(false);
+                setShowAntiVirus(false);
+                setNetworkMonitoringInitialView('agents');
               }
             }}
             dispositiviHighlightMac={dispositiviAziendaliHighlightMac}
