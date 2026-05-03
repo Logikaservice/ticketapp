@@ -3768,11 +3768,11 @@ export default function TicketApp() {
             } : {
               title: 'Sistema Ticketing',
               subtitle: 'Accedi per gestire i tuoi ticket',
-              bgGradient: 'from-blue-600 to-indigo-600',
-              iconBgColor: 'bg-blue-100',
-              iconColor: 'text-blue-600',
-              buttonColor: 'bg-blue-600 hover:bg-blue-700',
-              linkColor: 'text-blue-600 hover:text-blue-800'
+              bgGradient: 'from-sky-400 to-sky-600',
+              iconBgColor: 'bg-sky-100',
+              iconColor: 'text-sky-500',
+              buttonColor: 'bg-sky-400 hover:bg-sky-500',
+              linkColor: 'text-sky-600 hover:text-sky-800'
             })
           }}
         />

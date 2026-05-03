@@ -12,11 +12,11 @@ const LoginScreen = ({
   // Props per personalizzazione
   title = 'Sistema Ticketing',
   subtitle = 'Accedi per gestire i tuoi ticket',
-  bgGradient = 'from-blue-600 to-indigo-600',
-  iconBgColor = 'bg-blue-100',
-  iconColor = 'text-blue-600',
-  buttonColor = 'bg-blue-600 hover:bg-blue-700',
-  linkColor = 'text-blue-600 hover:text-blue-800'
+  bgGradient = 'from-sky-400 to-sky-600',
+  iconBgColor = 'bg-sky-100',
+  iconColor = 'text-sky-500',
+  buttonColor = 'bg-sky-400 hover:bg-sky-500',
+  linkColor = 'text-sky-600 hover:text-sky-800'
 }) => {
   const [showQuickRequest, setShowQuickRequest] = useState(false);
   const [clients, setClients] = useState(existingClients);
@@ -176,7 +176,7 @@ const LoginScreen = ({
                 autoComplete="off"
                 data-lpignore="true"
                 defaultValue={loginData.email}
-                className="w-full px-3 py-2 sm:px-4 sm:py-2.5 text-sm sm:text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 sm:px-4 sm:py-2.5 text-sm sm:text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400"
                 placeholder="email@example.com"
                 required
               />
@@ -193,7 +193,7 @@ const LoginScreen = ({
                 data-lpignore="true"
                 data-form-type="other"
                 defaultValue={loginData.password}
-                className="w-full px-3 py-2 sm:px-4 sm:py-2.5 text-sm sm:text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 sm:px-4 sm:py-2.5 text-sm sm:text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400"
                 placeholder="••••••••"
                 required
               />
