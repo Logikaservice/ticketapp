@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useLayoutEffect, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, ChevronDown, ChevronUp, Trash2, Wifi } from 'lucide-react';
+import { AlertTriangle, Trash2, Wifi } from 'lucide-react';
 import {
   hexToRgba,
   hubChromeCssVariables,
@@ -79,8 +79,8 @@ export default function HubAgentEventsInteractiveCard({
     technicianOnly ? socket : null
   );
 
-  const accentSoft = useMemo(() => hexToRgba(accentHex, 0.14), [accentHex]);
   const hasUnread = unreadCount > 0;
+  const iconWellStyle = hasUnread ? { backgroundColor: hexToRgba(NOTIFY_UNREAD_GLOW_HEX, 0.12) } : undefined;
   const unreadGlowStyle = useMemo(
     () => (hasUnread ? hubCardInnerGlowCssVars(NOTIFY_UNREAD_GLOW_HEX) : null),
     [hasUnread]
@@ -209,11 +209,14 @@ export default function HubAgentEventsInteractiveCard({
   const triangleUnreadCls = hubLight ? 'text-red-600' : 'text-red-400';
   const triangleIdleCls = hubLight ? 'text-[color:var(--hub-chrome-text-fainter)]' : 'text-white/45';
 
+  const unreadCountHex = hubLight ? '#dc2626' : '#f87171';
   const countBlock = (
     <span
-      className={`shrink-0 tabular-nums text-2xl font-bold leading-none ${
-        hasUnread ? triangleUnreadCls : hubLight ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-white/40'
+      className={`shrink-0 self-center tabular-nums text-[2.65rem] font-bold leading-none tracking-tight sm:text-[2.85rem] ${
+        hasUnread ? '' : 'text-[color:var(--hub-chrome-text-fainter)]'
       }`}
+      style={hasUnread ? { color: unreadCountHex } : undefined}
+      aria-hidden
     >
       {unreadCount > 99 ? '99+' : unreadCount}
     </span>
@@ -240,7 +243,10 @@ export default function HubAgentEventsInteractiveCard({
             aria-haspopup="dialog"
             aria-label={hasUnread ? `${title}: ${unreadCount} non ${unreadCount === 1 ? 'letta' : 'lette'}` : title}
           >
-            <div className="inline-flex shrink-0 rounded-xl p-2.5" style={{ backgroundColor: accentSoft }}>
+            <div
+              className={`inline-flex shrink-0 rounded-xl p-2.5 ${hasUnread ? '' : 'bg-[color:var(--hub-chrome-muted-fill)]'}`}
+              style={iconWellStyle}
+            >
               <AlertTriangle size={26} className={hasUnread ? triangleUnreadCls : triangleIdleCls} strokeWidth={2} aria-hidden />
             </div>
             <span
@@ -258,40 +264,23 @@ export default function HubAgentEventsInteractiveCard({
             aria-expanded={expanded}
             aria-haspopup="dialog"
           >
-            <div className="flex min-h-0 w-full min-w-0 shrink-0 items-start gap-3">
-              <div className="inline-flex shrink-0 rounded-xl p-2.5" style={{ backgroundColor: accentSoft }}>
+            <div className="flex min-h-0 w-full min-w-0 shrink-0 items-center gap-3">
+              <div
+                className={`inline-flex shrink-0 self-center rounded-xl p-2.5 ${hasUnread ? '' : 'bg-[color:var(--hub-chrome-muted-fill)]'}`}
+                style={iconWellStyle}
+              >
                 <AlertTriangle
-                  size={24}
+                  size={26}
                   className={hasUnread ? triangleUnreadCls : triangleIdleCls}
                   strokeWidth={2}
                   aria-hidden
                 />
               </div>
-              <div className="min-w-0 flex-1 leading-tight">
-                <div className="flex min-w-0 items-start gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex min-w-0 items-start gap-2">
-                      <span
-                        className={`min-w-0 flex-1 break-words text-base font-semibold ${hubLight ? 'text-[color:var(--hub-chrome-text)]' : 'text-white/90'}`}
-                      >
-                        {title}
-                      </span>
-                      {expanded ? (
-                        <ChevronUp
-                          size={18}
-                          className={`mt-0.5 shrink-0 ${hubLight ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-white/45'}`}
-                          aria-hidden
-                        />
-                      ) : (
-                        <ChevronDown
-                          size={18}
-                          className={`mt-0.5 shrink-0 ${hubLight ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-white/45'}`}
-                          aria-hidden
-                        />
-                      )}
-                    </div>
-                  </div>
-                  {countBlock}
+              <div className="min-w-0 flex-1 self-center leading-tight">
+                <div
+                  className={`break-words text-base font-semibold ${hubLight ? 'text-[color:var(--hub-chrome-text)]' : 'text-white/90'}`}
+                >
+                  {title}
                 </div>
                 <p
                   className={`mt-1 break-words text-xs leading-snug ${hubLight ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-white/45'}`}
@@ -299,6 +288,7 @@ export default function HubAgentEventsInteractiveCard({
                   {expanded ? 'Lista in overlay: clic fuori o Esc per chiudere' : `${subtitle} · clic per aprire`}
                 </p>
               </div>
+              {countBlock}
             </div>
           </button>
         )}
