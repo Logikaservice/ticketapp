@@ -66,21 +66,10 @@ export const HUB_MODULE_META = {
     category: 'Moduli',
     defaultPlacement: { col: 6, row: 4, w: 2, h: 2 }
   },
-  'slot-1': {
-    label: 'Slot libero 1',
-    category: 'Slot',
-    defaultPlacement: { col: 1, row: 6, w: 4, h: 1 }
-  },
-  /** Sotto Slot libero 1 (row 7) — KeePass licenze e download Office nell’hub. */
   'launch-office': {
     label: 'Office',
     category: 'Moduli',
     defaultPlacement: { col: 1, row: 7, w: 4, h: 1 }
-  },
-  'slot-2': {
-    label: 'Slot libero 2',
-    category: 'Slot',
-    defaultPlacement: { col: 5, row: 6, w: 3, h: 1 }
   }
 };
 
@@ -544,7 +533,7 @@ export function inferDropRowFromAnchor(clientY, gridEl, layout, dragId, preferCo
 
 /**
  * Ancora colonne sulla griglia fissa da 7; le righe seguono il mouse rispetto all’altezza reale
- * del contenitore così è possibile “andare più in basso” oltre le card lunghe (es. sotto slot).
+ * del contenitore così è possibile “andare più in basso” oltre le card lunghe.
  */
 export function snapDropToCell(clientX, clientY, gridEl, layout = null) {
   if (!gridEl) return { col: 1, row: 1 };

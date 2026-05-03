@@ -14,7 +14,6 @@ import {
   RotateCcw,
   Layers,
   Building2,
-  LayoutGrid,
   Monitor,
   Gauge,
   Lock
@@ -78,9 +77,9 @@ const HUB_LIBRARY_GROUP_SPECS = [
     ids: ['contracts']
   },
   {
-    title: 'Testo e slot',
-    caption: 'Contenuti liberi e spazi riservati',
-    ids: ['quick-summary', 'slot-1', 'slot-2']
+    title: 'Testo',
+    caption: 'Titolo e testo nella card hub',
+    ids: ['quick-summary']
   }
 ];
 
@@ -699,40 +698,6 @@ export default function HubOverviewSection({
             className="min-h-0 flex-1"
             iconOnly={io}
           />
-        );
-      case 'slot-1':
-      case 'slot-2':
-        if (io) {
-          return (
-            <div
-              className={`flex h-full min-h-[4.5rem] items-center justify-center rounded-2xl border border-dashed border-white/[0.12] p-3 transition hover:[border-color:var(--hub-accent-border)] ${
-                veil ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''
-              } ${suppressInteraction ? 'pointer-events-none' : ''}`}
-              style={{ backgroundColor: 'rgba(30,30,30,0.55)' }}
-              aria-label={txt(item, HUB_MODULE_META[id].label)}
-              role="img"
-            >
-              <div className="inline-flex rounded-xl bg-white/[0.06] p-2.5">
-                <LayoutGrid size={26} className="shrink-0 text-white/45" aria-hidden />
-              </div>
-            </div>
-          );
-        }
-        return (
-          <div
-            className={`flex h-full min-h-[7rem] items-center gap-3 rounded-2xl border border-dashed border-white/[0.12] p-4 transition hover:[border-color:var(--hub-accent-border)] ${
-              veil ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''
-            } ${suppressInteraction ? 'pointer-events-none' : ''}`}
-            style={{ backgroundColor: 'rgba(30,30,30,0.55)' }}
-          >
-            <div className="inline-flex shrink-0 self-center rounded-xl bg-white/[0.06] p-2.5">
-              <LayoutGrid size={22} className="shrink-0 text-white/45" aria-hidden />
-            </div>
-            <div className="min-w-0 flex-1 leading-tight">
-              <p className="text-base font-semibold text-white/88">{txt(item, HUB_MODULE_META[id].label)}</p>
-              <p className="mt-1 text-xs text-white/35">{sub(item, 'Può diventare tabella avvisi interni, grafico o feed.')}</p>
-            </div>
-          </div>
         );
       default:
         return null;
