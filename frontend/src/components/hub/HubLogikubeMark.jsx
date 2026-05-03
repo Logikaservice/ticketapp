@@ -8,7 +8,7 @@ const VIEW_H = 731;
  * Taglio orizzontale tra “LOGI” e “KUBE” (il path è un unico compound path).
  * Spostare a sinistra se l’accento “manca” sulla K; a destra se colora troppa la I.
  */
-const KUBE_CLIP_X = 658;
+const KUBE_CLIP_X = 705;
 
 /** Solo marca grafica (wireframe), senza testo — per sidebar “solo icone”. */
 const ICON_MARK_VIEWBOX = '158 268 252 268';
