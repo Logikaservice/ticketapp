@@ -5,20 +5,6 @@ import { formatDateItalian } from '../../utils/formatters';
 import { HUB_SURFACE, hubModalCssVars } from '../../utils/techHubAccent';
 import { ticketMatchesAdvancedSearch } from '../../utils/ticketAdvancedSearch';
 
-const STORAGE_HUB_LIST_CAP = 'techHubTicketHubListCap';
-
-function loadHubListCap() {
-  try {
-    const v = localStorage.getItem(STORAGE_HUB_LIST_CAP);
-    if (v === '50') return 50;
-    if (v === '100') return 100;
-    if (v === '200') return 200;
-    return null;
-  } catch (_) {
-    return null;
-  }
-}
-
 /** Stessa logica “ticket visibili” della dashboard per ruolo / filtro azienda. */
 function useVisibleTicketsForHub({ currentUser, users, tickets, selectedCompany }) {
   const companyTickets = useMemo(() => {
@@ -77,16 +63,6 @@ export default function TicketsHubEmbedded({
 
   const [advancedSearchTerm, setAdvancedSearchTerm] = useState(() => formatDateItalian(new Date().toISOString()));
   const [advancedSearchResults, setAdvancedSearchResults] = useState([]);
-  /** null = tutti; altrimenti max righe renderizzate (performance su liste enormi). */
-  const [hubListCap, setHubListCap] = useState(loadHubListCap);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_HUB_LIST_CAP, hubListCap == null ? 'all' : String(hubListCap));
-    } catch (_) {
-      /* ignore */
-    }
-  }, [hubListCap]);
 
   useEffect(() => {
     const q = advancedSearchTerm.trim();
@@ -124,28 +100,8 @@ export default function TicketsHubEmbedded({
           onOpenUnreadModal={onOpenUnreadModal}
           unreadMessagesTotal={hubUnreadMessagesTotal}
         />
-        <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
-          <label htmlFor="hub-ticket-list-cap" className="text-[11px] text-white/42">
-            Card in lista
-          </label>
-          <select
-            id="hub-ticket-list-cap"
-            value={hubListCap == null ? 'all' : String(hubListCap)}
-            onChange={(e) => {
-              const v = e.target.value;
-              setHubListCap(v === 'all' ? null : Number(v));
-            }}
-            className="max-w-[11rem] rounded-lg border border-white/[0.12] bg-black/35 px-2 py-1.5 text-[11px] text-white outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)]"
-          >
-            <option value="all">Tutti (scorri la pagina)</option>
-            <option value="50">Primi 50</option>
-            <option value="100">Primi 100</option>
-            <option value="200">Primi 200</option>
-          </select>
-        </div>
         <TicketListContainer
           hubEmbed
-          hubEmbedMaxItems={hubListCap}
           currentUser={currentUser}
           tickets={visibleTickets}
           users={users}
