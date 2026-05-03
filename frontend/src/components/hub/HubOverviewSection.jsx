@@ -31,6 +31,7 @@ import {
   removeModule,
   restoreDefaultModule,
   missingModuleIds,
+  ALL_MODULE_IDS,
   getDefaultHubLayout,
   restoreSingleCardDefaults,
   snapDropToCell,
@@ -46,6 +47,53 @@ import {
 const SURFACE_LOCAL = '#1E1E1E';
 
 const HUB_REFRESH_TICKET_STAT_IDS = new Set(['stat-aperto', 'stat-lavorazione']);
+
+/** Gruppi nel pannello «Modifica layout»: per tipo d’uso della card. */
+const HUB_LIBRARY_GROUP_SPECS = [
+  {
+    title: 'Ticket',
+    caption: 'Conteggi e azioni sui ticket nella panoramica',
+    ids: ['new-ticket', 'stat-aperto', 'stat-lavorazione']
+  },
+  {
+    title: 'Moduli',
+    caption: 'Accesso ai moduli integrati nell’hub',
+    ids: [
+      'launch-email',
+      'launch-network',
+      'launch-comms',
+      'launch-antivirus',
+      'launch-dispositivi',
+      'launch-speedtest',
+      'launch-office',
+      'launch-mappatura'
+    ]
+  },
+  {
+    title: 'KPI',
+    caption: 'Indicatori e grafici',
+    ids: ['contracts']
+  },
+  {
+    title: 'Testo e slot',
+    caption: 'Contenuti liberi e spazi riservati',
+    ids: ['quick-summary', 'slot-1', 'slot-2']
+  }
+];
+
+const _libSpecIds = new Set(HUB_LIBRARY_GROUP_SPECS.flatMap((g) => g.ids));
+const HUB_LIBRARY_GROUPS = [
+  ...HUB_LIBRARY_GROUP_SPECS,
+  ...(ALL_MODULE_IDS.some((id) => !_libSpecIds.has(id))
+    ? [
+        {
+          title: 'Altri',
+          caption: '',
+          ids: ALL_MODULE_IDS.filter((id) => !_libSpecIds.has(id))
+        }
+      ]
+    : [])
+];
 
 function ModuleLaunchCard({
   icon: Icon,
@@ -97,10 +145,14 @@ function ModuleLaunchCard({
   );
 }
 
-/** Allineata visivamente a ModuleLaunchCard: stesso titolo/sottotitolo e struttura riga. */
+/**
+ * KPI ticket: icona sinistra · titolo (+ sottotitolo opz.) centrati · numero a destra (≈ grande come l’area icona).
+ * Zero → numero grigio; &gt;0 → colore accent hub.
+ */
 function TicketHubStatCard({
   icon: Icon,
   title,
+  subtitle = '',
   count,
   accentHex,
   stateKey,
@@ -135,19 +187,30 @@ function TicketHubStatCard({
   ) : (
     <div className="flex w-full min-w-0 items-center gap-3">
       <div
-        className={`inline-flex shrink-0 self-center rounded-xl p-2.5 transition ${active ? '' : 'bg-white/[0.06]'}`}
+        className={`inline-flex shrink-0 rounded-xl p-2.5 transition ${active ? '' : 'bg-white/[0.06]'}`}
         style={active ? { backgroundColor: hexToRgba(accentHex, 0.12) } : undefined}
       >
         <Icon
-          size={22}
+          size={26}
           className="shrink-0"
           style={{ color: active ? accentHex : 'rgba(255,255,255,0.38)' }}
         />
       </div>
-      <div className="min-w-0 flex-1 self-center leading-tight">
-        <div className="text-base font-semibold text-white/90">{title}</div>
-        <div className="mt-1 text-xs font-normal text-white/45 tabular-nums">Nell&apos;elenco: {count}</div>
+      <div className="flex min-h-[3rem] min-w-0 flex-1 flex-col items-center justify-center px-1 text-center">
+        <div className="text-base font-semibold leading-tight text-white/90">{title}</div>
+        {subtitle ? (
+          <div className="mt-1 max-w-full text-xs font-normal leading-snug text-white/45">{subtitle}</div>
+        ) : null}
       </div>
+      <span
+        className={`shrink-0 tabular-nums text-[2.65rem] font-bold leading-none tracking-tight sm:text-[2.85rem] ${
+          active ? '' : 'text-white/[0.38]'
+        }`}
+        style={active ? { color: accentHex } : undefined}
+        aria-hidden
+      >
+        {count}
+      </span>
     </div>
   );
 
@@ -458,6 +521,7 @@ export default function HubOverviewSection({
           <TicketHubStatCard
             icon={FileText}
             title={txt(item, 'Aperti')}
+            subtitle={sub(item, '')}
             count={hubTicketCounts.aperto}
             accentHex={accentHex}
             stateKey="aperto"
@@ -472,6 +536,7 @@ export default function HubOverviewSection({
           <TicketHubStatCard
             icon={PlayCircle}
             title={txt(item, 'In lavorazione')}
+            subtitle={sub(item, '')}
             count={hubTicketCounts.in_lavorazione}
             accentHex={accentHex}
             stateKey="in_lavorazione"
@@ -776,26 +841,67 @@ export default function HubOverviewSection({
               <RotateCcw size={14} className="opacity-70" /> Ripristina tutta la panoramica
             </button>
           </div>
-          {missing.length === 0 ? (
-            <p className="text-xs text-white/38">Tutti i moduli disponibili sono già in griglia. Puoi rimuovere un modulo per tenerlo qui.</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {missing.map((mid) => (
-                <button
-                  key={mid}
-                  type="button"
-                  onClick={() => {
-                    let next = restoreDefaultModule(hubLayout, mid);
-                    next = sanitizeLayoutItems(next);
-                    setHubLayout(next);
-                  }}
-                  className="rounded-xl border border-white/[0.12] bg-black/22 px-3 py-2 text-xs font-medium text-white/85 transition hover:bg-white/[0.06] hover:[border-color:var(--hub-accent-border)]"
-                >
-                  Aggiungi {HUB_MODULE_META[mid].label}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="space-y-3">
+            {missing.length === 0 ? (
+              <p className="text-xs text-white/38">
+                Tutti i tipi di card sono già in griglia. Tocca un nome sotto per selezionarlo; per togliere un modulo usa
+                «Rimuovi dalla griglia» sulla card selezionata.
+              </p>
+            ) : null}
+            {HUB_LIBRARY_GROUPS.map((group) => (
+              <div
+                key={group.title}
+                className="rounded-xl border border-white/[0.07] bg-black/[0.28] p-3"
+              >
+                <p className="text-xs font-bold uppercase tracking-wide text-white/55">{group.title}</p>
+                {group.caption ? (
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-white/38">{group.caption}</p>
+                ) : null}
+                <div className="mt-2.5 flex flex-wrap gap-2">
+                  {group.ids.map((mid) => {
+                    const mod = HUB_MODULE_META[mid];
+                    if (!mod) return null;
+                    const inGrid = hubLayout.some((x) => x.id === mid);
+                    const canAdd = missing.includes(mid);
+                    const label = mod.label;
+                    return (
+                      <button
+                        key={mid}
+                        type="button"
+                        onClick={() => {
+                          if (inGrid) setSelectedId((s) => (s === mid ? null : mid));
+                          else if (canAdd) {
+                            setHubLayout((prev) =>
+                              sanitizeLayoutItems(restoreDefaultModule(prev, mid))
+                            );
+                          }
+                        }}
+                        disabled={!inGrid && !canAdd}
+                        title={
+                          inGrid
+                            ? 'Seleziona questa card nella griglia'
+                            : canAdd
+                              ? 'Aggiungi alla griglia'
+                              : 'Non disponibile'
+                        }
+                        className={`rounded-xl border px-3 py-2 text-left text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-35 ${
+                          inGrid
+                            ? selectedId === mid
+                              ? 'border-[color:var(--hub-accent)] bg-white/[0.1] text-white'
+                              : 'border-white/[0.12] bg-black/30 text-white/88 hover:bg-white/[0.06] hover:[border-color:var(--hub-accent-border)]'
+                            : canAdd
+                              ? 'border-dashed border-white/22 text-white/65 hover:border-[color:var(--hub-accent-border)] hover:bg-white/[0.04] hover:text-white/88'
+                              : 'border-white/[0.06] text-white/35'
+                        }`}
+                      >
+                        {inGrid ? label : `Aggiungi · ${label}`}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
 
           {selectedItem && meta && (() => {
             const rbSel = resizeBoundsMeta;
