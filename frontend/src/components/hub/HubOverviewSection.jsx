@@ -149,7 +149,8 @@ function ModuleLaunchCard({
 }
 
 /**
- * KPI ticket: icona sinistra · titolo (+ sottotitolo opz.) centrati · numero a destra.
+ * KPI ticket: icona sinistra · titolo/sottotitolo subito a destra (come ModuleLaunchCard) · numero a destra.
+ * Il blocco testo è allineato verticalmente al centro dell’icona.
  * Zero → grigio; &gt;0 → solo verde KPI hub {@link HUB_TICKET_KPI_GREEN} (nessun accent personalizzato).
  */
 function TicketHubStatCard({
@@ -190,7 +191,7 @@ function TicketHubStatCard({
   ) : (
     <div className="flex w-full min-w-0 items-center gap-3">
       <div
-        className={`inline-flex shrink-0 rounded-xl p-2.5 transition ${active ? '' : 'bg-white/[0.06]'}`}
+        className={`inline-flex shrink-0 self-center rounded-xl p-2.5 transition ${active ? '' : 'bg-white/[0.06]'}`}
         style={active ? { backgroundColor: hexToRgba(g, 0.12) } : undefined}
       >
         <Icon
@@ -199,11 +200,9 @@ function TicketHubStatCard({
           style={{ color: active ? g : 'rgba(255,255,255,0.38)' }}
         />
       </div>
-      <div className="flex min-h-[3rem] min-w-0 flex-1 flex-col items-center justify-center px-1 text-center">
-        <div className="text-base font-semibold leading-tight text-white/90">{title}</div>
-        {subtitle ? (
-          <div className="mt-1 max-w-full text-xs font-normal leading-snug text-white/45">{subtitle}</div>
-        ) : null}
+      <div className="min-w-0 flex-1 self-center text-left leading-tight">
+        <div className="text-base font-semibold text-white/90">{title}</div>
+        {subtitle ? <div className="mt-1 text-xs font-normal leading-snug text-white/45">{subtitle}</div> : null}
       </div>
       <span
         className={`shrink-0 tabular-nums text-[2.65rem] font-bold leading-none tracking-tight sm:text-[2.85rem] ${
