@@ -7,10 +7,10 @@ import {
   rollupEuroYearSeries,
   summarizeEuroForCalendarMonth
 } from '../../utils/contractHubStats';
+import { DEFAULT_TECH_HUB_ACCENT, normalizeHex } from '../../utils/techHubAccent';
 
-/** Verde barra KPI / riempimento; grigio “guscio” candela — stesse tonalità già usate sull’Hub. */
-const COL_VERDE = '#15803d';
-const COL_TRACK = '#3f495a';
+/** Guscio candela “previsto”, legenda e fascia KPI (tema chiaro) — gray-200. */
+const BAR_TRACK = 'rgb(229, 231, 235)';
 
 function fmtEuroCompact(n) {
   const x = typeof n === 'number' && Number.isFinite(n) ? n : 0;
@@ -162,7 +162,7 @@ export default function HubContractsActiveCard({
   const currentMonthIndex = now.getMonth();
 
   const hubLight = hubSurfaceMode === 'light';
-  const COL_TRACK_UI = hubLight ? '#94a3b8' : COL_TRACK;
+  const accentResolved = normalizeHex(accentHex) || DEFAULT_TECH_HUB_ACCENT;
   const svgLines = hubLight
     ? {
         baseline: 'rgba(15,23,42,0.14)',
@@ -199,7 +199,7 @@ export default function HubContractsActiveCard({
           <p
             className={`mt-0.5 text-[9px] leading-snug ${hubLight ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-white/38'}`}
           >
-            {refYear} · guscio = previsto · verde = pagato · KPI:{' '}
+            {refYear} · guscio = previsto · accento Hub = pagato · KPI:{' '}
             <span className={hubLight ? 'text-[color:var(--hub-chrome-text-secondary)]' : 'text-white/50'}>
               {kpiScope === 'mese' ? 'mese in corso' : `anno ${refYear}`}
             </span>
@@ -231,10 +231,17 @@ export default function HubContractsActiveCard({
       </div>
 
       <div
-        className={`mb-2 grid grid-cols-3 divide-x rounded-lg border ${hubLight ? 'divide-[color:var(--hub-chrome-border-soft)] border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-well)]' : 'divide-white/[0.08] border-white/[0.08] bg-black/15'}`}
+        className={`mb-2 grid grid-cols-3 divide-x rounded-lg border ${hubLight ? 'divide-[color:var(--hub-chrome-border-soft)] border-[color:var(--hub-chrome-border-soft)] bg-[rgb(229,231,235)]' : 'divide-white/[0.08] border-white/[0.08] bg-black/15'}`}
       >
         <KpiMoneyCol light={hubLight} title="Totale" subline="Totale previsto" value={moneyKpis.previsto} />
-        <KpiMoneyCol light={hubLight} title="Pagato" subline="Nel periodo" value={moneyKpis.pagato} highlight />
+        <KpiMoneyCol
+          light={hubLight}
+          title="Pagato"
+          subline="Nel periodo"
+          value={moneyKpis.pagato}
+          highlight
+          accentHex={accentResolved}
+        />
         <KpiMoneyCol
           light={hubLight}
           title="Mancante"
@@ -348,7 +355,7 @@ export default function HubContractsActiveCard({
                     height={c.hTrack}
                     rx={rx}
                     ry={rx}
-                    fill={COL_TRACK_UI}
+                    fill={BAR_TRACK}
                     opacity={sg.previsto > 0 ? 1 : 0.22}
                     className="cursor-pointer transition hover:opacity-90"
                     onMouseEnter={showTip}
@@ -363,7 +370,7 @@ export default function HubContractsActiveCard({
                       height={c.hFill}
                       rx={rx}
                       ry={rx}
-                      fill={COL_VERDE}
+                      fill={accentResolved}
                       className="cursor-pointer transition hover:opacity-90"
                       onMouseEnter={showTip}
                       onMouseMove={showTip}
@@ -445,11 +452,11 @@ export default function HubContractsActiveCard({
         }`}
       >
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: COL_TRACK_UI }} />{' '}
+          <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: BAR_TRACK }} />{' '}
           Previsto nel mese
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: COL_VERDE }} /> Pagato nel mese
+          <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: accentResolved }} /> Pagato nel mese
         </span>
       </div>
     </div>
@@ -476,7 +483,23 @@ function SegmentBtn({ active, light, children, onClick }) {
   );
 }
 
-function KpiMoneyCol({ title, subline, value, highlight, light }) {
+function KpiMoneyCol({ title, subline, value, highlight, light, accentHex }) {
+  if (highlight && accentHex) {
+    return (
+      <div className="min-w-0 px-1.5 py-1.5 sm:px-2" style={{ color: accentHex }}>
+        <div className="flex items-baseline justify-between gap-1.5">
+          <span className="text-xs font-bold tabular-nums leading-none sm:text-sm">{fmtEuroCompact(value)}</span>
+          <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide" style={{ opacity: 0.88 }}>
+            {title}
+          </span>
+        </div>
+        <div className="mt-0.5 text-[8px] leading-tight" style={{ opacity: 0.55 }}>
+          {subline}
+        </div>
+      </div>
+    );
+  }
+
   const hi = highlight
     ? light
       ? {
