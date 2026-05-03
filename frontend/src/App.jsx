@@ -45,6 +45,7 @@ import SpeedTestPage from './pages/SpeedTestPage';
 import VpnManagerPage from './pages/VpnManagerPage';
 import TechnicianWorkbenchPage from './pages/TechnicianWorkbenchPage';
 import { buildApiUrl } from './utils/apiConfig';
+import { filterTemporarySuppliesByRole } from './utils/temporarySuppliesRoleFilter';
 import { getStoredTechHubSurfaceMode, hubChromeCssVariables } from './utils/techHubAccent';
 
 /** Sfondo pagina sotto l’Hub (stesso del workbench chiaro/scuro), per `html`/`body` e wrapper App. */
@@ -350,7 +351,8 @@ export default function TicketApp() {
     showOrariTurni ||
     showTechnicianWorkbench;
 
-  const shouldLoadFornitureCounts = showDashboard && !isFullScreenViewActive;
+  const shouldLoadFornitureCounts =
+    (showDashboard && !isFullScreenViewActive) || showTechnicianWorkbench;
 
 
 
@@ -1244,6 +1246,11 @@ export default function TicketApp() {
     removeTemporarySupply,
     refreshTemporarySupplies
   } = useTemporarySuppliesFromTickets(getAuthHeader, shouldLoadFornitureCounts);
+
+  const hubFilteredTemporarySupplies = useMemo(
+    () => filterTemporarySuppliesByRole(temporarySupplies, currentUser),
+    [temporarySupplies, currentUser]
+  );
 
   // Funzione per ricaricare le forniture temporanee manualmente
   const refreshTemporarySuppliesManual = () => {
@@ -3913,6 +3920,10 @@ export default function TicketApp() {
           <TechnicianWorkbenchPage
             currentUser={currentUser}
             tickets={tickets}
+            hubTemporarySuppliesCount={
+              temporarySuppliesLoading ? undefined : hubFilteredTemporarySupplies.length
+            }
+            onRefreshHubTemporarySupplies={refreshTemporarySupplies}
             onOpenTicketState={(state) => {
               setDashboardTargetState(state || 'aperto');
               setHubEmbedTicketsKick((n) => n + 1);

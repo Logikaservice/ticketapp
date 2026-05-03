@@ -5,26 +5,7 @@ import TemporarySuppliesPanel from '../TemporarySuppliesPanel';
 import { HubModalScaffold, HubModalChromeHeader, HubModalBody } from '../Modals/HubModalChrome';
 import { hubModalCssVars } from '../../utils/techHubAccent';
 import { buildApiUrl } from '../../utils/apiConfig';
-
-function filterSuppliesByRole(raw, currentUser) {
-  if (!raw?.length) return [];
-  if (currentUser?.ruolo === 'tecnico') return raw;
-  if (currentUser?.ruolo === 'cliente') {
-    const isAdmin =
-      currentUser.admin_companies &&
-      Array.isArray(currentUser.admin_companies) &&
-      currentUser.admin_companies.length > 0;
-    if (isAdmin) {
-      const companyNames = currentUser.admin_companies;
-      return raw.filter((s) => s.azienda && companyNames.includes(s.azienda));
-    }
-    if (currentUser?.azienda) {
-      return raw.filter((s) => s.azienda === currentUser.azienda);
-    }
-    return [];
-  }
-  return [];
-}
+import { filterTemporarySuppliesByRole } from '../../utils/temporarySuppliesRoleFilter';
 
 export default function TemporarySuppliesSummaryHubModal({
   open,
@@ -33,7 +14,8 @@ export default function TemporarySuppliesSummaryHubModal({
   currentUser,
   accentHex,
   tickets = [],
-  onOpenTicketFromSupply
+  onOpenTicketFromSupply,
+  onTemporarySuppliesMutated
 }) {
   const [raw, setRaw] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +47,7 @@ export default function TemporarySuppliesSummaryHubModal({
     fetchList();
   }, [open, fetchList]);
 
-  const filtered = useMemo(() => filterSuppliesByRole(raw, currentUser), [raw, currentUser]);
+  const filtered = useMemo(() => filterTemporarySuppliesByRole(raw, currentUser), [raw, currentUser]);
   const isTech = currentUser?.ruolo === 'tecnico';
 
   const removeSupply = async (supplyId) => {
@@ -73,8 +55,14 @@ export default function TemporarySuppliesSummaryHubModal({
       method: 'DELETE',
       headers: { ...getAuthHeader() }
     });
-    if (res.ok) setRaw((prev) => prev.filter((s) => s.id !== supplyId));
-    else throw new Error('delete');
+    if (res.ok) {
+      setRaw((prev) => prev.filter((s) => s.id !== supplyId));
+      try {
+        onTemporarySuppliesMutated?.();
+      } catch (_) {
+        /* ignore */
+      }
+    } else throw new Error('delete');
   };
 
   if (!open) return null;

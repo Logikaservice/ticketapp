@@ -10,6 +10,7 @@ import KeepassReportModal from './Modals/KeepassReportModal';
 
 import { formatDate } from '../utils/formatters';
 import { buildApiUrl } from '../utils/apiConfig';
+import { filterTemporarySuppliesByRole } from '../utils/temporarySuppliesRoleFilter';
 
 const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, cardKey = null }) => {
   const ringClass = highlight
@@ -501,44 +502,10 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     fatturato: visibleTickets.filter(t => t.stato === 'fatturato').length
   }), [visibleTickets]);
 
-  // Filtra le forniture temporanee in base al ruolo dell'utente
-  const filteredTemporarySupplies = React.useMemo(() => {
-    if (!temporarySupplies || temporarySupplies.length === 0) {
-      return [];
-    }
-
-    // I tecnici vedono tutte le forniture
-    if (currentUser?.ruolo === 'tecnico') {
-      return temporarySupplies;
-    }
-
-    // I clienti vedono solo le forniture della loro azienda
-    if (currentUser?.ruolo === 'cliente') {
-      // Verifica se è amministratore
-      const isAdmin = currentUser.admin_companies &&
-        Array.isArray(currentUser.admin_companies) &&
-        currentUser.admin_companies.length > 0;
-
-      if (isAdmin) {
-        // Se è amministratore, mostra le forniture delle sue aziende
-        const companyNames = currentUser.admin_companies;
-        return temporarySupplies.filter(supply => 
-          supply.azienda && companyNames.includes(supply.azienda)
-        );
-      }
-
-      // Non è amministratore, mostra solo le forniture della sua azienda
-      if (currentUser?.azienda) {
-        return temporarySupplies.filter(supply => 
-          supply.azienda === currentUser.azienda
-        );
-      }
-
-      return [];
-    }
-
-    return [];
-  }, [temporarySupplies, currentUser]);
+  const filteredTemporarySupplies = React.useMemo(
+    () => filterTemporarySuppliesByRole(temporarySupplies, currentUser),
+    [temporarySupplies, currentUser]
+  );
   // Evidenzia spostamenti basati su segnali esterni (eventi dal polling/azioni)
   const [activeHighlights, setActiveHighlights] = React.useState({});
   useEffect(() => {

@@ -111,19 +111,50 @@ function ModuleLaunchCard({
   className = '',
   subdued = false,
   suppressInteraction = false,
-  iconOnly = false
+  iconOnly = false,
+  /** Se definito (numero), mostra conteggio a destra come le card ticket KPI (verde se &gt; 0). */
+  count = undefined
 }) {
+  const g = HUB_TICKET_KPI_GREEN;
+  const hasCount = typeof count === 'number' && !Number.isNaN(count);
+  const n = hasCount ? Math.max(0, Math.floor(count)) : null;
+  const countActive = hasCount && n > 0;
+
   if (iconOnly) {
     return (
       <button
         type="button"
         onClick={onClick}
-        aria-label={label}
+        aria-label={hasCount ? `${label}: ${n}` : label}
         className={`flex h-full min-h-[4.5rem] w-full flex-col items-center justify-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-3 text-[color:var(--hub-chrome-text)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
         style={{ backgroundColor: 'var(--hub-chrome-surface)', ...hubOverviewCardLift }}
       >
-        <div className="inline-flex rounded-xl p-2.5" style={{ backgroundColor: hexToRgba(accent, 0.14) }}>
-          <Icon size={26} style={{ color: accent }} aria-hidden />
+        <div className="flex flex-col items-center justify-center gap-1 py-2">
+          <div
+            className={`inline-flex rounded-xl p-2.5 ${hasCount && !countActive ? 'bg-[color:var(--hub-chrome-muted-fill)]' : ''}`}
+            style={hasCount && countActive ? { backgroundColor: hexToRgba(g, 0.12) } : hasCount ? undefined : { backgroundColor: hexToRgba(accent, 0.14) }}
+          >
+            <Icon
+              size={26}
+              style={
+                hasCount
+                  ? countActive
+                    ? { color: g }
+                    : { color: 'var(--hub-chrome-text-fainter)' }
+                  : { color: accent }
+              }
+              aria-hidden
+            />
+          </div>
+          {hasCount ? (
+            <span
+              className={`tabular-nums text-base font-semibold ${countActive ? '' : 'text-[color:var(--hub-chrome-text-fainter)]'}`}
+              style={countActive ? { color: g } : undefined}
+              aria-hidden
+            >
+              {n}
+            </span>
+          ) : null}
         </div>
       </button>
     );
@@ -133,15 +164,33 @@ function ModuleLaunchCard({
     <button
       type="button"
       onClick={onClick}
+      aria-label={hasCount ? `${label}: ${n}` : label}
       className={`flex h-full min-h-[6rem] w-full min-w-0 items-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-left transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
       style={{ backgroundColor: 'var(--hub-chrome-surface)', ...hubOverviewCardLift }}
     >
       <div className="flex w-full min-w-0 items-center gap-3">
         <div
-          className="inline-flex shrink-0 self-center rounded-xl p-2.5"
-          style={{ backgroundColor: hexToRgba(accent, 0.12) }}
+          className={`inline-flex shrink-0 self-center rounded-xl p-2.5 ${hasCount && !countActive ? 'bg-[color:var(--hub-chrome-muted-fill)]' : ''}`}
+          style={
+            hasCount && countActive
+              ? { backgroundColor: hexToRgba(g, 0.12) }
+              : hasCount
+                ? undefined
+                : { backgroundColor: hexToRgba(accent, 0.12) }
+          }
         >
-          <Icon size={22} style={{ color: accent }} className="shrink-0" />
+          <Icon
+            size={22}
+            className="shrink-0"
+            style={
+              hasCount
+                ? countActive
+                  ? { color: g }
+                  : { color: 'var(--hub-chrome-text-fainter)' }
+                : { color: accent }
+            }
+            aria-hidden
+          />
         </div>
         <div className="min-w-0 flex-1 self-center leading-tight">
           <div className="break-words text-base font-semibold text-[color:var(--hub-chrome-text)]">{label}</div>
@@ -149,6 +198,17 @@ function ModuleLaunchCard({
             <div className="mt-1 break-words text-xs leading-snug text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div>
           ) : null}
         </div>
+        {hasCount ? (
+          <span
+            className={`shrink-0 tabular-nums text-[2.65rem] font-bold leading-none tracking-tight sm:text-[2.85rem] ${
+              countActive ? '' : 'text-[color:var(--hub-chrome-text-fainter)]'
+            }`}
+            style={countActive ? { color: g } : undefined}
+            aria-hidden
+          >
+            {n}
+          </span>
+        ) : null}
       </div>
     </button>
   );
@@ -342,7 +402,9 @@ export default function HubOverviewSection({
   getAuthHeader,
   socket = null,
   currentUser,
-  onOpenFornitureResoconto = null
+  onOpenFornitureResoconto = null,
+  /** Conteggio forniture visibili all'utente (dopo filtro ruolo); `undefined` durante caricamento iniziale. */
+  hubTemporarySuppliesCount = undefined
 }) {
   const hubLight = hubSurfaceMode === 'light';
   const gridRef = useRef(null);
@@ -667,6 +729,7 @@ export default function HubOverviewSection({
             subdued={veil}
             suppressInteraction={suppressInteraction || !onOpenFornitureResoconto}
             iconOnly={io}
+            count={hubTemporarySuppliesCount}
           />
         );
       case 'launch-office':

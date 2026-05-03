@@ -460,7 +460,10 @@ export default function TechnicianWorkbenchPage({
   /** Chrome ticket hub: messaggi non letti, agent, monitoraggio. */
   ticketHubExtras = null,
   dispositiviHighlightMac = null,
-  socket = null
+  socket = null,
+  /** Conteggio forniture temporanee (filtrato per ruolo); `undefined` mentre caricano. */
+  hubTemporarySuppliesCount = undefined,
+  onRefreshHubTemporarySupplies = null
 }) {
   const [accentHex, setAccentHex] = useState(getStoredTechHubAccent);
   /** `dark` = sfondo Hub attuale; `light` = bianco / grigio chiaro sulla sola shell Hub tecnico. */
@@ -1421,6 +1424,7 @@ export default function TechnicianWorkbenchPage({
                 socket={socket}
                 currentUser={currentUser}
                 onOpenFornitureResoconto={() => setFornitureResocontoOpen(true)}
+                hubTemporarySuppliesCount={hubTemporarySuppliesCount}
               />
             )}
           </div>
@@ -1503,6 +1507,7 @@ export default function TechnicianWorkbenchPage({
         currentUser={currentUser}
         accentHex={accentHex}
         tickets={tickets}
+        onTemporarySuppliesMutated={onRefreshHubTemporarySupplies ?? undefined}
         onOpenTicketFromSupply={
           ticketHubListProps?.handlers?.handleSelectTicket
             ? (ticketId) => {
