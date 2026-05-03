@@ -97,10 +97,9 @@ export function normalizeLayoutExtras(cur) {
   return {
     locked: Boolean(cur?.locked),
     iconOnly: Boolean(cur?.iconOnly),
-    customTitle:
-      typeof cur?.customTitle === 'string' ? cur.customTitle.trim().slice(0, 120) : '',
-    customSubtitle:
-      typeof cur?.customSubtitle === 'string' ? cur.customSubtitle.trim().slice(0, 200) : '',
+    /** Senza trim: altrimenti ogni `sanitize` (dopo ogni tasto) mangia spazi finali e rende la digitazione impossibile. */
+    customTitle: typeof cur?.customTitle === 'string' ? cur.customTitle.slice(0, 120) : '',
+    customSubtitle: typeof cur?.customSubtitle === 'string' ? cur.customSubtitle.slice(0, 200) : '',
     refreshIntervalSec: (() => {
       const s = parseInt(cur?.refreshIntervalSec, 10);
       if (!Number.isFinite(s) || s <= 0) return 0;

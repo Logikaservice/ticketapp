@@ -421,14 +421,17 @@ export default function HubOverviewSection({
   const fixedSize = meta?.fixedSize;
   const resizeBoundsMeta = meta?.resizeBounds ?? null;
 
+  /** Testo mostrato: valore salvato così com’è; solo se è solo spazi/vuoto si usa il fallback catalogo. */
   function txt(item, fallback) {
-    const t = item.customTitle?.trim();
-    return t || fallback;
+    const raw = item.customTitle;
+    if (typeof raw !== 'string' || raw.trim() === '') return fallback;
+    return raw;
   }
 
   function sub(item, fallback) {
-    const t = item.customSubtitle?.trim();
-    return t || fallback;
+    const raw = item.customSubtitle;
+    if (typeof raw !== 'string' || raw.trim() === '') return fallback;
+    return raw;
   }
 
   function renderInner(item) {
