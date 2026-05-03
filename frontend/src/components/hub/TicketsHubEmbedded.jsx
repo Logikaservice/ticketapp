@@ -40,7 +40,7 @@ function useVisibleTicketsForHub({ currentUser, users, tickets, selectedCompany 
 }
 
 /**
- * Lista ticket nel pannello centrale dell’Hub: toolbar (panoramica, nuovo ticket, notifiche, ricerche) + lista tema scuro.
+ * Lista ticket nel pannello centrale dell’Hub: toolbar (panoramica, titolo, nuovo ticket, ricerche) + lista tema scuro.
  */
 export default function TicketsHubEmbedded({
   accentHex,
@@ -55,9 +55,6 @@ export default function TicketsHubEmbedded({
   onBackToOverview,
   onOpenNewTicket,
   onNavigateTicketTabState,
-  getAuthHeader,
-  socket,
-  onOpenNetworkMonitoringAgents,
   onOpenUnreadModal,
   hubUnreadMessagesTotal = 0
 }) {
@@ -100,9 +97,6 @@ export default function TicketsHubEmbedded({
             handlers?.handleSelectTicket?.(ticket);
             onNavigateTicketTabState?.(ticket.stato);
           }}
-          getAuthHeader={getAuthHeader}
-          socket={socket}
-          onOpenNetworkMonitoringAgents={onOpenNetworkMonitoringAgents}
           onOpenUnreadModal={onOpenUnreadModal}
           unreadMessagesTotal={hubUnreadMessagesTotal}
         />

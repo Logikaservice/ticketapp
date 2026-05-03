@@ -1079,9 +1079,6 @@ export default function TechnicianWorkbenchPage({
                 onBackToOverview={() => setHubCenterView('overview')}
                 onOpenNewTicket={onOpenNewTicket}
                 onNavigateTicketTabState={ticketHubListProps.onNavigateTicketTabState}
-                getAuthHeader={getAuthHeader}
-                socket={socket}
-                onOpenNetworkMonitoringAgents={ticketHubExtras?.onOpenNetworkMonitoringAgents}
                 onOpenUnreadModal={ticketHubExtras?.onOpenUnreadMessages}
                 hubUnreadMessagesTotal={ticketHubExtras?.unreadMessagesTotal ?? 0}
               />

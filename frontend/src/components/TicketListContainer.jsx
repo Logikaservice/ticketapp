@@ -434,10 +434,12 @@ const TicketListContainer = ({
     <>
       <div className={lc.shell}>
         <div className={lc.hdrSep}>
-          <h2 className={lc.h2}>
-            {currentUser.ruolo === 'cliente' ? 'I Miei Interventi' : 'Lista Ticket'}
-          </h2>
-          
+          {!hubEmbed && (
+            <h2 className={lc.h2}>
+              {currentUser.ruolo === 'cliente' ? 'I Miei Interventi' : 'Lista Ticket'}
+            </h2>
+          )}
+
           {showFilters && (
             <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
               {['aperto','in_lavorazione','risolto','chiuso','inviato','fatturato'].map(status => {

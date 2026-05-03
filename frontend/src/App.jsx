@@ -3992,16 +3992,7 @@ export default function TicketApp() {
               unreadMessagesTotal:
                 currentUser && Array.isArray(tickets)
                   ? tickets.reduce((acc, t) => acc + getUnreadCount(t), 0)
-                  : 0,
-              onOpenNetworkMonitoringAgents: () => {
-                setShowTechnicianWorkbench(false);
-                setShowNetworkMonitoring(true);
-                setShowDashboard(false);
-                setShowOrariTurni(false);
-                setShowVivaldi(false);
-                setShowAntiVirus(false);
-                setNetworkMonitoringInitialView('agents');
-              }
+                  : 0
             }}
             dispositiviHighlightMac={dispositiviAziendaliHighlightMac}
             socket={socket}

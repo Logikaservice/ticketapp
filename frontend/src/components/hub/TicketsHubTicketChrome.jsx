@@ -9,10 +9,9 @@ import {
   Paperclip,
   X
 } from 'lucide-react';
-import AgentNotifications from '../AgentNotifications';
 
 /**
- * Barra alta vista Ticket nell’hub: torna alla panoramica, filtri tecnico (azienda + ricerca avanzata), Nuovo ticket, messaggi non letti, notifiche agent.
+ * Barra alta vista Ticket nell’hub: torna alla panoramica, titolo lista, filtri tecnico (azienda + ricerca avanzata), Nuovo ticket, messaggi non letti.
  */
 export default function TicketsHubTicketChrome({
   currentUser,
@@ -25,9 +24,6 @@ export default function TicketsHubTicketChrome({
   onOpenNewTicket,
   onBackToOverview,
   onAfterSearchPickTicket,
-  getAuthHeader,
-  socket,
-  onOpenNetworkMonitoringAgents,
   onOpenUnreadModal,
   unreadMessagesTotal = 0
 }) {
@@ -48,9 +44,12 @@ export default function TicketsHubTicketChrome({
   const isTecnico = currentUser?.ruolo === 'tecnico';
   const showResults = searchTerm.trim().length >= 2 && searchResults.length > 0;
 
+  const listaTitle =
+    currentUser?.ruolo === 'cliente' ? 'I Miei Interventi' : 'Lista Ticket';
+
   return (
     <div className="mb-3 space-y-3 rounded-xl border border-white/[0.1] bg-black/35 p-3">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 gap-y-2">
         <button
           type="button"
           onClick={onBackToOverview}
@@ -60,6 +59,9 @@ export default function TicketsHubTicketChrome({
           <ArrowLeft size={18} className="shrink-0 text-[color:var(--hub-accent)]" aria-hidden />
           Panoramica hub
         </button>
+        <h2 className="min-w-0 text-base font-semibold leading-tight tracking-tight text-white/95 sm:text-lg">
+          {listaTitle}
+        </h2>
         <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
           <button
             type="button"
@@ -83,14 +85,6 @@ export default function TicketsHubTicketChrome({
                 </span>
               )}
             </button>
-          )}
-          {isTecnico && getAuthHeader && (
-            <AgentNotifications
-              hubTone
-              getAuthHeader={getAuthHeader}
-              socket={socket}
-              onOpenNetworkMonitoring={onOpenNetworkMonitoringAgents}
-            />
           )}
         </div>
       </div>
