@@ -131,7 +131,7 @@ function ModuleLaunchCard({
     <button
       type="button"
       onClick={onClick}
-      className={`flex h-full min-h-[6rem] w-full items-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-left transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
+      className={`flex h-full min-h-[6rem] w-full min-w-0 items-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-left transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
       style={{ backgroundColor: 'var(--hub-chrome-surface)', ...hubOverviewCardLift }}
     >
       <div className="flex w-full min-w-0 items-center gap-3">
@@ -142,8 +142,10 @@ function ModuleLaunchCard({
           <Icon size={22} style={{ color: accent }} className="shrink-0" />
         </div>
         <div className="min-w-0 flex-1 self-center leading-tight">
-          <div className="text-base font-semibold text-[color:var(--hub-chrome-text)]">{label}</div>
-          {subtitle ? <div className="mt-1 text-xs text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div> : null}
+          <div className="break-words text-base font-semibold text-[color:var(--hub-chrome-text)]">{label}</div>
+          {subtitle ? (
+            <div className="mt-1 break-words text-xs leading-snug text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div>
+          ) : null}
         </div>
       </div>
     </button>
@@ -203,8 +205,10 @@ function TicketHubStatCard({
         />
       </div>
       <div className="min-w-0 flex-1 self-center text-left leading-tight">
-        <div className="text-base font-semibold text-[color:var(--hub-chrome-text)]">{title}</div>
-        {subtitle ? <div className="mt-1 text-xs font-normal leading-snug text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div> : null}
+        <div className="break-words text-base font-semibold text-[color:var(--hub-chrome-text)]">{title}</div>
+        {subtitle ? (
+          <div className="mt-1 break-words text-xs font-normal leading-snug text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div>
+        ) : null}
       </div>
       <span
         className={`shrink-0 tabular-nums text-[2.65rem] font-bold leading-none tracking-tight sm:text-[2.85rem] ${
@@ -222,7 +226,7 @@ function TicketHubStatCard({
   const veil = subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : '';
   const noPtr = suppressInteraction ? 'pointer-events-none' : '';
   const fullRow =
-    'flex h-full min-h-[6rem] w-full items-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-left';
+    'flex h-full min-h-[6rem] w-full min-w-0 items-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-left';
 
   if (!active) {
     return (
@@ -294,7 +298,7 @@ function HubNewTicketCard({
       type="button"
       disabled={Boolean(subdued)}
       onClick={() => !subdued && onOpenNewTicket?.()}
-      className={`flex h-full min-h-[6rem] w-full items-center gap-3 rounded-2xl border p-4 text-left transition hover:brightness-110 active:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
+      className={`flex h-full min-h-[6rem] w-full min-w-0 items-center gap-3 rounded-2xl border p-4 text-left transition hover:brightness-110 active:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
       style={{
         backgroundColor: hexToRgba(accentHex, 0.24),
         borderColor: hexToRgba(accentHex, 0.55),
@@ -309,8 +313,10 @@ function HubNewTicketCard({
         <Plus size={24} strokeWidth={2.4} aria-hidden />
       </div>
       <div className="min-w-0 flex-1 self-center leading-tight">
-        <div className="text-base font-semibold text-[color:var(--hub-chrome-text)]">{title}</div>
-        {subtitle ? <div className="mt-1 text-xs font-normal text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div> : null}
+        <div className="break-words text-base font-semibold text-[color:var(--hub-chrome-text)]">{title}</div>
+        {subtitle ? (
+          <div className="mt-1 break-words text-xs font-normal leading-snug text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div>
+        ) : null}
       </div>
     </button>
   );
@@ -693,7 +699,7 @@ export default function HubOverviewSection({
         }
         return (
           <div
-            className={`flex h-full min-h-[6rem] items-center gap-3 rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 ${
+            className={`flex h-full min-h-[6rem] w-full min-w-0 items-center gap-3 rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 ${
               veil ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''
             } ${suppressInteraction ? 'pointer-events-none' : ''}`}
             style={{ backgroundColor: 'var(--hub-chrome-surface)', ...hubOverviewCardLift }}
@@ -702,8 +708,10 @@ export default function HubOverviewSection({
               <Layers size={22} className="shrink-0 text-[color:var(--hub-chrome-text-muted)]" aria-hidden />
             </div>
             <div className="min-w-0 flex-1 leading-tight">
-              <h3 className="text-base font-semibold text-[color:var(--hub-chrome-text)]">{txt(item, 'Riepilogo rapido')}</h3>
-              <p className="mt-1 text-xs leading-relaxed text-[color:var(--hub-chrome-text-faint)]">{sub(item, 'Qui potrai inserire KPI o testo che riassume ticket, agent o avvisi.')}</p>
+              <h3 className="break-words text-base font-semibold text-[color:var(--hub-chrome-text)]">{txt(item, 'Riepilogo rapido')}</h3>
+              <p className="mt-1 break-words text-xs leading-relaxed text-[color:var(--hub-chrome-text-faint)]">
+                {sub(item, 'Qui potrai inserire KPI o testo che riassume ticket, agent o avvisi.')}
+              </p>
             </div>
           </div>
         );
@@ -752,7 +760,7 @@ export default function HubOverviewSection({
               key={item.id}
               role="presentation"
               data-hub-slot={item.id}
-              className={`relative min-h-0 outline-none transition-shadow ${
+              className={`relative min-h-0 min-w-0 outline-none transition-shadow ${
                 hubLayoutEditMode && selectedId === item.id ? 'z-10 shadow-[0_0_0_2px_var(--hub-accent)]' : ''
               }`}
               style={{

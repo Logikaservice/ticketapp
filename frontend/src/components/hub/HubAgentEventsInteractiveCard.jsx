@@ -170,7 +170,7 @@ export default function HubAgentEventsInteractiveCard({
     <>
       <div
         ref={wrapRef}
-        className={`relative flex h-full max-h-full min-h-0 flex-col overflow-hidden rounded-2xl border ${hubLight ? 'border-[color:var(--hub-chrome-border-soft)]' : 'border-white/[0.08]'} ${veil} ${blocked ? 'pointer-events-none' : ''}`}
+        className={`relative flex h-full max-h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border ${hubLight ? 'border-[color:var(--hub-chrome-border-soft)]' : 'border-white/[0.08]'} ${veil} ${blocked ? 'pointer-events-none' : ''}`}
         style={{
           backgroundColor: hubLight ? 'var(--hub-chrome-surface)' : SURFACE,
           boxShadow: 'var(--hub-chrome-card-shadow)'
@@ -180,11 +180,11 @@ export default function HubAgentEventsInteractiveCard({
           type="button"
           onClick={toggleExpanded}
           disabled={blocked}
-          className={`flex h-full max-h-full min-h-0 w-full shrink-0 flex-col justify-center gap-0 p-4 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] disabled:pointer-events-none ${hubLight ? 'hover:bg-[color:var(--hub-chrome-hover)]' : 'hover:bg-white/[0.04]'}`}
+          className={`flex h-full max-h-full min-h-0 w-full min-w-0 shrink-0 flex-col justify-center gap-0 p-4 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] disabled:pointer-events-none ${hubLight ? 'hover:bg-[color:var(--hub-chrome-hover)]' : 'hover:bg-white/[0.04]'}`}
           aria-expanded={expanded}
           aria-haspopup="dialog"
         >
-          <div className="flex min-h-0 w-full shrink-0 items-center gap-3">
+          <div className="flex min-h-0 w-full min-w-0 shrink-0 items-center gap-3">
             <div className="relative inline-flex shrink-0 rounded-xl p-2.5" style={{ backgroundColor: accentSoft }}>
               <AlertTriangle
                 size={24}
@@ -207,25 +207,29 @@ export default function HubAgentEventsInteractiveCard({
               )}
             </div>
             <div className="min-w-0 flex-1 leading-tight">
-              <div className="flex items-center gap-2">
-                <span className={`text-base font-semibold ${hubLight ? 'text-[color:var(--hub-chrome-text)]' : 'text-white/90'}`}>
+              <div className="flex min-w-0 items-start gap-2">
+                <span
+                  className={`min-w-0 flex-1 break-words text-base font-semibold ${hubLight ? 'text-[color:var(--hub-chrome-text)]' : 'text-white/90'}`}
+                >
                   {title}
                 </span>
                 {expanded ? (
                   <ChevronUp
                     size={18}
-                    className={`shrink-0 ${hubLight ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-white/45'}`}
+                    className={`mt-0.5 shrink-0 ${hubLight ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-white/45'}`}
                     aria-hidden
                   />
                 ) : (
                   <ChevronDown
                     size={18}
-                    className={`shrink-0 ${hubLight ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-white/45'}`}
+                    className={`mt-0.5 shrink-0 ${hubLight ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-white/45'}`}
                     aria-hidden
                   />
                 )}
               </div>
-              <p className={`mt-1 text-xs ${hubLight ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-white/45'}`}>
+              <p
+                className={`mt-1 break-words text-xs leading-snug ${hubLight ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-white/45'}`}
+              >
                 {expanded ? 'Lista in overlay: clic fuori o Esc per chiudere' : `${subtitle} · clic per aprire`}
               </p>
             </div>
