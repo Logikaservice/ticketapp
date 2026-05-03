@@ -1404,6 +1404,7 @@ export default function TechnicianWorkbenchPage({
               >
                 <TicketsCalendar
                   sidebarHubEmbed
+                  hubSurfaceMode={hubSurfaceMode}
                   tickets={tickets}
                   users={ticketHubListProps.users}
                   contracts={hubCalendarContracts}
