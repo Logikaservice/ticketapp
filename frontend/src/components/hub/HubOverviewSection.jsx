@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { hexToRgba } from '../../utils/techHubAccent';
 import HubContractsActiveCard from './HubContractsActiveCard';
+import HubAgentEventsInteractiveCard from './HubAgentEventsInteractiveCard';
 import {
   HUB_GRID_COLS,
   HUB_MAX_ROW_SPAN,
@@ -64,6 +65,7 @@ const HUB_LIBRARY_GROUP_SPECS = [
       'launch-email',
       'launch-network',
       'launch-comms',
+      'agent-events',
       'launch-antivirus',
       'launch-dispositivi',
       'launch-speedtest',
@@ -327,6 +329,7 @@ export default function HubOverviewSection({
   setHubCenterView,
   nav,
   getAuthHeader,
+  socket = null,
   currentUser
 }) {
   const gridRef = useRef(null);
@@ -584,6 +587,20 @@ export default function HubOverviewSection({
             subdued={veil}
             suppressInteraction={suppressInteraction}
             iconOnly={io}
+          />
+        );
+      case 'agent-events':
+        return (
+          <HubAgentEventsInteractiveCard
+            accentHex={accentHex}
+            getAuthHeader={getAuthHeader}
+            socket={socket}
+            onOpenNetworkMonitoring={() => setHubCenterView?.('network-monitoring')}
+            title={txt(item, HUB_MODULE_META[id].label)}
+            subtitle={sub(item, 'Offline, online e avvisi sugli agent')}
+            technicianOnly={Boolean(isTechnician)}
+            subdued={veil}
+            suppressInteraction={suppressInteraction}
           />
         );
       case 'launch-antivirus':

@@ -1342,6 +1342,7 @@ export default function TechnicianWorkbenchPage({
                 setHubCenterView={setHubCenterView}
                 nav={nav}
                 getAuthHeader={getAuthHeader}
+                socket={socket}
                 currentUser={currentUser}
               />
             )}

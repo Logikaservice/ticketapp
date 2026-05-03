@@ -39,6 +39,13 @@ export const HUB_MODULE_META = {
     category: 'Moduli',
     defaultPlacement: { col: 7, row: 2, w: 1, h: 1 }
   },
+  /** Eventi agent monitoraggio: card espandibile sulla panoramica (triangolo header). */
+  'agent-events': {
+    label: 'Notifiche agent',
+    category: 'Moduli',
+    resizeBounds: { minW: 2, maxW: 7, minH: 2, maxH: 4 },
+    defaultPlacement: { col: 3, row: 8, w: 5, h: 2 }
+  },
   'launch-dispositivi': {
     label: 'Dispositivi',
     category: 'Moduli',
@@ -121,7 +128,7 @@ export function getDefaultHubLayout() {
 }
 
 export function hubModuleSupportsIconOnly(moduleId) {
-  return Boolean(moduleId) && moduleId !== 'contracts';
+  return Boolean(moduleId) && moduleId !== 'contracts' && moduleId !== 'agent-events';
 }
 
 /**
