@@ -16,7 +16,8 @@ import {
   Building2,
   LayoutGrid,
   Monitor,
-  Gauge
+  Gauge,
+  Lock
 } from 'lucide-react';
 import { hexToRgba } from '../../utils/techHubAccent';
 import HubContractsActiveCard from './HubContractsActiveCard';
@@ -34,10 +35,25 @@ import {
   snapDropToCell,
   sanitizeLayoutItems,
   saveHubLayout,
-  swapGridPositions
+  swapGridPositions,
+  hubModuleSupportsIconOnly
 } from '../../utils/hubOverviewLayout';
 
 const SURFACE_LOCAL = '#1E1E1E';
+
+const HUB_REFRESH_TICKET_STAT_IDS = new Set(['stat-aperto', 'stat-lavorazione']);
+
+/** Contorno / alone leggero sulla cella usando l’accento (0 = spento … 3 = più marcato). */
+function slotAccentChrome(accentHex, level) {
+  const lv = typeof level === 'number' ? level : 1;
+  if (lv <= 0) return undefined;
+  const t = lv / 3;
+  const edge = hexToRgba(accentHex, 0.08 + t * 0.28);
+  const glow = hexToRgba(accentHex, 0.05 + t * 0.16);
+  return {
+    boxShadow: `inset 0 0 0 1px ${edge}, inset 0 1px 48px ${glow}`
+  };
+}
 
 function ModuleLaunchCard({
   icon: Icon,
@@ -47,8 +63,25 @@ function ModuleLaunchCard({
   onClick,
   className = '',
   subdued = false,
-  suppressInteraction = false
+  suppressInteraction = false,
+  iconOnly = false
 }) {
+  if (iconOnly) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        className={`flex h-full min-h-[4.5rem] w-full flex-col items-center justify-center rounded-2xl border border-white/[0.08] p-3 text-white/90 transition hover:bg-white/[0.04] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
+        style={{ backgroundColor: SURFACE_LOCAL }}
+      >
+        <div className="inline-flex rounded-xl p-2.5" style={{ backgroundColor: hexToRgba(accent, 0.14) }}>
+          <Icon size={26} style={{ color: accent }} aria-hidden />
+        </div>
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"
@@ -81,10 +114,33 @@ function TicketHubStatCard({
   stateKey,
   onOpenTicketState,
   subdued,
-  suppressInteraction = false
+  suppressInteraction = false,
+  iconOnly = false
 }) {
   const active = count > 0;
-  const body = (
+
+  const body = iconOnly ? (
+    <div className="flex h-full flex-col items-center justify-center gap-1 py-2">
+      <div
+        className={`inline-flex rounded-xl p-2.5 ${active ? '' : 'bg-white/[0.06]'}`}
+        style={active ? { backgroundColor: hexToRgba(accentHex, 0.14) } : undefined}
+      >
+        <Icon
+          size={24}
+          className="shrink-0"
+          style={{ color: active ? accentHex : 'rgba(255,255,255,0.38)' }}
+          aria-hidden
+        />
+      </div>
+      <span
+        className={`font-extrabold tabular-nums ${active ? 'text-4xl md:text-[2.85rem]' : 'text-[1.95rem] text-white/[0.28]'}`}
+        style={active ? { color: accentHex } : undefined}
+        aria-live="polite"
+      >
+        {count}
+      </span>
+    </div>
+  ) : (
     <>
       <div className="mb-2 flex gap-3">
         <div
@@ -123,27 +179,58 @@ function TicketHubStatCard({
 
   if (!active) {
     return (
-      <div className={`h-full rounded-2xl border border-white/[0.08] p-4 text-left ${veil} ${noPtr}`} style={surfaceStyle}>
+      <div
+        className={`flex h-full min-h-0 rounded-2xl border border-white/[0.08] p-4 text-left ${iconOnly ? 'items-center justify-center' : ''} ${veil} ${noPtr}`}
+        style={surfaceStyle}
+        role="status"
+        aria-label={`${title}: ${count} ticket`}
+      >
         {body}
       </div>
     );
   }
 
+  const ariaLbl = `${title}: ${count}. Apri elenco`;
+
   return (
     <button
       type="button"
       disabled={Boolean(subdued)}
-      className={`h-full rounded-2xl border border-white/[0.08] p-4 text-left transition hover:bg-white/[0.04] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] ${veil} ${noPtr}`}
+      aria-label={ariaLbl}
+      className={`flex h-full min-h-0 rounded-2xl border border-white/[0.08] p-4 text-left transition hover:bg-white/[0.04] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] ${iconOnly ? 'items-center justify-center' : ''} ${veil} ${noPtr}`}
       style={surfaceStyle}
       onClick={() => !subdued && onOpenTicketState?.(stateKey)}
-      aria-label={`${title}: ${count}. Apri elenco`}
     >
       {body}
     </button>
   );
 }
 
-function HubNewTicketCard({ accentHex, onOpenNewTicket, subdued, suppressInteraction }) {
+function HubNewTicketCard({ accentHex, onOpenNewTicket, subdued, suppressInteraction, iconOnly = false }) {
+  if (iconOnly) {
+    return (
+      <button
+        type="button"
+        disabled={Boolean(subdued)}
+        onClick={() => !subdued && onOpenNewTicket?.()}
+        aria-label="Crea nuovo ticket"
+        className={`flex h-full min-h-[4.5rem] w-full items-center justify-center rounded-2xl border p-4 transition hover:brightness-110 active:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
+        style={{
+          backgroundColor: hexToRgba(accentHex, 0.24),
+          borderColor: hexToRgba(accentHex, 0.55),
+          boxShadow: `0 0 0 1px ${hexToRgba(accentHex, 0.12)} inset`
+        }}
+      >
+        <div
+          className="inline-flex rounded-xl p-2.5"
+          style={{ backgroundColor: hexToRgba(accentHex, 0.35), color: '#121212' }}
+        >
+          <Plus size={26} strokeWidth={2.4} aria-hidden />
+        </div>
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"
@@ -200,6 +287,46 @@ export default function HubOverviewSection({
     saveHubLayout(layoutUserKey, hubLayout);
   }, [hubLayout, layoutUserKey]);
 
+  /** Aggiorna dati in base agli intervalli impostati per singola card (ticket API + contratti). */
+  useEffect(() => {
+    const timers = [];
+    const ticketMs = hubLayout
+      .filter((x) => HUB_REFRESH_TICKET_STAT_IDS.has(x.id) && Number(x.refreshIntervalSec) >= 30)
+      .map((x) => Number(x.refreshIntervalSec) * 1000);
+    if (ticketMs.length > 0) {
+      const ms = Math.min(...ticketMs);
+      timers.push(
+        setInterval(() => {
+          try {
+            window.dispatchEvent(new CustomEvent('hub-overview-tickets-refresh'));
+          } catch (_) {
+            /* ignore */
+          }
+        }, ms)
+      );
+    }
+
+    const contractMs = hubLayout
+      .filter((x) => x.id === 'contracts' && Number(x.refreshIntervalSec) >= 30)
+      .map((x) => Number(x.refreshIntervalSec) * 1000);
+    if (contractMs.length > 0) {
+      const ms = Math.min(...contractMs);
+      timers.push(
+        setInterval(() => {
+          try {
+            window.dispatchEvent(new CustomEvent('hub-overview-contracts-refresh'));
+          } catch (_) {
+            /* ignore */
+          }
+        }, ms)
+      );
+    }
+
+    return () => {
+      timers.forEach((t) => clearInterval(t));
+    };
+  }, [hubLayout]);
+
   const hubCanSpeedTest = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
   const hubCanNetworkMonitoring =
     currentUser?.ruolo === 'tecnico' ||
@@ -210,6 +337,10 @@ export default function HubOverviewSection({
 
   const handleDragStart = (e, id) => {
     if (!hubLayoutEditMode || !isTechnician) return;
+    if (hubLayout.find((x) => x.id === id)?.locked) {
+      e.preventDefault();
+      return;
+    }
     dragIdRef.current = id;
     try {
       e.dataTransfer.setData('text/plain', id);
@@ -248,6 +379,10 @@ export default function HubOverviewSection({
       dragIdRef.current = null;
       return;
     }
+    if (hubLayout.find((x) => x.id === dragId)?.locked) {
+      dragIdRef.current = null;
+      return;
+    }
 
     let droppedOnId = '';
     try {
@@ -279,11 +414,23 @@ export default function HubOverviewSection({
   const meta = selectedId ? HUB_MODULE_META[selectedId] : null;
   const selectedItem = hubLayout.find((x) => x.id === selectedId);
   const fixedSize = meta?.fixedSize;
+  const resizeBoundsMeta = meta?.resizeBounds ?? null;
+
+  function txt(item, fallback) {
+    const t = item.customTitle?.trim();
+    return t || fallback;
+  }
+
+  function sub(item, fallback) {
+    const t = item.customSubtitle?.trim();
+    return t || fallback;
+  }
 
   function renderInner(item) {
     const id = item.id;
     const veil = Boolean(item.hidden);
     const suppressInteraction = (hubLayoutEditMode && isTechnician) || item.hidden;
+    const io = Boolean(item.iconOnly);
 
     switch (id) {
       case 'new-ticket':
@@ -293,118 +440,128 @@ export default function HubOverviewSection({
             onOpenNewTicket={onOpenNewTicket}
             subdued={veil}
             suppressInteraction={suppressInteraction}
+            iconOnly={io}
           />
         );
       case 'stat-aperto':
         return (
           <TicketHubStatCard
             icon={FileText}
-            title="Aperti"
+            title={txt(item, 'Aperti')}
             count={hubTicketCounts.aperto}
             accentHex={accentHex}
             stateKey="aperto"
             onOpenTicketState={onOpenTicketState}
             subdued={veil}
             suppressInteraction={suppressInteraction}
+            iconOnly={io}
           />
         );
       case 'stat-lavorazione':
         return (
           <TicketHubStatCard
             icon={PlayCircle}
-            title="In lavorazione"
+            title={txt(item, 'In lavorazione')}
             count={hubTicketCounts.in_lavorazione}
             accentHex={accentHex}
             stateKey="in_lavorazione"
             onOpenTicketState={onOpenTicketState}
             subdued={veil}
             suppressInteraction={suppressInteraction}
+            iconOnly={io}
           />
         );
       case 'launch-email':
         return (
           <ModuleLaunchCard
             icon={Mail}
-            label="Email"
-            subtitle="Apri modulo"
+            label={txt(item, 'Email')}
+            subtitle={sub(item, 'Apri modulo')}
             accent={accentHex}
             onClick={() => setHubCenterView?.('email')}
             subdued={veil}
             suppressInteraction={suppressInteraction}
+            iconOnly={io}
           />
         );
       case 'launch-network':
         return (
           <ModuleLaunchCard
             icon={Wifi}
-            label="Monitoraggio rete"
-            subtitle={hubCanNetworkMonitoring ? 'Apri nel centro Hub' : 'Non disponibile'}
+            label={txt(item, 'Monitoraggio rete')}
+            subtitle={sub(item, hubCanNetworkMonitoring ? 'Apri nel centro Hub' : 'Non disponibile')}
             accent={accentHex}
             onClick={
               hubCanNetworkMonitoring ? () => setHubCenterView?.('network-monitoring') : () => nav?.onOpenNetwork?.()
             }
             subdued={veil || !hubCanNetworkMonitoring}
             suppressInteraction={suppressInteraction || !hubCanNetworkMonitoring}
+            iconOnly={io}
           />
         );
       case 'launch-comms':
         return (
           <ModuleLaunchCard
             icon={Bell}
-            label="Comunicazioni"
-            subtitle="Messaggi broadcast"
+            label={txt(item, 'Comunicazioni')}
+            subtitle={sub(item, 'Messaggi broadcast')}
             accent={accentHex}
             onClick={() => setHubCenterView?.('comunicazioni')}
             subdued={veil}
             suppressInteraction={suppressInteraction}
+            iconOnly={io}
           />
         );
       case 'launch-antivirus':
         return (
           <ModuleLaunchCard
             icon={Shield}
-            label="Anti-Virus"
-            subtitle="Sicurezza"
+            label={txt(item, 'Anti-Virus')}
+            subtitle={sub(item, 'Sicurezza')}
             accent={accentHex}
             onClick={() => setHubCenterView?.('antivirus')}
             subdued={veil}
             suppressInteraction={suppressInteraction}
+            iconOnly={io}
           />
         );
       case 'launch-dispositivi':
         return (
           <ModuleLaunchCard
             icon={Monitor}
-            label="Dispositivi"
-            subtitle="Parco macchine"
+            label={txt(item, 'Dispositivi')}
+            subtitle={sub(item, 'Parco macchine')}
             accent={accentHex}
             onClick={() => setHubCenterView?.('dispositivi')}
             subdued={veil}
             suppressInteraction={suppressInteraction}
+            iconOnly={io}
           />
         );
       case 'launch-speedtest':
         return (
           <ModuleLaunchCard
             icon={Gauge}
-            label="Speed test"
-            subtitle={hubCanSpeedTest ? 'Velocità linea' : 'Solo tecnici'}
+            label={txt(item, 'Speed test')}
+            subtitle={sub(item, hubCanSpeedTest ? 'Velocità linea' : 'Solo tecnici')}
             accent={accentHex}
             onClick={hubCanSpeedTest ? () => setHubCenterView?.('speedtest') : undefined}
             subdued={veil || !hubCanSpeedTest}
             suppressInteraction={suppressInteraction || !hubCanSpeedTest}
+            iconOnly={io}
           />
         );
       case 'launch-office':
         return (
           <ModuleLaunchCard
             icon={Building2}
-            label="Office"
-            subtitle="Licenze, download e attivazioni"
+            label={txt(item, 'Office')}
+            subtitle={sub(item, 'Licenze, download e attivazioni')}
             accent={accentHex}
             onClick={() => setHubCenterView?.('office')}
             subdued={veil}
             suppressInteraction={suppressInteraction}
+            iconOnly={io}
           />
         );
       case 'contracts':
@@ -422,21 +579,35 @@ export default function HubOverviewSection({
           </div>
         );
       case 'quick-summary':
+        if (io) {
+          return (
+            <div
+              className={`flex h-full min-h-[4.5rem] items-center justify-center rounded-2xl border border-white/[0.08] p-3 text-white/85 ${
+                veil ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''
+              } ${suppressInteraction ? 'pointer-events-none' : ''}`}
+              style={{ backgroundColor: SURFACE_LOCAL }}
+              role="img"
+              aria-label={txt(item, HUB_MODULE_META[id].label)}
+            >
+              <div className="inline-flex shrink-0 rounded-xl bg-white/[0.08] p-2.5">
+                <Layers size={26} className="shrink-0 text-white/55" aria-hidden />
+              </div>
+            </div>
+          );
+        }
         return (
           <div
             className={`flex h-full min-h-[6rem] items-center gap-3 rounded-2xl border border-white/[0.08] p-4 ${
               veil ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''
-            }`}
+            } ${suppressInteraction ? 'pointer-events-none' : ''}`}
             style={{ backgroundColor: SURFACE_LOCAL }}
           >
             <div className="inline-flex shrink-0 self-center rounded-xl bg-white/[0.08] p-2.5">
               <Layers size={22} className="shrink-0 text-white/55" aria-hidden />
             </div>
             <div className="min-w-0 flex-1 leading-tight">
-              <h3 className="text-base font-semibold text-white">Riepilogo rapido</h3>
-              <p className="mt-1 text-xs leading-relaxed text-white/45">
-                Qui potrai inserire KPI o testo che riassume ticket, agent o avvisi. Struttura pronta per contenuti dinamici.
-              </p>
+              <h3 className="text-base font-semibold text-white">{txt(item, 'Riepilogo rapido')}</h3>
+              <p className="mt-1 text-xs leading-relaxed text-white/45">{sub(item, 'Qui potrai inserire KPI o testo che riassume ticket, agent o avvisi.')}</p>
             </div>
           </div>
         );
@@ -444,32 +615,47 @@ export default function HubOverviewSection({
         return (
           <ModuleLaunchCard
             icon={MapPin}
-            label="Mappatura"
-            subtitle="Topologia e dispositivi"
+            label={txt(item, 'Mappatura')}
+            subtitle={sub(item, 'Topologia e dispositivi')}
             accent={accentHex}
             onClick={() => nav?.onOpenMappatura?.()}
             subdued={veil}
             suppressInteraction={suppressInteraction}
             className="min-h-0 flex-1"
+            iconOnly={io}
           />
         );
       case 'slot-1':
       case 'slot-2':
+        if (io) {
+          return (
+            <div
+              className={`flex h-full min-h-[4.5rem] items-center justify-center rounded-2xl border border-dashed border-white/[0.12] p-3 transition hover:[border-color:var(--hub-accent-border)] ${
+                veil ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''
+              } ${suppressInteraction ? 'pointer-events-none' : ''}`}
+              style={{ backgroundColor: 'rgba(30,30,30,0.55)' }}
+              aria-label={txt(item, HUB_MODULE_META[id].label)}
+              role="img"
+            >
+              <div className="inline-flex rounded-xl bg-white/[0.06] p-2.5">
+                <LayoutGrid size={26} className="shrink-0 text-white/45" aria-hidden />
+              </div>
+            </div>
+          );
+        }
         return (
           <div
             className={`flex h-full min-h-[7rem] items-center gap-3 rounded-2xl border border-dashed border-white/[0.12] p-4 transition hover:[border-color:var(--hub-accent-border)] ${
               veil ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''
-            }`}
+            } ${suppressInteraction ? 'pointer-events-none' : ''}`}
             style={{ backgroundColor: 'rgba(30,30,30,0.55)' }}
           >
             <div className="inline-flex shrink-0 self-center rounded-xl bg-white/[0.06] p-2.5">
               <LayoutGrid size={22} className="shrink-0 text-white/45" aria-hidden />
             </div>
             <div className="min-w-0 flex-1 leading-tight">
-              <p className="text-base font-semibold text-white/88">{HUB_MODULE_META[id].label}</p>
-              <p className="mt-1 text-xs text-white/35">
-                Può diventare tabella avvisi interni, grafico a barre o feed.
-              </p>
+              <p className="text-base font-semibold text-white/88">{txt(item, HUB_MODULE_META[id].label)}</p>
+              <p className="mt-1 text-xs text-white/35">{sub(item, 'Può diventare tabella avvisi interni, grafico o feed.')}</p>
             </div>
           </div>
         );
@@ -509,7 +695,9 @@ export default function HubOverviewSection({
               }`}
               style={{
                 gridColumn: `${item.col} / span ${item.w}`,
-                gridRow: `${item.row} / span ${item.h}`
+                gridRow: `${item.row} / span ${item.h}`,
+                borderRadius: '1rem',
+                ...slotAccentChrome(accentHex, item.accentIntensity ?? 0)
               }}
               onDragOver={handleDragOverZone}
               onDrop={handleUnifiedDrop}
@@ -521,9 +709,11 @@ export default function HubOverviewSection({
             >
               {hubLayoutEditMode && isTechnician && (
                 <div
-                  className="absolute left-2 top-2 z-20 cursor-grab rounded-lg border border-white/15 bg-black/55 p-1 text-white/70 active:cursor-grabbing"
-                  title="Trascina per spostare"
-                  draggable={hubLayoutEditMode}
+                  className={`absolute left-2 top-2 z-20 rounded-lg border border-white/15 bg-black/55 p-1 text-white/70 ${
+                    item.locked ? 'cursor-not-allowed opacity-40' : 'cursor-grab active:cursor-grabbing'
+                  }`}
+                  title={item.locked ? 'Carta bloccata: sloccare dal pannello sotto per spostarla' : 'Trascina per spostare'}
+                  draggable={hubLayoutEditMode && !item.locked}
                   data-hub-slot={item.id}
                   onDragStart={(e) => {
                     e.stopPropagation();
@@ -534,6 +724,14 @@ export default function HubOverviewSection({
                   }}
                 >
                   <GripVertical size={16} />
+                </div>
+              )}
+              {item.locked && hubLayoutEditMode && isTechnician && (
+                <div
+                  className="pointer-events-none absolute right-2 top-2 z-20 rounded-md border border-amber-500/35 bg-black/70 p-1 text-amber-200/95"
+                  title="Bloccata"
+                >
+                  <Lock size={14} aria-hidden />
                 </div>
               )}
               {item.hidden && (
@@ -589,25 +787,143 @@ export default function HubOverviewSection({
             </div>
           )}
 
-          {selectedItem && meta && (
+          {selectedItem && meta && (() => {
+            const rbSel = resizeBoundsMeta;
+            const wChoices = rbSel
+              ? Array.from({ length: rbSel.maxW - rbSel.minW + 1 }, (_, i) => rbSel.minW + i)
+              : [1, 2, 3, 4, 5, 6, 7];
+            const hChoices = rbSel
+              ? Array.from({ length: rbSel.maxH - rbSel.minH + 1 }, (_, i) => rbSel.minH + i)
+              : Array.from({ length: HUB_MAX_ROW_SPAN }, (_, i) => i + 1);
+            const dimDisabled = !!fixedSize || !!selectedItem.iconOnly;
+            const patchItem = (patch) =>
+              setHubLayout(sanitizeLayoutItems(hubLayout.map((x) => (x.id === selectedId ? { ...x, ...patch } : x))));
+
+            return (
             <div className="border-t border-white/[0.08] pt-4">
               <p className="mb-3 text-xs font-semibold text-white/75">
                 Card selezionata: <span className="text-[color:var(--hub-accent)]">{meta.label}</span>
               </p>
+              <div className="mb-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-white/70">
+                <label className="inline-flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="rounded border-white/25 bg-black/40"
+                    checked={Boolean(selectedItem.locked)}
+                    onChange={(e) => patchItem({ locked: e.target.checked })}
+                  />
+                  Blocca (non si sposta trascinando)
+                </label>
+                <label
+                  className={`inline-flex items-center gap-2 ${hubModuleSupportsIconOnly(selectedId) ? 'cursor-pointer' : 'cursor-not-allowed opacity-45'}`}
+                >
+                  <input
+                    type="checkbox"
+                    className="rounded border-white/25 bg-black/40"
+                    disabled={!hubModuleSupportsIconOnly(selectedId)}
+                    checked={Boolean(selectedItem.iconOnly)}
+                    onChange={(e) => {
+                      const v = e.target.checked;
+                      setHubLayout(
+                        sanitizeLayoutItems(
+                          hubLayout.map((x) => {
+                            if (x.id !== selectedId) return x;
+                            let next = { ...x, iconOnly: v };
+                            if (!v && x.iconOnly) {
+                              const m = meta;
+                              let dw = m.defaultPlacement.w;
+                              let dh = m.defaultPlacement.h;
+                              if (m.fixedSize) {
+                                dw = m.fixedSize.w;
+                                dh = m.fixedSize.h;
+                              } else if (m.resizeBounds) {
+                                const b = m.resizeBounds;
+                                dw = Math.min(Math.max(dw, b.minW), b.maxW);
+                                dh = Math.min(Math.max(dh, b.minH), b.maxH);
+                              }
+                              next = { ...next, w: dw, h: dh };
+                            }
+                            return next;
+                          })
+                        )
+                      );
+                    }}
+                  />
+                  Solo icona 1×1 (senza titolo)
+                </label>
+              </div>
+              <div className="mb-3 grid gap-2 sm:grid-cols-2">
+                <label className="block text-xs text-white/55">
+                  Titolo mostrato (vuoto = predefinito)
+                  <input
+                    type="text"
+                    maxLength={120}
+                    value={selectedItem.customTitle ?? ''}
+                    onChange={(e) => patchItem({ customTitle: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-white/[0.12] bg-black/35 px-2 py-1.5 text-sm text-white outline-none placeholder:text-white/25"
+                    placeholder={meta.label}
+                  />
+                </label>
+                <label className="block text-xs text-white/55">
+                  Sottotitolo / nota (vuoto = testo predefinito del modulo)
+                  <input
+                    type="text"
+                    maxLength={200}
+                    value={selectedItem.customSubtitle ?? ''}
+                    onChange={(e) => patchItem({ customSubtitle: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-white/[0.12] bg-black/35 px-2 py-1.5 text-sm text-white outline-none placeholder:text-white/25"
+                    placeholder="es. Apri modulo"
+                  />
+                </label>
+              </div>
+              <div className="mb-3 flex flex-wrap items-center gap-3">
+                <label className="flex items-center gap-2 text-xs text-white/55">
+                  Intensità bordo / alone colore
+                  <select
+                    className="rounded-lg border border-white/[0.12] bg-black/35 px-2 py-1.5 text-sm text-white outline-none"
+                    value={Number(selectedItem.accentIntensity ?? 0)}
+                    onChange={(e) => patchItem({ accentIntensity: Number(e.target.value) })}
+                  >
+                    <option value={0}>Spento</option>
+                    <option value={1}>Leggero</option>
+                    <option value={2}>Medio</option>
+                    <option value={3}>Forte</option>
+                  </select>
+                </label>
+                <label className="flex items-center gap-2 text-xs text-white/55">
+                  Refresh automatico
+                  <select
+                    className="rounded-lg border border-white/[0.12] bg-black/35 px-2 py-1.5 text-sm text-white outline-none"
+                    value={Number(selectedItem.refreshIntervalSec ?? 0)}
+                    onChange={(e) => patchItem({ refreshIntervalSec: Number(e.target.value) })}
+                  >
+                    <option value={0}>Off</option>
+                    <option value={30}>30 s</option>
+                    <option value={60}>1 min</option>
+                    <option value={120}>2 min</option>
+                    <option value={300}>5 min</option>
+                    <option value={600}>10 min</option>
+                  </select>
+                </label>
+              </div>
+              <p className="mb-2 text-[11px] text-white/38">
+                Il refresh aggiorna i conteggi ticket sulle card «Aperti / In lavorazione» e i dati del modulo «Contratti attivi»,
+                riusando il polling già presente nell’app.
+              </p>
               <div className="flex flex-wrap items-center gap-3">
                 <label className="flex items-center gap-2 text-xs text-white/55">
-                  Larghez. (1–7)
+                  Larghezza
                   <select
                     className="rounded-lg border border-white/[0.12] bg-black/35 px-2 py-1.5 text-sm text-white outline-none disabled:opacity-45"
                     value={selectedItem.w}
-                    disabled={!!fixedSize}
+                    disabled={dimDisabled}
                     onChange={(e) => {
                       const nw = Number(e.target.value);
                       let next = applyResize(hubLayout, selectedId, nw, selectedItem.h);
                       setHubLayout(sanitizeLayoutItems(next));
                     }}
                   >
-                    {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                    {wChoices.map((n) => (
                       <option key={n} value={n}>
                         {n}
                       </option>
@@ -615,18 +931,18 @@ export default function HubOverviewSection({
                   </select>
                 </label>
                 <label className="flex items-center gap-2 text-xs text-white/55">
-                  Altezza (1–{HUB_MAX_ROW_SPAN})
+                  Altezza
                   <select
                     className="rounded-lg border border-white/[0.12] bg-black/35 px-2 py-1.5 text-sm text-white outline-none disabled:opacity-45"
                     value={selectedItem.h}
-                    disabled={!!fixedSize}
+                    disabled={dimDisabled}
                     onChange={(e) => {
                       const nh = Number(e.target.value);
                       let next = applyResize(hubLayout, selectedId, selectedItem.w, nh);
                       setHubLayout(sanitizeLayoutItems(next));
                     }}
                   >
-                    {Array.from({ length: HUB_MAX_ROW_SPAN }, (_, i) => i + 1).map((n) => (
+                    {hChoices.map((n) => (
                       <option key={n} value={n}>
                         {n}
                       </option>
@@ -659,10 +975,19 @@ export default function HubOverviewSection({
                 </button>
               </div>
               {fixedSize && (
-                <p className="mt-2 text-[11px] text-white/40">Contratti attivi ha dimensioni fisse per ospitare il grafico KPI.</p>
+                <p className="mt-2 text-[11px] text-white/40">Questo modulo ha dimensioni fisse.</p>
+              )}
+              {rbSel && !fixedSize && (
+                <p className="mt-2 text-[11px] text-white/40">
+                  Dimensioni consentite: larghezza {rbSel.minW}–{rbSel.maxW}, altezza {rbSel.minH}–{rbSel.maxH} (per il grafico KPI).
+                </p>
+              )}
+              {selectedItem.iconOnly && (
+                <p className="mt-2 text-[11px] text-white/40">In modalità solo icona la cella resta 1×1: disattiva per ridimensionare.</p>
               )}
             </div>
-          )}
+            );
+          })()}
         </div>
       )}
     </>

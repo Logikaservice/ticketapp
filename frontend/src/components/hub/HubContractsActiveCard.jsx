@@ -89,9 +89,11 @@ export default function HubContractsActiveCard({
     const onUp = () => load();
     window.addEventListener('contractUpdated', onUp);
     window.addEventListener('contractCreated', onUp);
+    window.addEventListener('hub-overview-contracts-refresh', onUp);
     return () => {
       window.removeEventListener('contractUpdated', onUp);
       window.removeEventListener('contractCreated', onUp);
+      window.removeEventListener('hub-overview-contracts-refresh', onUp);
     };
   }, [load]);
 

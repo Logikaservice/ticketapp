@@ -52,7 +52,8 @@ export const HUB_MODULE_META = {
   contracts: {
     label: 'Contratti attivi',
     category: 'KPI',
-    fixedSize: { w: 5, h: 3 },
+    /** Grafico KPI: dentro questi margini puoi ridimensionare la card. */
+    resizeBounds: { minW: 4, maxW: 7, minH: 2, maxH: 4 },
     defaultPlacement: { col: 1, row: 3, w: 5, h: 3 }
   },
   'quick-summary': {
@@ -85,6 +86,30 @@ export const HUB_MODULE_META = {
 
 export const ALL_MODULE_IDS = Object.keys(HUB_MODULE_META);
 
+function clampExtrasInt(n, lo, hi) {
+  const x = parseInt(n, 10);
+  if (Number.isNaN(x)) return lo;
+  return Math.min(hi, Math.max(lo, x));
+}
+
+/** Campi persistiti su ogni slot griglia (valori sicuri dopo sanitize). */
+export function normalizeLayoutExtras(cur) {
+  return {
+    locked: Boolean(cur?.locked),
+    iconOnly: Boolean(cur?.iconOnly),
+    customTitle:
+      typeof cur?.customTitle === 'string' ? cur.customTitle.trim().slice(0, 120) : '',
+    customSubtitle:
+      typeof cur?.customSubtitle === 'string' ? cur.customSubtitle.trim().slice(0, 200) : '',
+    accentIntensity: clampExtrasInt(cur?.accentIntensity ?? 0, 0, 3),
+    refreshIntervalSec: (() => {
+      const s = parseInt(cur?.refreshIntervalSec, 10);
+      if (!Number.isFinite(s) || s <= 0) return 0;
+      return clampExtrasInt(s, 30, 3600);
+    })()
+  };
+}
+
 export function cloneLayout(items) {
   return items.map((x) => ({ ...x }));
 }
@@ -96,8 +121,20 @@ export function getDefaultHubLayout() {
     const fx = meta.fixedSize;
     const w = fx ? fx.w : p.w;
     const h = fx ? fx.h : p.h;
-    return { id, col: p.col, row: p.row, w, h, hidden: false };
+    return {
+      id,
+      col: p.col,
+      row: p.row,
+      w,
+      h,
+      hidden: false,
+      ...normalizeLayoutExtras({})
+    };
   });
+}
+
+export function hubModuleSupportsIconOnly(moduleId) {
+  return Boolean(moduleId) && moduleId !== 'contracts';
 }
 
 function storageKey(userId) {
@@ -136,15 +173,45 @@ export function sanitizeLayoutItems(items) {
     const meta = HUB_MODULE_META[cur.id];
     const def = meta.defaultPlacement;
     const fixed = meta.fixedSize;
-    let w = fixed ? fixed.w : clampInt(cur.w, 1, HUB_GRID_COLS);
-    let h = fixed ? fixed.h : clampInt(cur.h, 1, HUB_MAX_ROW_SPAN);
-    if (!fixed) {
-      w = clampInt(w, 1, HUB_GRID_COLS);
-      h = clampInt(h, 1, HUB_MAX_ROW_SPAN);
+    const bounds = meta.resizeBounds;
+    const extras = normalizeLayoutExtras(cur);
+    let iconOnly = extras.iconOnly && hubModuleSupportsIconOnly(cur.id);
+    if (!hubModuleSupportsIconOnly(cur.id)) iconOnly = false;
+
+    let w;
+    let h;
+    if (iconOnly) {
+      w = 1;
+      h = 1;
+    } else if (fixed) {
+      w = fixed.w;
+      h = fixed.h;
+    } else if (bounds) {
+      w = clampInt(cur.w ?? def.w, bounds.minW, bounds.maxW);
+      h = clampInt(cur.h ?? def.h, bounds.minH, bounds.maxH);
+      w = clampInt(w, bounds.minW, Math.min(bounds.maxW, HUB_GRID_COLS));
+      h = clampInt(h, bounds.minH, Math.min(bounds.maxH, HUB_MAX_ROW_SPAN));
+    } else {
+      w = clampInt(cur.w ?? def.w, 1, HUB_GRID_COLS);
+      h = clampInt(cur.h ?? def.h, 1, HUB_MAX_ROW_SPAN);
     }
+
     let col = clampInt(cur.col, 1, HUB_GRID_COLS - w + 1);
     let row = Math.max(1, parseInt(cur.row, 10) || 1);
-    out.push({ id: cur.id, col, row, w, h, hidden: Boolean(cur.hidden) });
+    out.push({
+      id: cur.id,
+      col,
+      row,
+      w,
+      h,
+      hidden: Boolean(cur.hidden),
+      locked: extras.locked,
+      iconOnly,
+      customTitle: extras.customTitle,
+      customSubtitle: extras.customSubtitle,
+      accentIntensity: extras.accentIntensity,
+      refreshIntervalSec: extras.refreshIntervalSec
+    });
   });
   return resolveCollisions(out);
 }
@@ -259,6 +326,7 @@ export function swapGridPositions(layout, idA, idB) {
   const ia = next.findIndex((x) => x.id === idA);
   const ib = next.findIndex((x) => x.id === idB);
   if (ia < 0 || ib < 0) return layout;
+  if (next[ia].locked || next[ib].locked) return layout;
   const a = { ...next[ia] };
   const b = { ...next[ib] };
   const swapColRow = () => {
@@ -302,11 +370,20 @@ export function resolveCollisions(layout) {
 export function applyPlacement(layout, id, col, row) {
   const idx = layout.findIndex((x) => x.id === id);
   if (idx < 0) return layout;
+  if (layout[idx].locked) return layout;
   const next = cloneLayout(layout);
   const item = { ...next[idx] };
   const meta = HUB_MODULE_META[id];
-  const w = meta.fixedSize ? meta.fixedSize.w : item.w;
-  const h = meta.fixedSize ? meta.fixedSize.h : item.h;
+  let w = item.w;
+  let h = item.h;
+  if (meta.fixedSize) {
+    w = meta.fixedSize.w;
+    h = meta.fixedSize.h;
+  } else if (meta.resizeBounds) {
+    const b = meta.resizeBounds;
+    w = clampInt(item.w, b.minW, b.maxW);
+    h = clampInt(item.h, b.minH, b.maxH);
+  }
   item.col = clampInt(col, 1, HUB_GRID_COLS - w + 1);
   item.row = Math.max(1, row);
   item.w = w;
@@ -327,8 +404,19 @@ export function applyResize(layout, id, w, h) {
   if (meta.fixedSize) return layout;
   const next = cloneLayout(layout);
   const item = { ...next[idx] };
-  item.w = clampInt(w, 1, HUB_GRID_COLS);
-  item.h = clampInt(h, 1, HUB_MAX_ROW_SPAN);
+  if (item.iconOnly) return layout;
+  let minW = 1;
+  let maxW = HUB_GRID_COLS;
+  let minH = 1;
+  let maxH = HUB_MAX_ROW_SPAN;
+  if (meta.resizeBounds) {
+    minW = meta.resizeBounds.minW;
+    maxW = Math.min(meta.resizeBounds.maxW, HUB_GRID_COLS);
+    minH = meta.resizeBounds.minH;
+    maxH = Math.min(meta.resizeBounds.maxH, HUB_MAX_ROW_SPAN);
+  }
+  item.w = clampInt(w, minW, maxW);
+  item.h = clampInt(h, minH, maxH);
   item.col = clampInt(item.col, 1, HUB_GRID_COLS - item.w + 1);
   if (hasCollision(next, item, id)) {
     const fit = findNearestFit(next, item.w, item.h, id, item.col, item.row);
@@ -357,7 +445,15 @@ export function restoreDefaultModule(layout, id) {
   const h = fixed ? fixed.h : p.h;
   const next = cloneLayout(layout);
   const fit = findAppendBelowLayout(next, w, h, null);
-  next.push({ id, col: fit.col, row: fit.row, w, h, hidden: false });
+  next.push({
+    id,
+    col: fit.col,
+    row: fit.row,
+    w,
+    h,
+    hidden: false,
+    ...normalizeLayoutExtras({})
+  });
   return resolveCollisions(next);
 }
 

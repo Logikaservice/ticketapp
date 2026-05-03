@@ -2563,8 +2563,14 @@ export default function TicketApp() {
     };
     const interval = setInterval(doPoll, pollInterval);
     const localNewHandler = () => { doPoll(); };
+    const hubOverviewTicketsHandler = () => { doPoll(); };
     window.addEventListener('new-ticket-local', localNewHandler);
-    return () => { clearInterval(interval); window.removeEventListener('new-ticket-local', localNewHandler); };
+    window.addEventListener('hub-overview-tickets-refresh', hubOverviewTicketsHandler);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('new-ticket-local', localNewHandler);
+      window.removeEventListener('hub-overview-tickets-refresh', hubOverviewTicketsHandler);
+    };
   }, [isLoggedIn, tickets, showUnreadModal, currentUser, previousUnreadCounts, users, isConnected, getAuthHeader]);
 
   // Listener per apertura ticket da toast
