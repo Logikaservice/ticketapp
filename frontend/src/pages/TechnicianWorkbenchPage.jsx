@@ -46,9 +46,12 @@ import NetworkMonitoringDashboard from '../components/NetworkMonitoringDashboard
 import {
   TECH_HUB_ACCENT_PALETTE,
   STORAGE_KEY_TECH_HUB_ACCENT,
+  STORAGE_KEY_TECH_HUB_SURFACE,
+  hubChromeCssVariables,
   hexToRgba,
   readableOnAccent,
-  getStoredTechHubAccent
+  getStoredTechHubAccent,
+  getStoredTechHubSurfaceMode
 } from '../utils/techHubAccent';
 import HubOverviewSection from '../components/hub/HubOverviewSection';
 import HubLogikubeMark from '../components/hub/HubLogikubeMark';
@@ -59,13 +62,11 @@ import { loadHubLayout, getDefaultHubLayout, sanitizeLayoutItems } from '../util
 import { hubModalCssVars } from '../utils/techHubAccent';
 import { buildApiUrl } from '../utils/apiConfig';
 
-const SURFACE = '#1E1E1E';
-const PAGE_BG = '#121212';
 const STORAGE_KEY_SIDEBAR_COLLAPSED = 'techHubSidebarCollapsed';
 const HUB_ALERTS_PAGE_SIZE = 5;
 
 const hubTinyIconBtn =
-  'rounded-lg border border-transparent p-1.5 text-white/55 transition hover:bg-white/[0.06] hover:text-[color:var(--hub-accent)] hover:[border-color:var(--hub-accent-border)] disabled:pointer-events-none disabled:opacity-0';
+  'rounded-lg border border-transparent p-1.5 text-[color:var(--hub-chrome-text-muted)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)] hover:[border-color:var(--hub-accent-border)] disabled:pointer-events-none disabled:opacity-0';
 
 function useMinMd() {
   const [ok, setOk] = useState(() =>
@@ -90,14 +91,14 @@ function loadSidebarCollapsed() {
 
 function NavGroup({ title, open, onToggle, children, railMode }) {
   if (railMode) {
-    return <div className="mt-1 space-y-1 border-t border-white/[0.06] pt-2">{children}</div>;
+    return <div className="mt-1 space-y-1 border-t border-[color:var(--hub-chrome-border-soft)] pt-2">{children}</div>;
   }
   return (
     <div className="space-y-1">
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-widest text-white/40 transition hover:bg-white/[0.04] hover:text-[color:var(--hub-accent)]"
+        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-widest text-[color:var(--hub-chrome-text-fainter)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)]"
       >
         <span>{title}</span>
         {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -125,7 +126,7 @@ function SidebarLink({ icon: Icon, label, onClick, nested, railMode, active = fa
         className={`group mx-auto flex w-full max-w-[3rem] items-center justify-center rounded-xl border border-transparent py-2.5 transition ${
           active
             ? 'shadow-sm hover:brightness-105'
-            : 'text-white/80 hover:bg-white/[0.06] hover:text-[color:var(--hub-accent)] hover:[border-color:var(--hub-accent-border)]'
+            : 'text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)] hover:[border-color:var(--hub-accent-border)]'
         }`}
         style={activeStyle}
       >
@@ -134,7 +135,7 @@ function SidebarLink({ icon: Icon, label, onClick, nested, railMode, active = fa
           className={
             active
               ? 'shrink-0'
-              : 'shrink-0 text-white/50 transition group-hover:text-[color:var(--hub-accent)]'
+              : 'shrink-0 text-[color:var(--hub-chrome-text-muted)] transition group-hover:text-[color:var(--hub-accent)]'
           }
           style={active ? { color: onAccent } : undefined}
         />
@@ -149,8 +150,8 @@ function SidebarLink({ icon: Icon, label, onClick, nested, railMode, active = fa
       className={`group flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left text-sm transition ${
         active
           ? 'font-semibold shadow-sm hover:brightness-105'
-          : 'text-white/80 hover:bg-white/[0.05] hover:text-[color:var(--hub-accent)] hover:[border-color:var(--hub-accent-border)]'
-      } ${nested && !active ? 'pl-6 text-[13px] text-white/70' : nested ? 'pl-6 text-[13px]' : ''}`}
+          : 'text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)] hover:[border-color:var(--hub-accent-border)]'
+      } ${nested && !active ? 'pl-6 text-[13px] text-[color:var(--hub-chrome-text-muted)]' : nested ? 'pl-6 text-[13px]' : ''}`}
       style={activeStyle}
     >
       <Icon
@@ -158,7 +159,7 @@ function SidebarLink({ icon: Icon, label, onClick, nested, railMode, active = fa
         className={
           active
             ? 'shrink-0'
-            : 'shrink-0 text-white/45 transition group-hover:text-[color:var(--hub-accent)]'
+            : 'shrink-0 text-[color:var(--hub-chrome-text-faint)] transition group-hover:text-[color:var(--hub-accent)]'
         }
         style={active ? { color: onAccent } : undefined}
       />
@@ -187,16 +188,16 @@ function RightPanel({
       className={`flex min-h-0 flex-1 flex-col overflow-hidden ${
         isFlush
           ? 'rounded-none border-0 bg-transparent p-0'
-          : 'rounded-2xl border border-white/[0.08] p-4'
+          : 'rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4'
       } ${className}`}
-      style={isFlush ? undefined : { backgroundColor: SURFACE }}
+      style={isFlush ? undefined : { backgroundColor: 'var(--hub-chrome-surface)' }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
       {showTitle && (title ?? titleAccessory) ? (
         <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
           {title ? (
-            <h3 className="min-w-0 flex-1 text-xs font-bold uppercase tracking-widest text-white/40">{title}</h3>
+            <h3 className="min-w-0 flex-1 text-xs font-bold uppercase tracking-widest text-[color:var(--hub-chrome-text-fainter)]">{title}</h3>
           ) : (
             <span className="min-w-0 flex-1" aria-hidden />
           )}
@@ -261,7 +262,7 @@ function ImportantAlertsSidebarRows({ items }) {
           <div
             key={key}
             role="listitem"
-            className="flex gap-2.5 border-b border-white/[0.06] pb-3 last:border-b-0 last:pb-0"
+            className="flex gap-2.5 border-b border-[color:var(--hub-chrome-border-soft)] pb-3 last:border-b-0 last:pb-0"
           >
             <div className={`mt-0.5 shrink-0 ${meta.iconClassName}`} aria-hidden>
               <Icon size={18} strokeWidth={2} />
@@ -326,10 +327,10 @@ function ImportantAlertsCarousel({ alerts, loading, accentHex, rotationPaused = 
   }, [loading, pageCount, carouselTick, rotationPaused]);
 
   if (loading) {
-    return <div className="py-8 text-center text-xs text-white/40">Caricamento avvisi…</div>;
+    return <div className="py-8 text-center text-xs text-[color:var(--hub-chrome-text-faint)]">Caricamento avvisi…</div>;
   }
   if (!alerts?.length) {
-    return <div className="py-8 text-center text-xs text-white/40">Nessun avviso presente.</div>;
+    return <div className="py-8 text-center text-xs text-[color:var(--hub-chrome-text-faint)]">Nessun avviso presente.</div>;
   }
 
   const canPrev = pageIndex > 0;
@@ -341,7 +342,7 @@ function ImportantAlertsCarousel({ alerts, loading, accentHex, rotationPaused = 
         <ImportantAlertsSidebarRows items={currentItems} />
       </div>
       {pageCount > 1 && (
-        <div className="mt-3 shrink-0 border-t border-white/[0.06] pt-3">
+        <div className="mt-3 shrink-0 border-t border-[color:var(--hub-chrome-border-soft)] pt-3">
           <div className="flex items-center gap-2">
             <div className="flex w-9 shrink-0 justify-center">
               {canPrev ? (
@@ -377,7 +378,7 @@ function ImportantAlertsCarousel({ alerts, loading, accentHex, rotationPaused = 
                     i === pageIndex ? 'min-w-[1.35rem]' : 'w-2 opacity-45 hover:opacity-70'
                   }`}
                   style={{
-                    backgroundColor: i === pageIndex ? accentHex : 'rgba(255,255,255,0.22)'
+                    backgroundColor: i === pageIndex ? accentHex : 'var(--hub-chrome-pagination-dot-off)'
                   }}
                 />
               ))}
@@ -409,14 +410,14 @@ function ImportantAlertsCarousel({ alerts, loading, accentHex, rotationPaused = 
 
 function DummyRow({ dot, title, meta, accent }) {
   return (
-    <div className="flex gap-3 rounded-xl border border-white/[0.06] bg-black/20 p-3 transition hover:[border-color:var(--hub-accent-border)]">
+    <div className="flex gap-3 rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-row-fill)] p-3 transition hover:[border-color:var(--hub-accent-border)]">
       <div
         className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full"
         style={{ backgroundColor: dot || accent }}
       />
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-white/85">{title}</p>
-        <p className="mt-0.5 text-xs text-white/40">{meta}</p>
+        <p className="text-sm text-[color:var(--hub-chrome-text-secondary)]">{title}</p>
+        <p className="mt-0.5 text-xs text-[color:var(--hub-chrome-text-faint)]">{meta}</p>
       </div>
     </div>
   );
@@ -465,6 +466,8 @@ export default function TechnicianWorkbenchPage({
   socket = null
 }) {
   const [accentHex, setAccentHex] = useState(getStoredTechHubAccent);
+  /** `dark` = sfondo Hub attuale; `light` = bianco / grigio chiaro sulla sola shell Hub tecnico. */
+  const [hubSurfaceMode, setHubSurfaceMode] = useState(getStoredTechHubSurfaceMode);
   const [hubImportantAlerts, setHubImportantAlerts] = useState([]);
   const [hubImportantAlertsLoading, setHubImportantAlertsLoading] = useState(true);
   /** Contratti per il calendario nella sidebar vista Ticket (stessa fonte della dashboard). */
@@ -618,6 +621,14 @@ export default function TechnicianWorkbenchPage({
 
   useEffect(() => {
     try {
+      localStorage.setItem(STORAGE_KEY_TECH_HUB_SURFACE, hubSurfaceMode);
+    } catch (_) {
+      /* ignore */
+    }
+  }, [hubSurfaceMode]);
+
+  useEffect(() => {
+    try {
       localStorage.setItem(STORAGE_KEY_SIDEBAR_COLLAPSED, sidebarCollapsed ? '1' : '0');
     } catch (_) {
       /* ignore */
@@ -670,17 +681,18 @@ export default function TechnicianWorkbenchPage({
 
   const accentStyle = useMemo(
     () => ({
-      backgroundColor: PAGE_BG,
-      color: '#fafafa',
+      ...hubChromeCssVariables(hubSurfaceMode),
+      backgroundColor: 'var(--hub-chrome-page)',
+      color: 'var(--hub-chrome-text)',
       ['--hub-accent']: accentHex,
       ['--hub-accent-border']: hexToRgba(accentHex, 0.52),
       ['--hub-accent-glow']: hexToRgba(accentHex, 0.32)
     }),
-    [accentHex]
+    [accentHex, hubSurfaceMode]
   );
 
   const hubHoverIconBtn =
-    'rounded-xl border border-transparent text-white/45 transition hover:bg-white/[0.06] hover:text-[color:var(--hub-accent)] hover:[border-color:var(--hub-accent-border)]';
+    'rounded-xl border border-transparent text-[color:var(--hub-chrome-text-muted)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)] hover:[border-color:var(--hub-accent-border)]';
 
   const hubTicketCounts = useMemo(() => {
     const list = Array.isArray(tickets) ? tickets : [];
@@ -694,12 +706,12 @@ export default function TechnicianWorkbenchPage({
     <div className="fixed inset-0 z-[70] flex min-h-0 flex-col md:flex-row" style={accentStyle}>
       {/* Colonna sinistra */}
       <aside
-        className={`flex w-full shrink-0 flex-col border-white/[0.06] py-5 transition-[width,padding] duration-200 ease-out max-md:w-full max-md:px-5 md:h-full md:border-r ${
+        className={`flex w-full shrink-0 flex-col border-[color:var(--hub-chrome-border-soft)] py-5 transition-[width,padding] duration-200 ease-out max-md:w-full max-md:px-5 md:h-full md:border-r ${
           railMode
             ? 'md:w-[76px] md:items-center md:px-2 md:overflow-visible'
             : 'md:w-[280px] md:px-5 lg:w-[292px]'
         }`}
-        style={{ backgroundColor: '#171717' }}
+        style={{ backgroundColor: 'var(--hub-chrome-sidebar)' }}
       >
         <div ref={userMenuRef} className={`relative ${railMode ? 'flex w-full justify-center md:overflow-visible' : ''}`}>
           <button
@@ -720,21 +732,24 @@ export default function TechnicianWorkbenchPage({
             {!railMode && (
               <>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold text-white">{displayName}</div>
-                  <div className="truncate text-xs text-white/45">{currentUser?.email || ''}</div>
+                  <div className="truncate text-sm font-semibold text-[color:var(--hub-chrome-text)]">{displayName}</div>
+                  <div className="truncate text-xs text-[color:var(--hub-chrome-text-faint)]">{currentUser?.email || ''}</div>
                 </div>
-                <ChevronDown size={18} className={`shrink-0 text-white/40 transition ${userMenuOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown
+                  size={18}
+                  className={`shrink-0 text-[color:var(--hub-chrome-text-faint)] transition ${userMenuOpen ? 'rotate-180' : ''}`}
+                />
               </>
             )}
           </button>
           {userMenuOpen && (
             <div
-              className={`absolute z-30 space-y-0.5 rounded-2xl border border-white/[0.1] p-2 shadow-2xl ${
+              className={`absolute z-30 space-y-0.5 rounded-2xl border border-[color:var(--hub-chrome-border)] p-2 shadow-2xl ${
                 railMode
                   ? 'left-full top-0 ml-2 w-[min(16rem,calc(100vw-5rem))]'
                   : 'left-0 right-0 top-full mt-2'
               }`}
-              style={{ backgroundColor: SURFACE }}
+              style={{ backgroundColor: 'var(--hub-chrome-surface)' }}
             >
               <button
                 type="button"
@@ -742,22 +757,25 @@ export default function TechnicianWorkbenchPage({
                   setUserMenuOpen(false);
                   onOpenSettings?.();
                 }}
-                className="group flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-white/85 transition hover:bg-white/[0.05] hover:text-[color:var(--hub-accent)]"
+                className="group flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-[color:var(--hub-chrome-text-secondary)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)]"
               >
-                <Settings size={18} className="text-white/50 transition group-hover:text-[color:var(--hub-accent)]" />
+                <Settings
+                  size={18}
+                  className="text-[color:var(--hub-chrome-text-muted)] transition group-hover:text-[color:var(--hub-accent)]"
+                />
                 Impostazioni account
               </button>
               <button
                 type="button"
                 disabled
-                className="flex w-full cursor-not-allowed items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-white/35"
+                className="flex w-full cursor-not-allowed items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-[color:var(--hub-chrome-text-fainter)]"
                 title="In preparazione"
               >
-                <Palette size={18} className="text-white/30" />
+                <Palette size={18} className="text-[color:var(--hub-chrome-text-fainter)]" />
                 Personalizzazione Hub
-                <span className="ml-auto text-[10px] uppercase tracking-wide text-white/25">Beta</span>
+                <span className="ml-auto text-[10px] uppercase tracking-wide text-[color:var(--hub-chrome-text-fainter)]">Beta</span>
               </button>
-              <div className="my-1 border-t border-white/[0.06]" />
+              <div className="my-1 border-t border-[color:var(--hub-chrome-border-soft)]" />
               <button
                 type="button"
                 onClick={() => {
@@ -780,22 +798,26 @@ export default function TechnicianWorkbenchPage({
               title="Cerca… (in preparazione)"
               aria-label="Cerca (in preparazione)"
               className={`${hubHoverIconBtn} rounded-2xl p-2.5`}
-              style={{ backgroundColor: SURFACE }}
+              style={{ backgroundColor: 'var(--hub-chrome-surface)' }}
             >
-              <Search size={20} className="text-white/40" aria-hidden />
+              <Search size={20} className="text-[color:var(--hub-chrome-text-faint)]" aria-hidden />
             </button>
           ) : (
             <div
-              className="group flex items-center gap-3 rounded-2xl border border-white/[0.08] px-3 py-2.5 transition hover:[border-color:var(--hub-accent-border)]"
-              style={{ backgroundColor: SURFACE }}
+              className="group flex items-center gap-3 rounded-2xl border border-[color:var(--hub-chrome-border-soft)] px-3 py-2.5 transition hover:[border-color:var(--hub-accent-border)]"
+              style={{ backgroundColor: 'var(--hub-chrome-input-bg)' }}
             >
-              <Search size={18} className="shrink-0 text-white/35 transition group-hover:text-[color:var(--hub-accent)]" aria-hidden />
+              <Search
+                size={18}
+                className="shrink-0 text-[color:var(--hub-chrome-text-faint)] transition group-hover:text-[color:var(--hub-accent)]"
+                aria-hidden
+              />
               <input
                 type="search"
                 readOnly
                 tabIndex={-1}
                 placeholder="Cerca…"
-                className="min-w-0 flex-1 cursor-default bg-transparent text-sm text-white/80 outline-none placeholder:text-white/30"
+                className="min-w-0 flex-1 cursor-default bg-transparent text-sm text-[color:var(--hub-chrome-text-secondary)] outline-none placeholder:text-[color:var(--hub-chrome-placeholder)]"
                 aria-label="Campo ricerca (in preparazione)"
               />
             </div>
@@ -952,7 +974,7 @@ export default function TechnicianWorkbenchPage({
         </nav>
 
         <div
-          className={`mt-auto flex w-full flex-col border-t border-white/[0.06] pt-3 ${railMode ? 'items-center gap-3' : 'items-start gap-3'}`}
+          className={`mt-auto flex w-full flex-col border-t border-[color:var(--hub-chrome-border-soft)] pt-3 ${railMode ? 'items-center gap-3' : 'items-start gap-3'}`}
         >
           {minMd && (
             <button
@@ -960,7 +982,7 @@ export default function TechnicianWorkbenchPage({
               onClick={() => setSidebarCollapsed((c) => !c)}
               title={railMode ? 'Espandi barra laterale' : 'Comprimi barra (solo icone)'}
               aria-expanded={!railMode}
-              className={`${hubHoverIconBtn} flex w-full items-center justify-center rounded-xl py-2 text-xs font-medium text-white/50 ${railMode ? 'px-2' : 'px-3'}`}
+              className={`${hubHoverIconBtn} flex w-full items-center justify-center rounded-xl py-2 text-xs font-medium text-[color:var(--hub-chrome-text-muted)] ${railMode ? 'px-2' : 'px-3'}`}
             >
               {railMode ? <ChevronsRight size={22} aria-hidden /> : <ChevronsLeft size={22} aria-hidden />}
               {!railMode && <span className="ml-2 shrink-0">Solo icone</span>}
@@ -976,10 +998,10 @@ export default function TechnicianWorkbenchPage({
       <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:flex-row">
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
           <header
-            className="flex shrink-0 items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-4"
-            style={{ backgroundColor: PAGE_BG }}
+            className="flex shrink-0 items-center justify-between gap-4 border-b border-[color:var(--hub-chrome-border-soft)] px-5 py-4"
+            style={{ backgroundColor: 'var(--hub-chrome-page)' }}
           >
-            <div className="flex min-w-0 items-center gap-3 text-sm text-white/45">
+            <div className="flex min-w-0 items-center gap-3 text-sm text-[color:var(--hub-chrome-text-faint)]">
               <button
                 type="button"
                 className={`rounded-lg p-2 ${hubHoverIconBtn}`}
@@ -987,11 +1009,11 @@ export default function TechnicianWorkbenchPage({
               >
                 <Layers size={20} />
               </button>
-              <span className="hidden sm:inline text-white/25">/</span>
+              <span className="hidden sm:inline text-[color:var(--hub-chrome-text-fainter)]">/</span>
               <div className="min-w-0 truncate">
-                <span className="text-white/45">Hub tecnico</span>
-                <span className="text-white/25"> / </span>
-                <span className="font-medium text-white/90">
+                <span className="text-[color:var(--hub-chrome-text-faint)]">Hub tecnico</span>
+                <span className="text-[color:var(--hub-chrome-text-fainter)]"> / </span>
+                <span className="font-medium text-[color:var(--hub-chrome-text)]">
                   {hubCenterView === 'comunicazioni'
                     ? 'Comunicazioni'
                     : hubCenterView === 'comm-agent-manager'
@@ -1022,7 +1044,7 @@ export default function TechnicianWorkbenchPage({
                   type="button"
                   onClick={() => setAccentPickerOpen((o) => !o)}
                   className={`p-2.5 ${hubHoverIconBtn}`}
-                  title="Colore tema Hub"
+                  title="Tema Hub (accento e sfondo)"
                   aria-expanded={accentPickerOpen}
                   aria-haspopup="dialog"
                 >
@@ -1030,14 +1052,14 @@ export default function TechnicianWorkbenchPage({
                 </button>
                 {accentPickerOpen && (
                   <div
-                    className="absolute right-0 top-full z-[80] mt-2 w-[17.5rem] rounded-2xl border border-white/[0.12] p-3 shadow-2xl"
-                    style={{ backgroundColor: SURFACE }}
+                    className="absolute right-0 top-full z-[80] mt-2 w-[19rem] rounded-2xl border border-[color:var(--hub-chrome-border)] p-3 shadow-2xl"
+                    style={{ backgroundColor: 'var(--hub-chrome-surface)' }}
                     role="dialog"
                     aria-label="Scegli colore accento"
                   >
-                    <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-white/42">
+                    <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[color:var(--hub-chrome-text-faint)]">
                       <Palette size={14} style={{ color: accentHex }} />
-                      Colore accento
+                      Colore tema Hub
                     </div>
                     <div className="grid grid-cols-4 gap-2">
                       {TECH_HUB_ACCENT_PALETTE.map((c) => {
@@ -1051,17 +1073,55 @@ export default function TechnicianWorkbenchPage({
                               setAccentHex(c.hex);
                               setAccentPickerOpen(false);
                             }}
-                            className={`relative aspect-square rounded-xl transition hover:outline hover:outline-2 hover:outline-offset-2 hover:outline-white/50 ${
-                              active ? 'ring-2 ring-white ring-offset-2 ring-offset-[#1e1e1e]' : 'border border-white/15'
+                            className={`relative aspect-square rounded-xl transition hover:outline hover:outline-2 hover:outline-offset-2 hover:outline-[color:var(--hub-chrome-border)] ${
+                              active
+                                ? 'ring-2 ring-[color:var(--hub-chrome-text)] ring-offset-2 ring-offset-[color:var(--hub-chrome-ring-offset)]'
+                                : 'border border-[color:var(--hub-chrome-border-soft)]'
                             }`}
                             style={{ backgroundColor: c.hex }}
                           />
                         );
                       })}
                     </div>
-                    <p className="mt-3 text-[11px] leading-snug text-white/38">
-                      Salvato in questo browser; icone e bordi in evidenza seguono il colore che scegli.
+                    <p className="mt-3 text-[11px] leading-snug text-[color:var(--hub-chrome-text-fainter)]">
+                      Accento salvato nel browser per icone evidenziature e parti colorate dell’Hub.
                     </p>
+                    <div className="mt-4 border-t border-[color:var(--hub-chrome-border-soft)] pt-3">
+                      <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[color:var(--hub-chrome-text-faint)]">
+                        Sfondo interfaccia
+                      </div>
+                      <div className="flex gap-1 rounded-xl bg-[color:var(--hub-chrome-muted-fill)] p-1">
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={hubSurfaceMode === 'dark'}
+                          onClick={() => setHubSurfaceMode('dark')}
+                          className={`flex-1 rounded-lg px-2 py-2 text-center text-[11px] font-semibold transition ${
+                            hubSurfaceMode === 'dark'
+                              ? 'bg-[color:var(--hub-chrome-input-bg)] text-[color:var(--hub-chrome-text)] shadow-sm ring-1 ring-[color:var(--hub-chrome-border)]'
+                              : 'text-[color:var(--hub-chrome-text-muted)] hover:text-[color:var(--hub-chrome-text)]'
+                          }`}
+                        >
+                          Attuale
+                        </button>
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={hubSurfaceMode === 'light'}
+                          onClick={() => setHubSurfaceMode('light')}
+                          className={`flex-1 rounded-lg px-2 py-2 text-center text-[11px] font-semibold transition ${
+                            hubSurfaceMode === 'light'
+                              ? 'bg-[color:var(--hub-chrome-input-bg)] text-[color:var(--hub-chrome-text)] shadow-sm ring-1 ring-[color:var(--hub-chrome-border)]'
+                              : 'text-[color:var(--hub-chrome-text-muted)] hover:text-[color:var(--hub-chrome-text)]'
+                          }`}
+                        >
+                          Chiaro
+                        </button>
+                      </div>
+                      <p className="mt-2 text-[10px] leading-snug text-[color:var(--hub-chrome-text-fainter)]">
+                        Chiaro usa bianco/grigio per il guscio Hub; i moduli (Email, Office…) restano sul loro tema.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1071,7 +1131,7 @@ export default function TechnicianWorkbenchPage({
                   onClick={() => setHubLayoutEditMode((v) => !v)}
                   className={`p-2.5 ${hubHoverIconBtn} ${
                     hubLayoutEditMode
-                      ? 'bg-white/[0.08] text-[color:var(--hub-accent)] [border-width:1px] [border-style:solid] [border-color:var(--hub-accent-border)]'
+                      ? 'bg-[color:var(--hub-chrome-muted-fill)] text-[color:var(--hub-accent)] [border-width:1px] [border-style:solid] [border-color:var(--hub-accent-border)]'
                       : ''
                   }`}
                   title={hubLayoutEditMode ? 'Termina modifica layout' : 'Modifica layout panoramica'}
@@ -1347,10 +1407,10 @@ export default function TechnicianWorkbenchPage({
 
         {/* Colonna destra */}
         <aside
-          className={`flex min-h-0 shrink-0 flex-col gap-3 overflow-hidden border-white/[0.06] py-5 lg:h-full lg:w-[300px] lg:border-l xl:w-[320px] ${
+          className={`flex min-h-0 shrink-0 flex-col gap-3 overflow-hidden border-[color:var(--hub-chrome-border-soft)] py-5 lg:h-full lg:w-[300px] lg:border-l xl:w-[320px] ${
             hubCenterView === 'tickets' && ticketHubListProps ? 'px-2' : 'px-4'
           }`}
-          style={{ backgroundColor: PAGE_BG }}
+          style={{ backgroundColor: 'var(--hub-chrome-page)' }}
         >
           <HubTimeCard accentHex={accentHex} />
           {hubCenterView === 'tickets' && ticketHubListProps ? (

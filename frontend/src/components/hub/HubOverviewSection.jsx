@@ -44,8 +44,6 @@ import {
   maxRowUsed
 } from '../../utils/hubOverviewLayout';
 
-const SURFACE_LOCAL = '#1E1E1E';
-
 /** Verde KPI Hub (stesso di Contratti attivi / «pagato»): unico colore evidenza per le card ticket con dato &gt; 0. */
 const HUB_TICKET_KPI_GREEN = '#15803d';
 
@@ -116,8 +114,8 @@ function ModuleLaunchCard({
         type="button"
         onClick={onClick}
         aria-label={label}
-        className={`flex h-full min-h-[4.5rem] w-full flex-col items-center justify-center rounded-2xl border border-white/[0.08] p-3 text-white/90 transition hover:bg-white/[0.04] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
-        style={{ backgroundColor: SURFACE_LOCAL }}
+        className={`flex h-full min-h-[4.5rem] w-full flex-col items-center justify-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-3 text-[color:var(--hub-chrome-text)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
+        style={{ backgroundColor: 'var(--hub-chrome-surface)' }}
       >
         <div className="inline-flex rounded-xl p-2.5" style={{ backgroundColor: hexToRgba(accent, 0.14) }}>
           <Icon size={26} style={{ color: accent }} aria-hidden />
@@ -130,8 +128,8 @@ function ModuleLaunchCard({
     <button
       type="button"
       onClick={onClick}
-      className={`flex h-full min-h-[6rem] w-full items-center rounded-2xl border border-white/[0.08] p-4 text-left transition hover:bg-white/[0.04] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
-      style={{ backgroundColor: SURFACE_LOCAL }}
+      className={`flex h-full min-h-[6rem] w-full items-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-left transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
+      style={{ backgroundColor: 'var(--hub-chrome-surface)' }}
     >
       <div className="flex w-full min-w-0 items-center gap-3">
         <div
@@ -141,8 +139,8 @@ function ModuleLaunchCard({
           <Icon size={22} style={{ color: accent }} className="shrink-0" />
         </div>
         <div className="min-w-0 flex-1 self-center leading-tight">
-          <div className="text-base font-semibold text-white/90">{label}</div>
-          {subtitle ? <div className="mt-1 text-xs text-white/45">{subtitle}</div> : null}
+          <div className="text-base font-semibold text-[color:var(--hub-chrome-text)]">{label}</div>
+          {subtitle ? <div className="mt-1 text-xs text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div> : null}
         </div>
       </div>
     </button>
@@ -171,18 +169,18 @@ function TicketHubStatCard({
   const body = iconOnly ? (
     <div className="flex h-full flex-col items-center justify-center gap-1 py-2">
       <div
-        className={`inline-flex rounded-xl p-2.5 ${active ? '' : 'bg-white/[0.06]'}`}
+        className={`inline-flex rounded-xl p-2.5 ${active ? '' : 'bg-[color:var(--hub-chrome-muted-fill)]'}`}
         style={active ? { backgroundColor: hexToRgba(g, 0.12) } : undefined}
       >
         <Icon
           size={26}
           className="shrink-0"
-          style={{ color: active ? g : 'rgba(255,255,255,0.38)' }}
+          style={active ? { color: g } : { color: 'var(--hub-chrome-text-fainter)' }}
           aria-hidden
         />
       </div>
       <span
-        className={`tabular-nums text-base font-semibold ${active ? '' : 'text-white/[0.28]'}`}
+        className={`tabular-nums text-base font-semibold ${active ? '' : 'text-[color:var(--hub-chrome-text-fainter)]'}`}
         style={active ? { color: g } : undefined}
         aria-live="polite"
       >
@@ -192,22 +190,22 @@ function TicketHubStatCard({
   ) : (
     <div className="flex w-full min-w-0 items-center gap-3">
       <div
-        className={`inline-flex shrink-0 self-center rounded-xl p-2.5 transition ${active ? '' : 'bg-white/[0.06]'}`}
+        className={`inline-flex shrink-0 self-center rounded-xl p-2.5 transition ${active ? '' : 'bg-[color:var(--hub-chrome-muted-fill)]'}`}
         style={active ? { backgroundColor: hexToRgba(g, 0.12) } : undefined}
       >
         <Icon
           size={26}
           className="shrink-0"
-          style={{ color: active ? g : 'rgba(255,255,255,0.38)' }}
+          style={active ? { color: g } : { color: 'var(--hub-chrome-text-fainter)' }}
         />
       </div>
       <div className="min-w-0 flex-1 self-center text-left leading-tight">
-        <div className="text-base font-semibold text-white/90">{title}</div>
-        {subtitle ? <div className="mt-1 text-xs font-normal leading-snug text-white/45">{subtitle}</div> : null}
+        <div className="text-base font-semibold text-[color:var(--hub-chrome-text)]">{title}</div>
+        {subtitle ? <div className="mt-1 text-xs font-normal leading-snug text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div> : null}
       </div>
       <span
         className={`shrink-0 tabular-nums text-[2.65rem] font-bold leading-none tracking-tight sm:text-[2.85rem] ${
-          active ? '' : 'text-white/[0.38]'
+          active ? '' : 'text-[color:var(--hub-chrome-text-fainter)]'
         }`}
         style={active ? { color: g } : undefined}
         aria-hidden
@@ -217,11 +215,11 @@ function TicketHubStatCard({
     </div>
   );
 
-  const surfaceStyle = { backgroundColor: SURFACE_LOCAL };
+  const surfaceStyle = { backgroundColor: 'var(--hub-chrome-surface)' };
   const veil = subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : '';
   const noPtr = suppressInteraction ? 'pointer-events-none' : '';
   const fullRow =
-    'flex h-full min-h-[6rem] w-full items-center rounded-2xl border border-white/[0.08] p-4 text-left';
+    'flex h-full min-h-[6rem] w-full items-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-left';
 
   if (!active) {
     return (
@@ -243,7 +241,7 @@ function TicketHubStatCard({
       type="button"
       disabled={Boolean(subdued)}
       aria-label={ariaLbl}
-      className={`${fullRow} transition hover:bg-white/[0.04] hover:[border-color:rgba(21,128,61,0.55)] hover:shadow-[0_0_0_1px_rgba(21,128,61,0.22)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#15803d] ${
+      className={`${fullRow} transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:rgba(21,128,61,0.55)] hover:shadow-[0_0_0_1px_rgba(21,128,61,0.22)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#15803d] ${
         iconOnly ? 'justify-center' : ''
       } ${veil} ${noPtr}`}
       style={surfaceStyle}
@@ -308,8 +306,8 @@ function HubNewTicketCard({
         <Plus size={24} strokeWidth={2.4} aria-hidden />
       </div>
       <div className="min-w-0 flex-1 self-center leading-tight">
-        <div className="text-base font-semibold text-white/90">{title}</div>
-        {subtitle ? <div className="mt-1 text-xs font-normal text-white/45">{subtitle}</div> : null}
+        <div className="text-base font-semibold text-[color:var(--hub-chrome-text)]">{title}</div>
+        {subtitle ? <div className="mt-1 text-xs font-normal text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div> : null}
       </div>
     </button>
   );
@@ -661,7 +659,7 @@ export default function HubOverviewSection({
             className={`relative h-full min-h-0 flex flex-col ${veil ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
           >
             <HubContractsActiveCard
-              backgroundColor={SURFACE_LOCAL}
+              backgroundColor="var(--hub-chrome-surface)"
               accentHex={accentHex}
               getAuthHeader={getAuthHeader}
               currentUser={currentUser}
@@ -673,32 +671,32 @@ export default function HubOverviewSection({
         if (io) {
           return (
             <div
-              className={`flex h-full min-h-[4.5rem] items-center justify-center rounded-2xl border border-white/[0.08] p-3 text-white/85 ${
+              className={`flex h-full min-h-[4.5rem] items-center justify-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-3 text-[color:var(--hub-chrome-text-secondary)] ${
                 veil ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''
               } ${suppressInteraction ? 'pointer-events-none' : ''}`}
-              style={{ backgroundColor: SURFACE_LOCAL }}
+              style={{ backgroundColor: 'var(--hub-chrome-surface)' }}
               role="img"
               aria-label={txt(item, HUB_MODULE_META[id].label)}
             >
-              <div className="inline-flex shrink-0 rounded-xl bg-white/[0.08] p-2.5">
-                <Layers size={26} className="shrink-0 text-white/55" aria-hidden />
+              <div className="inline-flex shrink-0 rounded-xl bg-[color:var(--hub-chrome-muted-fill)] p-2.5">
+                <Layers size={26} className="shrink-0 text-[color:var(--hub-chrome-text-muted)]" aria-hidden />
               </div>
             </div>
           );
         }
         return (
           <div
-            className={`flex h-full min-h-[6rem] items-center gap-3 rounded-2xl border border-white/[0.08] p-4 ${
+            className={`flex h-full min-h-[6rem] items-center gap-3 rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 ${
               veil ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''
             } ${suppressInteraction ? 'pointer-events-none' : ''}`}
-            style={{ backgroundColor: SURFACE_LOCAL }}
+            style={{ backgroundColor: 'var(--hub-chrome-surface)' }}
           >
-            <div className="inline-flex shrink-0 self-center rounded-xl bg-white/[0.08] p-2.5">
-              <Layers size={22} className="shrink-0 text-white/55" aria-hidden />
+            <div className="inline-flex shrink-0 self-center rounded-xl bg-[color:var(--hub-chrome-muted-fill)] p-2.5">
+              <Layers size={22} className="shrink-0 text-[color:var(--hub-chrome-text-muted)]" aria-hidden />
             </div>
             <div className="min-w-0 flex-1 leading-tight">
-              <h3 className="text-base font-semibold text-white">{txt(item, 'Riepilogo rapido')}</h3>
-              <p className="mt-1 text-xs leading-relaxed text-white/45">{sub(item, 'Qui potrai inserire KPI o testo che riassume ticket, agent o avvisi.')}</p>
+              <h3 className="text-base font-semibold text-[color:var(--hub-chrome-text)]">{txt(item, 'Riepilogo rapido')}</h3>
+              <p className="mt-1 text-xs leading-relaxed text-[color:var(--hub-chrome-text-faint)]">{sub(item, 'Qui potrai inserire KPI o testo che riassume ticket, agent o avvisi.')}</p>
             </div>
           </div>
         );
@@ -724,12 +722,12 @@ export default function HubOverviewSection({
   return (
     <>
       {!hubLayoutEditMode && (
-        <p className="mb-3 text-xs text-white/40">
+        <p className="mb-3 text-xs text-[color:var(--hub-chrome-text-faint)]">
           Area modulare: disponi le card dopo aver attivato «Modifica layout» nella barra in alto (tecnico). Le card «nascoste»
           dalla vista restano visibili in hub come anteprima sfocata.
         </p>
       )}
-      <div className={`relative rounded-2xl ${hubLayoutEditMode && isTechnician ? 'ring-2 ring-dashed ring-[color:var(--hub-accent-border)] ring-offset-2 ring-offset-[#121212]' : ''}`}>
+      <div className={`relative rounded-2xl ${hubLayoutEditMode && isTechnician ? 'ring-2 ring-dashed ring-[color:var(--hub-accent-border)] ring-offset-2 ring-offset-[color:var(--hub-chrome-ring-offset)]' : ''}`}>
         <div
           ref={gridRef}
           role="grid"
@@ -765,7 +763,7 @@ export default function HubOverviewSection({
             >
               {hubLayoutEditMode && isTechnician && (
                 <div
-                  className={`absolute left-2 top-2 z-20 rounded-lg border border-white/15 bg-black/55 p-1 text-white/70 ${
+                  className={`absolute left-2 top-2 z-20 rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-badge-scrim)] p-1 text-[color:var(--hub-chrome-text-muted)] ${
                     item.locked ? 'cursor-not-allowed opacity-40' : 'cursor-grab active:cursor-grabbing'
                   }`}
                   title={item.locked ? 'Carta bloccata: sloccare dal pannello sotto per spostarla' : 'Trascina per spostare'}
@@ -791,10 +789,10 @@ export default function HubOverviewSection({
                 </div>
               )}
               {item.hidden && (
-                <div className="pointer-events-none absolute inset-0 z-[5] rounded-2xl bg-black/45 backdrop-blur-[3px]" />
+                <div className="pointer-events-none absolute inset-0 z-[5] rounded-2xl bg-[color:var(--hub-chrome-hidden-mask)] backdrop-blur-[3px]" />
               )}
               {item.hidden && (
-                <div className="pointer-events-none absolute bottom-2 right-2 z-20 rounded-md bg-black/70 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white/85">
+                <div className="pointer-events-none absolute bottom-2 right-2 z-20 rounded-md bg-[color:var(--hub-chrome-badge-scrim)] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[color:var(--hub-chrome-text-secondary)]">
                   Nascosta (anteprima)
                 </div>
               )}
@@ -806,18 +804,18 @@ export default function HubOverviewSection({
 
       {hubLayoutEditMode && isTechnician && (
         <div
-          className="mt-4 space-y-3 rounded-2xl border border-white/[0.08] p-4"
-          style={{ backgroundColor: SURFACE_LOCAL }}
+          className="mt-4 space-y-3 rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4"
+          style={{ backgroundColor: 'var(--hub-chrome-surface)' }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white/42">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[color:var(--hub-chrome-text-faint)]">
               <Layers size={14} /> Libreria · ripristino
             </div>
             <button
               type="button"
               onClick={restoreFullHubLayout}
-              className="ml-auto inline-flex items-center gap-2 rounded-xl border border-white/[0.1] bg-transparent px-3 py-2 text-[11px] font-medium text-white/50 underline-offset-2 hover:bg-white/[0.04] hover:text-white/70"
+              className="ml-auto inline-flex items-center gap-2 rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-transparent px-3 py-2 text-[11px] font-medium text-[color:var(--hub-chrome-text-faint)] underline-offset-2 hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-chrome-text-muted)]"
               title="Reinserisce tutti i moduli come all’avvio del progetto"
             >
               <RotateCcw size={14} className="opacity-70" /> Ripristina tutta la panoramica
@@ -825,7 +823,7 @@ export default function HubOverviewSection({
           </div>
           <div className="space-y-3">
             {missing.length === 0 ? (
-              <p className="text-xs text-white/38">
+              <p className="text-xs text-[color:var(--hub-chrome-text-fainter)]">
                 Tutti i tipi di card sono già in griglia. Tocca un nome sotto per selezionarlo; per togliere un modulo usa
                 «Rimuovi dalla griglia» sulla card selezionata.
               </p>
@@ -833,11 +831,11 @@ export default function HubOverviewSection({
             {HUB_LIBRARY_GROUPS.map((group) => (
               <div
                 key={group.title}
-                className="rounded-xl border border-white/[0.07] bg-black/[0.28] p-3"
+                className="rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-well)] p-3"
               >
-                <p className="text-xs font-bold uppercase tracking-wide text-white/55">{group.title}</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]">{group.title}</p>
                 {group.caption ? (
-                  <p className="mt-0.5 text-[11px] leading-relaxed text-white/38">{group.caption}</p>
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-[color:var(--hub-chrome-text-fainter)]">{group.caption}</p>
                 ) : null}
                 <div className="mt-2.5 flex flex-wrap gap-2">
                   {group.ids.map((mid) => {
@@ -869,11 +867,11 @@ export default function HubOverviewSection({
                         className={`rounded-xl border px-3 py-2 text-left text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-35 ${
                           inGrid
                             ? selectedId === mid
-                              ? 'border-[color:var(--hub-accent)] bg-white/[0.1] text-white'
-                              : 'border-white/[0.12] bg-black/30 text-white/88 hover:bg-white/[0.06] hover:[border-color:var(--hub-accent-border)]'
+                              ? 'border-[color:var(--hub-accent)] bg-[color:color-mix(in_srgb,var(--hub-accent)_16%,transparent)] text-[color:var(--hub-chrome-text)]'
+                              : 'border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well-mid)] text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)]'
                             : canAdd
-                              ? 'border-dashed border-white/22 text-white/65 hover:border-[color:var(--hub-accent-border)] hover:bg-white/[0.04] hover:text-white/88'
-                              : 'border-white/[0.06] text-white/35'
+                              ? 'border-dashed border-[color:var(--hub-chrome-border)] text-[color:var(--hub-chrome-text-muted)] hover:border-[color:var(--hub-accent-border)] hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-chrome-text-secondary)]'
+                              : 'border-[color:var(--hub-chrome-border-soft)] text-[color:var(--hub-chrome-text-fainter)]'
                         }`}
                       >
                         {inGrid ? label : `Aggiungi · ${label}`}
@@ -900,9 +898,9 @@ export default function HubOverviewSection({
               );
 
             return (
-            <div className="border-t border-white/[0.08] pt-4">
+            <div className="border-t border-[color:var(--hub-chrome-border-soft)] pt-4">
               <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                <p className="text-xs font-semibold text-white/75">
+                <p className="text-xs font-semibold text-[color:var(--hub-chrome-text-muted)]">
                   Card selezionata: <span className="text-[color:var(--hub-accent)]">{meta.label}</span>
                 </p>
                 <button
@@ -911,21 +909,21 @@ export default function HubOverviewSection({
                     const sid = selectedId;
                     setHubLayout((prev) => restoreSingleCardDefaults(prev, sid));
                   }}
-                  className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-white/[0.12] bg-black/25 px-3 py-2 text-xs font-semibold text-white/88 hover:bg-white/[0.06]"
+                  className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well-soft)] px-3 py-2 text-xs font-semibold text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)]"
                   title="Riposiziona e ridimensiona come da progetto e azzera titolo, sottotitolo e opzioni"
                 >
                   <RotateCcw size={14} /> Layout predefinito
                 </button>
               </div>
-              <p className="mb-3 text-[11px] text-white/38">
+              <p className="mb-3 text-[11px] text-[color:var(--hub-chrome-text-fainter)]">
                 Vale solo per questa card: non reintegra moduli tolti dalla griglia e non cambia le altre posizioni, salvo sistemare
                 sovrapposizioni se servono.
               </p>
-              <div className="mb-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-white/70">
+              <div className="mb-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-[color:var(--hub-chrome-text-muted)]">
                 <label className="inline-flex cursor-pointer items-center gap-2">
                   <input
                     type="checkbox"
-                    className="rounded border-white/25 bg-black/40"
+                    className="rounded border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)]"
                     checked={Boolean(selectedItem.locked)}
                     onChange={(e) => patchItem({ locked: e.target.checked })}
                   />
@@ -936,7 +934,7 @@ export default function HubOverviewSection({
                 >
                   <input
                     type="checkbox"
-                    className="rounded border-white/25 bg-black/40"
+                    className="rounded border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)]"
                     disabled={!hubModuleSupportsIconOnly(selectedId)}
                     checked={Boolean(selectedItem.iconOnly)}
                     onChange={(e) => {
@@ -984,34 +982,34 @@ export default function HubOverviewSection({
                 </label>
               </div>
               <div className="mb-3 grid gap-2 sm:grid-cols-2">
-                <label className="block text-xs text-white/55">
+                <label className="block text-xs text-[color:var(--hub-chrome-text-muted)]">
                   Titolo mostrato (vuoto = predefinito)
                   <input
                     type="text"
                     maxLength={120}
                     value={selectedItem.customTitle ?? ''}
                     onChange={(e) => patchItem({ customTitle: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-white/[0.12] bg-black/35 px-2 py-1.5 text-sm text-white outline-none placeholder:text-white/25"
+                    className="mt-1 w-full rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-input-well)] px-2 py-1.5 text-sm text-[color:var(--hub-chrome-text)] outline-none placeholder:text-[color:var(--hub-chrome-placeholder)]"
                     placeholder={meta.label}
                   />
                 </label>
-                <label className="block text-xs text-white/55">
+                <label className="block text-xs text-[color:var(--hub-chrome-text-muted)]">
                   Sottotitolo / nota (vuoto = testo predefinito del modulo)
                   <input
                     type="text"
                     maxLength={200}
                     value={selectedItem.customSubtitle ?? ''}
                     onChange={(e) => patchItem({ customSubtitle: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-white/[0.12] bg-black/35 px-2 py-1.5 text-sm text-white outline-none placeholder:text-white/25"
+                    className="mt-1 w-full rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-input-well)] px-2 py-1.5 text-sm text-[color:var(--hub-chrome-text)] outline-none placeholder:text-[color:var(--hub-chrome-placeholder)]"
                     placeholder="es. Apri modulo"
                   />
                 </label>
               </div>
               <div className="mb-3 flex flex-wrap items-center gap-3">
-                <label className="flex items-center gap-2 text-xs text-white/55">
+                <label className="flex items-center gap-2 text-xs text-[color:var(--hub-chrome-text-muted)]">
                   Refresh automatico
                   <select
-                    className="rounded-lg border border-white/[0.12] bg-black/35 px-2 py-1.5 text-sm text-white outline-none"
+                    className="rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-input-well)] px-2 py-1.5 text-sm text-[color:var(--hub-chrome-text)] outline-none"
                     value={Number(selectedItem.refreshIntervalSec ?? 0)}
                     onChange={(e) => patchItem({ refreshIntervalSec: Number(e.target.value) })}
                   >
@@ -1024,15 +1022,15 @@ export default function HubOverviewSection({
                   </select>
                 </label>
               </div>
-              <p className="mb-2 text-[11px] text-white/38">
+              <p className="mb-2 text-[11px] text-[color:var(--hub-chrome-text-fainter)]">
                 Il refresh aggiorna i conteggi ticket sulle card «Aperti / In lavorazione» e i dati del modulo «Contratti attivi»,
                 riusando il polling già presente nell’app.
               </p>
               <div className="flex flex-wrap items-center gap-3">
-                <label className="flex items-center gap-2 text-xs text-white/55">
+                <label className="flex items-center gap-2 text-xs text-[color:var(--hub-chrome-text-muted)]">
                   Larghezza
                   <select
-                    className="rounded-lg border border-white/[0.12] bg-black/35 px-2 py-1.5 text-sm text-white outline-none disabled:opacity-45"
+                    className="rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-input-well)] px-2 py-1.5 text-sm text-[color:var(--hub-chrome-text)] outline-none disabled:opacity-45"
                     value={selectedItem.w}
                     disabled={dimDisabled}
                     onChange={(e) => {
@@ -1052,10 +1050,10 @@ export default function HubOverviewSection({
                     ))}
                   </select>
                 </label>
-                <label className="flex items-center gap-2 text-xs text-white/55">
+                <label className="flex items-center gap-2 text-xs text-[color:var(--hub-chrome-text-muted)]">
                   Altezza
                   <select
-                    className="rounded-lg border border-white/[0.12] bg-black/35 px-2 py-1.5 text-sm text-white outline-none disabled:opacity-45"
+                    className="rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-input-well)] px-2 py-1.5 text-sm text-[color:var(--hub-chrome-text)] outline-none disabled:opacity-45"
                     value={selectedItem.h}
                     disabled={dimDisabled}
                     onChange={(e) => {
@@ -1081,7 +1079,7 @@ export default function HubOverviewSection({
                     let next = setHidden(hubLayout, selectedId, !selectedItem.hidden);
                     setHubLayout(next);
                   }}
-                  className="inline-flex items-center gap-2 rounded-xl border border-white/[0.12] px-3 py-2 text-xs font-semibold text-white/82 hover:bg-white/[0.05]"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--hub-chrome-border)] px-3 py-2 text-xs font-semibold text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)]"
                 >
                   <EyeOff size={14} />
                   {selectedItem.hidden ? 'Mostra nella vista' : 'Nascondi vista (sfocato)'}
@@ -1101,15 +1099,15 @@ export default function HubOverviewSection({
                 </button>
               </div>
               {fixedSize && (
-                <p className="mt-2 text-[11px] text-white/40">Questo modulo ha dimensioni fisse.</p>
+                <p className="mt-2 text-[11px] text-[color:var(--hub-chrome-text-faint)]">Questo modulo ha dimensioni fisse.</p>
               )}
               {rbSel && !fixedSize && (
-                <p className="mt-2 text-[11px] text-white/40">
+                <p className="mt-2 text-[11px] text-[color:var(--hub-chrome-text-faint)]">
                   Dimensioni consentite: larghezza {rbSel.minW}–{rbSel.maxW}, altezza {rbSel.minH}–{rbSel.maxH} (per il grafico KPI).
                 </p>
               )}
               {selectedItem.iconOnly && (
-                <p className="mt-2 text-[11px] text-white/40">In modalità solo icona la cella resta 1×1: disattiva per ridimensionare.</p>
+                <p className="mt-2 text-[11px] text-[color:var(--hub-chrome-text-faint)]">In modalità solo icona la cella resta 1×1: disattiva per ridimensionare.</p>
               )}
             </div>
             );

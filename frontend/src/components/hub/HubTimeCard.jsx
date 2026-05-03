@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { HUB_SURFACE, hubModalCssVars } from '../../utils/techHubAccent';
+import { hubModalCssVars } from '../../utils/techHubAccent';
 
 const ROME_TZ = 'Europe/Rome';
 
@@ -40,17 +40,20 @@ export default function HubTimeCard({ accentHex }) {
   const timeStr = useMemo(() => formatTimeRome(now), [now]);
   const dateLine = useMemo(() => formatDateLineRome(now), [now]);
 
-  const style = useMemo(() => ({ backgroundColor: HUB_SURFACE, ...hubModalCssVars(accentHex) }), [accentHex]);
+  const style = useMemo(
+    () => ({ backgroundColor: 'var(--hub-chrome-surface)', ...hubModalCssVars(accentHex) }),
+    [accentHex]
+  );
 
   return (
     <div
-      className="shrink-0 rounded-2xl border border-white/[0.08] px-4 py-5 text-center"
+      className="shrink-0 rounded-2xl border border-[color:var(--hub-chrome-border-soft)] px-4 py-5 text-center"
       style={style}
     >
-      <div className="text-[2.75rem] font-semibold leading-none tracking-tight text-white tabular-nums">
+      <div className="text-[2.75rem] font-semibold leading-none tracking-tight text-[color:var(--hub-chrome-text)] tabular-nums">
         {timeStr}
       </div>
-      <p className="mt-2.5 text-sm font-medium leading-snug text-white/55">{dateLine}</p>
+      <p className="mt-2.5 text-sm font-medium leading-snug text-[color:var(--hub-chrome-text-muted)]">{dateLine}</p>
     </div>
   );
 }

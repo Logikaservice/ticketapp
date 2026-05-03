@@ -10,6 +10,73 @@
 
 export const STORAGE_KEY_TECH_HUB_ACCENT = 'techHubAccent';
 
+/** `dark` = palette Hub attuale; `light` = sfondo bianco/grigio chiaro nella shell Hub tecnico. */
+export const STORAGE_KEY_TECH_HUB_SURFACE = 'techHubSurfaceMode';
+
+export function getStoredTechHubSurfaceMode() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_TECH_HUB_SURFACE);
+    return raw === 'light' ? 'light' : 'dark';
+  } catch (_) {
+    return 'dark';
+  }
+}
+
+/** Variabili CSS per sfondo e tipografia della shell Hub (sidebar, colonne, card overview). */
+export function hubChromeCssVariables(surfaceMode = 'dark') {
+  const light = surfaceMode === 'light';
+  if (!light) {
+    return {
+      '--hub-chrome-page': HUB_PAGE_BG,
+      '--hub-chrome-surface': HUB_SURFACE,
+      '--hub-chrome-sidebar': '#171717',
+      '--hub-chrome-ring-offset': HUB_PAGE_BG,
+      '--hub-chrome-muted-fill': 'rgba(255,255,255,0.06)',
+      '--hub-chrome-row-fill': 'rgba(0,0,0,0.2)',
+      '--hub-chrome-input-bg': HUB_SURFACE,
+      '--hub-chrome-border': 'rgba(255,255,255,0.10)',
+      '--hub-chrome-border-soft': 'rgba(255,255,255,0.06)',
+      '--hub-chrome-text': 'rgba(255,255,255,0.92)',
+      '--hub-chrome-text-secondary': 'rgba(255,255,255,0.82)',
+      '--hub-chrome-text-muted': 'rgba(255,255,255,0.55)',
+      '--hub-chrome-text-faint': 'rgba(255,255,255,0.42)',
+      '--hub-chrome-text-fainter': 'rgba(255,255,255,0.28)',
+      '--hub-chrome-placeholder': 'rgba(255,255,255,0.30)',
+      '--hub-chrome-hover': 'rgba(255,255,255,0.06)',
+      '--hub-chrome-pagination-dot-off': 'rgba(255,255,255,0.22)',
+      '--hub-chrome-well': 'rgba(0,0,0,0.28)',
+      '--hub-chrome-well-mid': 'rgba(0,0,0,0.25)',
+      '--hub-chrome-input-well': 'rgba(0,0,0,0.35)',
+      '--hub-chrome-badge-scrim': 'rgba(0,0,0,0.55)',
+      '--hub-chrome-hidden-mask': 'rgba(0,0,0,0.45)'
+    };
+  }
+  return {
+    '--hub-chrome-page': '#eef0f4',
+    '--hub-chrome-surface': '#ffffff',
+    '--hub-chrome-sidebar': '#ffffff',
+    '--hub-chrome-ring-offset': '#eef0f4',
+    '--hub-chrome-muted-fill': 'rgba(0,0,0,0.04)',
+    '--hub-chrome-row-fill': 'rgba(0,0,0,0.04)',
+    '--hub-chrome-input-bg': '#f4f6f9',
+    '--hub-chrome-border': 'rgba(15,23,42,0.10)',
+    '--hub-chrome-border-soft': 'rgba(15,23,42,0.07)',
+    '--hub-chrome-text': 'rgba(17,24,39,0.92)',
+    '--hub-chrome-text-secondary': 'rgba(31,41,55,0.88)',
+    '--hub-chrome-text-muted': 'rgba(75,85,99,0.88)',
+    '--hub-chrome-text-faint': 'rgba(100,116,139,0.92)',
+    '--hub-chrome-text-fainter': 'rgba(148,163,184,0.96)',
+    '--hub-chrome-placeholder': 'rgba(100,116,139,0.65)',
+    '--hub-chrome-hover': 'rgba(15,23,42,0.06)',
+    '--hub-chrome-pagination-dot-off': 'rgba(15,23,42,0.2)',
+    '--hub-chrome-well': 'rgba(15,23,42,0.05)',
+    '--hub-chrome-well-mid': 'rgba(15,23,42,0.06)',
+    '--hub-chrome-input-well': 'rgba(249,250,251,0.96)',
+    '--hub-chrome-badge-scrim': 'rgba(255,255,255,0.75)',
+    '--hub-chrome-hidden-mask': 'rgba(255,255,255,0.55)'
+  };
+}
+
 export const DEFAULT_TECH_HUB_ACCENT = '#C1FF72';
 
 /** Sfondo principale Hub tecnico (stesso degli overlay modali «stile Hub»). */

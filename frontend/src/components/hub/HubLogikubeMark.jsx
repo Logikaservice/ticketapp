@@ -54,7 +54,7 @@ export default function HubLogikubeMark({ railMode = false, className = '' }) {
     <div className={`flex items-center gap-3 ${className}`} aria-label="Logikube">
       <LogikubeGlyph size={38} className={accentIcon} />
       <span className="select-none pt-0.5 font-bold uppercase leading-none tracking-[0.2em] text-[clamp(1rem,2.8vw,1.2rem)]">
-        <span className="text-white">LOGI</span>
+        <span className="text-[color:var(--hub-chrome-text)]">LOGI</span>
         <span className="text-[color:var(--hub-accent)] [text-shadow:0_0_18px_var(--hub-accent-glow)]">KUBE</span>
       </span>
     </div>
