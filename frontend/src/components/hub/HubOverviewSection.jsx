@@ -32,6 +32,7 @@ import {
   restoreDefaultModule,
   missingModuleIds,
   getDefaultHubLayout,
+  restoreSingleCardDefaults,
   snapDropToCell,
   sanitizeLayoutItems,
   saveHubLayout,
@@ -95,7 +96,7 @@ function ModuleLaunchCard({
   );
 }
 
-/** Stessa stat della pagina tecnico Hub. */
+/** Allineata visivamente a ModuleLaunchCard: stesso titolo/sottotitolo e struttura riga. */
 function TicketHubStatCard({
   icon: Icon,
   title,
@@ -113,17 +114,17 @@ function TicketHubStatCard({
     <div className="flex h-full flex-col items-center justify-center gap-1 py-2">
       <div
         className={`inline-flex rounded-xl p-2.5 ${active ? '' : 'bg-white/[0.06]'}`}
-        style={active ? { backgroundColor: hexToRgba(accentHex, 0.14) } : undefined}
+        style={active ? { backgroundColor: hexToRgba(accentHex, 0.12) } : undefined}
       >
         <Icon
-          size={24}
+          size={26}
           className="shrink-0"
           style={{ color: active ? accentHex : 'rgba(255,255,255,0.38)' }}
           aria-hidden
         />
       </div>
       <span
-        className={`font-extrabold tabular-nums ${active ? 'text-4xl md:text-[2.85rem]' : 'text-[1.95rem] text-white/[0.28]'}`}
+        className={`tabular-nums text-base font-semibold ${active ? 'text-white/90' : 'text-white/[0.28]'}`}
         style={active ? { color: accentHex } : undefined}
         aria-live="polite"
       >
@@ -131,34 +132,20 @@ function TicketHubStatCard({
       </span>
     </div>
   ) : (
-    <div className="flex min-h-0 w-full flex-1 flex-col">
-      <div className="mb-2 flex w-full min-w-0 gap-3">
-        <div
-          className={`inline-flex shrink-0 rounded-xl p-2.5 transition ${active ? '' : 'bg-white/[0.06]'}`}
-          style={active ? { backgroundColor: hexToRgba(accentHex, 0.14) } : undefined}
-        >
-          <Icon
-            size={22}
-            className="shrink-0"
-            style={{ color: active ? accentHex : 'rgba(255,255,255,0.38)' }}
-          />
-        </div>
-        <div className="min-w-0 flex-1 self-center leading-tight">
-          <div
-            className={`text-[11px] font-semibold uppercase tracking-widest ${active ? 'text-white/50' : 'text-white/32'}`}
-          >
-            Ticket
-          </div>
-          <div className="mt-0.5 text-base font-semibold text-white/90">{title}</div>
-        </div>
-      </div>
+    <div className="flex w-full min-w-0 items-center gap-3">
       <div
-        className={`mt-auto text-5xl font-extrabold leading-none tabular-nums md:text-[3.25rem] ${
-          active ? '' : 'text-white/[0.28]'
-        }`}
-        style={active ? { color: accentHex } : undefined}
+        className={`inline-flex shrink-0 self-center rounded-xl p-2.5 transition ${active ? '' : 'bg-white/[0.06]'}`}
+        style={active ? { backgroundColor: hexToRgba(accentHex, 0.12) } : undefined}
       >
-        {count}
+        <Icon
+          size={22}
+          className="shrink-0"
+          style={{ color: active ? accentHex : 'rgba(255,255,255,0.38)' }}
+        />
+      </div>
+      <div className="min-w-0 flex-1 self-center leading-tight">
+        <div className="text-base font-semibold text-white/90">{title}</div>
+        <div className="mt-1 text-xs font-normal text-white/45 tabular-nums">Nell&apos;elenco: {count}</div>
       </div>
     </div>
   );
@@ -166,13 +153,13 @@ function TicketHubStatCard({
   const surfaceStyle = { backgroundColor: SURFACE_LOCAL };
   const veil = subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : '';
   const noPtr = suppressInteraction ? 'pointer-events-none' : '';
+  const fullRow =
+    'flex h-full min-h-[6rem] w-full items-center rounded-2xl border border-white/[0.08] p-4 text-left';
 
   if (!active) {
     return (
       <div
-        className={`flex h-full min-h-0 rounded-2xl border border-white/[0.08] p-4 text-left ${
-          iconOnly ? 'items-center justify-center' : 'w-full flex-col items-stretch'
-        } ${veil} ${noPtr}`}
+        className={`${fullRow} ${iconOnly ? 'justify-center' : ''} ${veil} ${noPtr}`}
         style={surfaceStyle}
         role="status"
         aria-label={`${title}: ${count} ticket`}
@@ -189,8 +176,8 @@ function TicketHubStatCard({
       type="button"
       disabled={Boolean(subdued)}
       aria-label={ariaLbl}
-      className={`flex h-full min-h-0 rounded-2xl border border-white/[0.08] p-4 text-left transition hover:bg-white/[0.04] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] ${
-        iconOnly ? 'items-center justify-center' : 'w-full flex-col items-stretch'
+      className={`${fullRow} transition hover:bg-white/[0.04] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] ${
+        iconOnly ? 'justify-center' : ''
       } ${veil} ${noPtr}`}
       style={surfaceStyle}
       onClick={() => !subdued && onOpenTicketState?.(stateKey)}
@@ -254,8 +241,8 @@ function HubNewTicketCard({
         <Plus size={24} strokeWidth={2.4} aria-hidden />
       </div>
       <div className="min-w-0 flex-1 self-center leading-tight">
-        <div className="text-base font-bold text-white">{title}</div>
-        {subtitle ? <div className="mt-1 text-xs text-white/52">{subtitle}</div> : null}
+        <div className="text-base font-semibold text-white/90">{title}</div>
+        {subtitle ? <div className="mt-1 text-xs font-normal text-white/45">{subtitle}</div> : null}
       </div>
     </button>
   );
@@ -409,9 +396,15 @@ export default function HubOverviewSection({
     dragIdRef.current = null;
   };
 
-  const restoreDefaults = () => {
-    const d = getDefaultHubLayout();
-    setHubLayout(sanitizeLayoutItems(d));
+  const restoreFullHubLayout = () => {
+    if (
+      !window.confirm(
+        'Ripristinare l’intera panoramica come all’inizio del progetto? Verranno reinseriti tutti i moduli nella griglia e resi visibili quelli nascosti.'
+      )
+    ) {
+      return;
+    }
+    setHubLayout(sanitizeLayoutItems(getDefaultHubLayout()));
   };
 
   /** Le card «nascoste» restano in griglia (sfocate + overlay) anche fuori dalla modifica layout */
@@ -767,10 +760,11 @@ export default function HubOverviewSection({
             </div>
             <button
               type="button"
-              onClick={restoreDefaults}
-              className="ml-auto inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-black/25 px-3 py-2 text-xs font-semibold text-white/88 hover:bg-white/[0.06]"
+              onClick={restoreFullHubLayout}
+              className="ml-auto inline-flex items-center gap-2 rounded-xl border border-white/[0.1] bg-transparent px-3 py-2 text-[11px] font-medium text-white/50 underline-offset-2 hover:bg-white/[0.04] hover:text-white/70"
+              title="Reinserisce tutti i moduli come all’avvio del progetto"
             >
-              <RotateCcw size={14} /> Layout predefinito
+              <RotateCcw size={14} className="opacity-70" /> Ripristina tutta la panoramica
             </button>
           </div>
           {missing.length === 0 ? (
@@ -810,8 +804,25 @@ export default function HubOverviewSection({
 
             return (
             <div className="border-t border-white/[0.08] pt-4">
-              <p className="mb-3 text-xs font-semibold text-white/75">
-                Card selezionata: <span className="text-[color:var(--hub-accent)]">{meta.label}</span>
+              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                <p className="text-xs font-semibold text-white/75">
+                  Card selezionata: <span className="text-[color:var(--hub-accent)]">{meta.label}</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const sid = selectedId;
+                    setHubLayout((prev) => restoreSingleCardDefaults(prev, sid));
+                  }}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-white/[0.12] bg-black/25 px-3 py-2 text-xs font-semibold text-white/88 hover:bg-white/[0.06]"
+                  title="Riposiziona e ridimensiona come da progetto e azzera titolo, sottotitolo e opzioni"
+                >
+                  <RotateCcw size={14} /> Layout predefinito
+                </button>
+              </div>
+              <p className="mb-3 text-[11px] text-white/38">
+                Vale solo per questa card: non reintegra moduli tolti dalla griglia e non cambia le altre posizioni, salvo sistemare
+                sovrapposizioni se servono.
               </p>
               <div className="mb-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-white/70">
                 <label className="inline-flex cursor-pointer items-center gap-2">

@@ -136,6 +136,42 @@ export function hubModuleSupportsIconOnly(moduleId) {
   return Boolean(moduleId) && moduleId !== 'contracts';
 }
 
+/**
+ * Ripristina **solo** la card indicata a posizione/dimensioni predefinite del progetto e azzera personalizzazioni
+ * (titolo, sottotitolo, icona 1×1, blocco, refresh). Non reintroduce moduli rimossi dalla griglia.
+ * Lo stato «nascosta» della card viene mantenuto.
+ */
+export function restoreSingleCardDefaults(layout, id) {
+  const meta = HUB_MODULE_META[id];
+  if (!meta || !Array.isArray(layout) || layout.length === 0) return layout;
+  const idx = layout.findIndex((x) => x.id === id);
+  if (idx < 0) return layout;
+  const p = meta.defaultPlacement;
+  const fx = meta.fixedSize;
+  const bounds = meta.resizeBounds;
+  let w = fx ? fx.w : p.w;
+  let h = fx ? fx.h : p.h;
+  if (bounds) {
+    w = clampInt(p.w, bounds.minW, bounds.maxW);
+    h = clampInt(p.h, bounds.minH, bounds.maxH);
+  } else if (!fx) {
+    w = clampInt(w, 1, HUB_GRID_COLS);
+    h = clampInt(h, 1, HUB_MAX_ROW_SPAN);
+  }
+  const prev = layout[idx];
+  const next = cloneLayout(layout);
+  next[idx] = {
+    id,
+    col: p.col,
+    row: p.row,
+    w,
+    h,
+    hidden: Boolean(prev.hidden),
+    ...normalizeLayoutExtras({})
+  };
+  return sanitizeLayoutItems(next);
+}
+
 function storageKey(userId) {
   if (userId != null && userId !== '') return `${STORAGE_HUB_LAYOUT}:u${userId}`;
   return STORAGE_HUB_LAYOUT;
