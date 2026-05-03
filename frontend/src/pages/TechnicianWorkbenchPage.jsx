@@ -51,6 +51,7 @@ import {
   getStoredTechHubAccent
 } from '../utils/techHubAccent';
 import HubOverviewSection from '../components/hub/HubOverviewSection';
+import HubLogikubeMark from '../components/hub/HubLogikubeMark';
 import TicketsHubEmbedded from '../components/hub/TicketsHubEmbedded';
 import HubTimeCard from '../components/hub/HubTimeCard';
 import TicketsCalendar from '../components/TicketsCalendar';
@@ -700,6 +701,7 @@ export default function TechnicianWorkbenchPage({
         }`}
         style={{ backgroundColor: '#171717' }}
       >
+        <HubLogikubeMark railMode={railMode} className={railMode ? 'mb-3' : 'mb-4'} />
         <div ref={userMenuRef} className={`relative ${railMode ? 'flex w-full justify-center md:overflow-visible' : ''}`}>
           <button
             type="button"
