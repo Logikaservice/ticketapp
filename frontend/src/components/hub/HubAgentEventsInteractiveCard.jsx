@@ -49,6 +49,8 @@ export default function HubAgentEventsInteractiveCard({
   getAuthHeader,
   socket,
   onOpenNetworkMonitoring,
+  /** Con `light` la card segue `--hub-chrome-*` come il resto della panoramica Chiara. */
+  hubSurfaceMode = 'dark',
   title = 'Notifiche agent',
   subtitle = 'Eventi rete sugli agent',
   subdued,
@@ -56,6 +58,7 @@ export default function HubAgentEventsInteractiveCard({
   /** Ruoli con accesso al monitoraggio rete (allineato a Hub: tecnico, admin, cliente multi-azienda). */
   technicianOnly = false
 }) {
+  const hubLight = hubSurfaceMode === 'light';
   const [expanded, setExpanded] = useState(false);
   const [popoverBox, setPopoverBox] = useState(null);
 
@@ -119,17 +122,26 @@ export default function HubAgentEventsInteractiveCard({
   if (!technicianOnly) {
     return (
       <div
-        className={`flex h-full min-h-0 flex-col rounded-2xl border border-white/[0.08] p-4 ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
-        style={{ backgroundColor: SURFACE }}
+        className={`flex h-full min-h-0 flex-col rounded-2xl border p-4 ${
+          hubLight ? 'border-[color:var(--hub-chrome-border-soft)]' : 'border-white/[0.08]'
+        } ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
+        style={{
+          backgroundColor: hubLight ? 'var(--hub-chrome-surface)' : SURFACE,
+          boxShadow: 'var(--hub-chrome-card-shadow)'
+        }}
         role="status"
       >
         <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-white/[0.06] p-2.5 text-white/35">
+          <div
+            className={`rounded-xl p-2.5 ${hubLight ? 'bg-[color:var(--hub-chrome-muted-fill)] text-[color:var(--hub-chrome-text-fainter)]' : 'bg-white/[0.06] text-white/35'}`}
+          >
             <Wifi size={22} aria-hidden />
           </div>
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-white/70">{title}</h3>
-            <p className="mt-0.5 text-xs text-white/38">
+            <h3 className={`text-sm font-semibold ${hubLight ? 'text-[color:var(--hub-chrome-text-secondary)]' : 'text-white/70'}`}>
+              {title}
+            </h3>
+            <p className={`mt-0.5 text-xs ${hubLight ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-white/38'}`}>
               Serve un account con accesso al monitoraggio rete (tecnico, admin o aziende abilitate).
             </p>
           </div>
@@ -158,14 +170,17 @@ export default function HubAgentEventsInteractiveCard({
     <>
       <div
         ref={wrapRef}
-        className={`relative flex h-full max-h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-white/[0.08] ${veil} ${blocked ? 'pointer-events-none' : ''}`}
-        style={{ backgroundColor: SURFACE }}
+        className={`relative flex h-full max-h-full min-h-0 flex-col overflow-hidden rounded-2xl border ${hubLight ? 'border-[color:var(--hub-chrome-border-soft)]' : 'border-white/[0.08]'} ${veil} ${blocked ? 'pointer-events-none' : ''}`}
+        style={{
+          backgroundColor: hubLight ? 'var(--hub-chrome-surface)' : SURFACE,
+          boxShadow: 'var(--hub-chrome-card-shadow)'
+        }}
       >
         <button
           type="button"
           onClick={toggleExpanded}
           disabled={blocked}
-          className="flex h-full max-h-full min-h-0 w-full shrink-0 flex-col justify-center gap-0 p-4 text-left transition hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] disabled:pointer-events-none"
+          className={`flex h-full max-h-full min-h-0 w-full shrink-0 flex-col justify-center gap-0 p-4 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] disabled:pointer-events-none ${hubLight ? 'hover:bg-[color:var(--hub-chrome-hover)]' : 'hover:bg-white/[0.04]'}`}
           aria-expanded={expanded}
           aria-haspopup="dialog"
         >
@@ -173,7 +188,15 @@ export default function HubAgentEventsInteractiveCard({
             <div className="relative inline-flex shrink-0 rounded-xl p-2.5" style={{ backgroundColor: accentSoft }}>
               <AlertTriangle
                 size={24}
-                className={unreadCount > 0 ? 'text-amber-400' : 'text-white/45'}
+                className={
+                  unreadCount > 0
+                    ? hubLight
+                      ? 'text-[color:var(--hub-chrome-tone-warn-icon)]'
+                      : 'text-amber-400'
+                    : hubLight
+                      ? 'text-[color:var(--hub-chrome-text-fainter)]'
+                      : 'text-white/45'
+                }
                 strokeWidth={2}
                 aria-hidden
               />
@@ -185,14 +208,24 @@ export default function HubAgentEventsInteractiveCard({
             </div>
             <div className="min-w-0 flex-1 leading-tight">
               <div className="flex items-center gap-2">
-                <span className="text-base font-semibold text-white/90">{title}</span>
+                <span className={`text-base font-semibold ${hubLight ? 'text-[color:var(--hub-chrome-text)]' : 'text-white/90'}`}>
+                  {title}
+                </span>
                 {expanded ? (
-                  <ChevronUp size={18} className="shrink-0 text-white/45" aria-hidden />
+                  <ChevronUp
+                    size={18}
+                    className={`shrink-0 ${hubLight ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-white/45'}`}
+                    aria-hidden
+                  />
                 ) : (
-                  <ChevronDown size={18} className="shrink-0 text-white/45" aria-hidden />
+                  <ChevronDown
+                    size={18}
+                    className={`shrink-0 ${hubLight ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-white/45'}`}
+                    aria-hidden
+                  />
                 )}
               </div>
-              <p className="mt-1 text-xs text-white/45">
+              <p className={`mt-1 text-xs ${hubLight ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-white/45'}`}>
                 {expanded ? 'Lista in overlay: clic fuori o Esc per chiudere' : `${subtitle} · clic per aprire`}
               </p>
             </div>
@@ -206,13 +239,18 @@ export default function HubAgentEventsInteractiveCard({
               <div
                 aria-hidden
                 className="pointer-events-none fixed inset-0 animate-in fade-in"
-                style={{ zIndex: POPOVER_Z_BACKDROP, background: 'rgba(0,0,0,0.38)' }}
+                style={{
+                  zIndex: POPOVER_Z_BACKDROP,
+                  background: hubLight ? 'rgba(15,23,42,0.15)' : 'rgba(0,0,0,0.38)'
+                }}
               />
               <div
                 ref={popoverRef}
                 role="dialog"
                 aria-label={title}
-                className="custom-scrollbar flex animate-in fade-in zoom-in-95 flex-col overflow-hidden rounded-2xl border border-[color:var(--hub-accent-border)] shadow-[0_16px_48px_rgba(0,0,0,0.55)] outline-none duration-150"
+                className={`custom-scrollbar flex animate-in fade-in zoom-in-95 flex-col overflow-hidden rounded-2xl border border-[color:var(--hub-accent-border)] outline-none duration-150 ${
+                  hubLight ? 'shadow-[0_16px_48px_rgba(15,23,42,0.12)]' : 'shadow-[0_16px_48px_rgba(0,0,0,0.55)]'
+                }`}
                 style={{
                   position: 'fixed',
                   top: popoverBox.top,
@@ -221,9 +259,10 @@ export default function HubAgentEventsInteractiveCard({
                   height: popoverBox.height,
                   maxHeight: popoverBox.height,
                   zIndex: POPOVER_Z_PANEL,
-                  backgroundColor: BUBBLE_SURFACE,
-                  boxShadow:
-                    '0 0 0 1px rgba(255,255,255,0.06), 0 20px 50px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.06)'
+                  backgroundColor: hubLight ? 'var(--hub-chrome-surface)' : BUBBLE_SURFACE,
+                  boxShadow: hubLight
+                    ? '0 0 0 1px var(--hub-chrome-border-soft), 0 20px 44px rgba(15,23,42,0.08)'
+                    : '0 0 0 1px rgba(255,255,255,0.06), 0 20px 50px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.06)'
                 }}
               >
                   {popoverBox.arrowAtTop ? (
@@ -236,22 +275,44 @@ export default function HubAgentEventsInteractiveCard({
                     </div>
                   )}
                   <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl pt-px">
-                  <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/[0.08] px-3 py-2 pl-4">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-white/42">Elenco eventi</span>
+                  <div
+                    className={`flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2 pl-4 ${
+                      hubLight ? 'border-[color:var(--hub-chrome-border-soft)]' : 'border-white/[0.08]'
+                    }`}
+                  >
+                    <span
+                      className={`text-[11px] font-semibold uppercase tracking-wide ${
+                        hubLight ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-white/42'
+                      }`}
+                    >
+                      Elenco eventi
+                    </span>
                     <button
                       type="button"
                       onClick={handleClearClick}
                       disabled={events.length === 0}
                       title="Pulisci tutte le notifiche"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-transparent px-2 py-1.5 text-[11px] font-medium text-red-300 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-35"
+                      className={`inline-flex items-center gap-1.5 rounded-lg border border-transparent px-2 py-1.5 text-[11px] font-medium transition disabled:cursor-not-allowed disabled:opacity-35 ${
+                        hubLight
+                          ? 'text-[color:var(--hub-chrome-tone-danger-title)] hover:bg-[color:var(--hub-chrome-notice-danger-bg)]'
+                          : 'text-red-300 hover:bg-red-500/15'
+                      }`}
                     >
                       <Trash2 size={14} aria-hidden />
                       Svuota
                     </button>
                   </div>
-                  <div className="custom-scrollbar flex min-h-0 flex-1 flex-col divide-y divide-white/[0.08] overflow-y-auto overscroll-contain px-2 pb-2">
+                  <div
+                    className={`custom-scrollbar flex min-h-0 flex-1 flex-col divide-y overflow-y-auto overscroll-contain px-2 pb-2 ${
+                      hubLight ? 'divide-[color:var(--hub-chrome-border-soft)]' : 'divide-white/[0.08]'
+                    }`}
+                  >
                     {events.length === 0 ? (
-                      <p className="py-10 text-center text-xs text-white/40">Nessun evento recente.</p>
+                      <p
+                        className={`py-10 text-center text-xs ${hubLight ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-white/40'}`}
+                      >
+                        Nessun evento recente.
+                      </p>
                     ) : (
                       events.map((event) => {
                         const { icon: Icon, color, bg } = getAgentEventVisual(event.event_type);
@@ -266,23 +327,42 @@ export default function HubAgentEventsInteractiveCard({
                               if (!event.is_read) markAsRead(event.id);
                               onOpenNetworkMonitoring?.();
                             }}
-                            className={`flex w-full items-start gap-2 rounded-xl px-2 py-3 text-left transition hover:bg-white/[0.06] ${isUnread ? 'bg-sky-500/10' : ''}`}
+                            className={`flex w-full items-start gap-2 rounded-xl px-2 py-3 text-left transition ${
+                              hubLight
+                                ? `hover:bg-[color:var(--hub-chrome-hover)] ${isUnread ? 'bg-[color:var(--hub-chrome-row-nested-bg)]' : ''}`
+                                : `hover:bg-white/[0.06] ${isUnread ? 'bg-sky-500/10' : ''}`
+                            }`}
                           >
-                            <div className={`shrink-0 rounded-lg p-2 ${hubToneEventBg(bg)}`}>
-                              <Icon size={16} className={hubToneIconColor(color)} aria-hidden />
+                            <div className={`shrink-0 rounded-lg p-2 ${hubLight ? bg : hubToneEventBg(bg)}`}>
+                              <Icon size={16} className={hubLight ? color : hubToneIconColor(color)} aria-hidden />
                             </div>
                             <div className="min-w-0 flex-1">
                               <p
-                                className={`text-[13px] leading-snug ${isUnread ? 'font-semibold text-white/92' : 'font-medium text-white/80'}`}
+                                className={`text-[13px] leading-snug ${
+                                  hubLight
+                                    ? isUnread
+                                      ? 'font-semibold text-[color:var(--hub-chrome-text)]'
+                                      : 'font-medium text-[color:var(--hub-chrome-text-secondary)]'
+                                    : isUnread
+                                      ? 'font-semibold text-white/92'
+                                      : 'font-medium text-white/80'
+                                }`}
                               >
                                 {getAgentEventMessage(event)}
                               </p>
-                              <p className="mt-1 text-[11px] text-white/42">
+                              <p
+                                className={`mt-1 text-[11px] ${hubLight ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-white/42'}`}
+                              >
                                 {formatDate(event.detected_at)}
                                 {event.azienda ? ` • ${event.azienda}` : ''}
                               </p>
                             </div>
-                            {isUnread ? <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-sky-400" aria-hidden /> : null}
+                            {isUnread ? (
+                              <span
+                                className={`mt-1 h-2 w-2 shrink-0 rounded-full ${hubLight ? 'bg-[color:var(--hub-chrome-link)]' : 'bg-sky-400'}`}
+                                aria-hidden
+                              />
+                            ) : null}
                           </button>
                         );
                       })

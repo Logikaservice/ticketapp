@@ -42,10 +42,11 @@ function ticksForScale(scaleMax) {
   return [0, m / 2, m];
 }
 
-/** @param {{ backgroundColor: string, accentHex: string }} p */
+/** @param {{ backgroundColor: string, accentHex: string, hubSurfaceMode?: string }} p */
 export default function HubContractsActiveCard({
   backgroundColor,
   accentHex,
+  hubSurfaceMode = 'dark',
   getAuthHeader,
   currentUser,
   onOpenContractsList
@@ -160,31 +161,60 @@ export default function HubContractsActiveCard({
     refYear === now.getFullYear();
   const currentMonthIndex = now.getMonth();
 
+  const hubLight = hubSurfaceMode === 'light';
+  const COL_TRACK_UI = hubLight ? '#94a3b8' : COL_TRACK;
+  const svgLines = hubLight
+    ? {
+        baseline: 'rgba(15,23,42,0.14)',
+        grid: 'rgba(15,23,42,0.09)',
+        yTick: 'rgba(51,65,85,0.95)',
+        euroSym: 'rgba(100,116,139,0.9)',
+        monthCur: 'rgba(17,24,39,0.95)',
+        month: 'rgba(71,85,105,0.92)'
+      }
+    : {
+        baseline: 'rgba(255,255,255,0.08)',
+        grid: 'rgba(255,255,255,0.05)',
+        yTick: 'rgba(255,255,255,0.28)',
+        euroSym: 'rgba(255,255,255,0.22)',
+        monthCur: 'rgba(255,255,255,0.78)',
+        month: 'rgba(255,255,255,0.34)'
+      };
+
   return (
-    <div className="rounded-2xl border border-white/[0.08] p-3" style={{ backgroundColor }}>
+    <div
+      className={`rounded-2xl border p-3 ${hubLight ? 'border-[color:var(--hub-chrome-border-soft)]' : 'border-white/[0.08]'}`}
+      style={{ backgroundColor, boxShadow: 'var(--hub-chrome-card-shadow)' }}
+    >
       <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
             <FileSignature size={18} style={{ color: accentHex }} className="shrink-0" />
-            <h2 className="text-xs font-semibold text-white sm:text-sm">Contratti attivi</h2>
+            <h2
+              className={`text-xs font-semibold sm:text-sm ${hubLight ? 'text-[color:var(--hub-chrome-text)]' : 'text-white'}`}
+            >
+              Contratti attivi
+            </h2>
           </div>
-          <p className="mt-0.5 text-[9px] leading-snug text-white/38">
+          <p
+            className={`mt-0.5 text-[9px] leading-snug ${hubLight ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-white/38'}`}
+          >
             {refYear} · guscio = previsto · verde = pagato · KPI:{' '}
-            <span className="text-white/50">
+            <span className={hubLight ? 'text-[color:var(--hub-chrome-text-secondary)]' : 'text-white/50'}>
               {kpiScope === 'mese' ? 'mese in corso' : `anno ${refYear}`}
             </span>
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <div
-            className="inline-flex rounded-lg border border-white/[0.1] p-0.5"
+            className={`inline-flex rounded-lg border p-0.5 ${hubLight ? 'border-[color:var(--hub-chrome-border)]' : 'border-white/[0.1]'}`}
             role="group"
             aria-label="Ambito KPI"
           >
-            <SegmentBtn active={kpiScope === 'mese'} onClick={() => setKpiScope('mese')}>
+            <SegmentBtn light={hubLight} active={kpiScope === 'mese'} onClick={() => setKpiScope('mese')}>
               Mese
             </SegmentBtn>
-            <SegmentBtn active={kpiScope === 'anno'} onClick={() => setKpiScope('anno')}>
+            <SegmentBtn light={hubLight} active={kpiScope === 'anno'} onClick={() => setKpiScope('anno')}>
               Anno
             </SegmentBtn>
           </div>
@@ -192,7 +222,7 @@ export default function HubContractsActiveCard({
             <button
               type="button"
               onClick={onOpenContractsList}
-              className="text-[10px] font-semibold text-white/50 transition hover:text-[color:var(--hub-accent)]"
+              className={`text-[10px] font-semibold transition hover:opacity-90 ${hubLight ? 'text-[color:var(--hub-chrome-link)]' : 'text-white/50 hover:text-[color:var(--hub-accent)]'}`}
             >
               Lista →
             </button>
@@ -200,10 +230,13 @@ export default function HubContractsActiveCard({
         </div>
       </div>
 
-      <div className="mb-2 grid grid-cols-3 divide-x divide-white/[0.08] rounded-lg border border-white/[0.08] bg-black/15">
-        <KpiMoneyCol title="Totale" subline="Totale previsto" value={moneyKpis.previsto} />
-        <KpiMoneyCol title="Pagato" subline="Nel periodo" value={moneyKpis.pagato} highlight />
+      <div
+        className={`mb-2 grid grid-cols-3 divide-x rounded-lg border ${hubLight ? 'divide-[color:var(--hub-chrome-border-soft)] border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-well)]' : 'divide-white/[0.08] border-white/[0.08] bg-black/15'}`}
+      >
+        <KpiMoneyCol light={hubLight} title="Totale" subline="Totale previsto" value={moneyKpis.previsto} />
+        <KpiMoneyCol light={hubLight} title="Pagato" subline="Nel periodo" value={moneyKpis.pagato} highlight />
         <KpiMoneyCol
+          light={hubLight}
           title="Mancante"
           subline={
             kpiScope === 'mese' ? 'Da incassare (da gennaio a questo mese)' : 'Da incassare'
@@ -214,9 +247,17 @@ export default function HubContractsActiveCard({
 
       <div ref={chartRef} className="relative min-h-[136px]" onMouseLeave={() => setTip(null)}>
         {loading ? (
-          <div className="flex h-[126px] items-center justify-center text-[11px] text-white/35">Caricamento…</div>
+          <div
+            className={`flex h-[126px] items-center justify-center text-[11px] ${hubLight ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-white/35'}`}
+          >
+            Caricamento…
+          </div>
         ) : err ? (
-          <div className="flex h-[126px] items-center justify-center text-[11px] text-red-300/90">{err}</div>
+          <div
+            className={`flex h-[126px] items-center justify-center text-[11px] ${hubLight ? 'text-[color:var(--hub-chrome-tone-danger-title)]' : 'text-red-300/90'}`}
+          >
+            {err}
+          </div>
         ) : (
           <svg
             className="h-auto w-full max-w-full"
@@ -229,7 +270,7 @@ export default function HubContractsActiveCard({
               y1={baseY}
               x2={chartModel.W - chartModel.padR}
               y2={baseY}
-              stroke="rgba(255,255,255,0.08)"
+              stroke={svgLines.baseline}
               strokeWidth="1"
             />
             {yTicks.map((tick) => {
@@ -239,7 +280,7 @@ export default function HubContractsActiveCard({
                   <text
                     x={chartModel.padL - 2}
                     y={tick === 0 ? baseY + 9 : yt}
-                    fill="rgba(255,255,255,0.28)"
+                    fill={svgLines.yTick}
                     fontSize="7"
                     textAnchor="end"
                     dominantBaseline={tick === 0 ? 'hanging' : 'middle'}
@@ -252,7 +293,7 @@ export default function HubContractsActiveCard({
                       x2={chartModel.W - chartModel.padR}
                       y1={yt}
                       y2={yt}
-                      stroke="rgba(255,255,255,0.05)"
+                      stroke={svgLines.grid}
                       strokeDasharray="2 6"
                     />
                   )}
@@ -262,7 +303,7 @@ export default function HubContractsActiveCard({
             <text
               x={chartModel.padL - 2}
               y={chartModel.padT + 2}
-              fill="rgba(255,255,255,0.22)"
+              fill={svgLines.euroSym}
               fontSize="6"
               textAnchor="end"
             >
@@ -307,7 +348,7 @@ export default function HubContractsActiveCard({
                     height={c.hTrack}
                     rx={rx}
                     ry={rx}
-                    fill={COL_TRACK}
+                    fill={COL_TRACK_UI}
                     opacity={sg.previsto > 0 ? 1 : 0.22}
                     className="cursor-pointer transition hover:opacity-90"
                     onMouseEnter={showTip}
@@ -340,7 +381,7 @@ export default function HubContractsActiveCard({
                   key={`${label}-${idx}`}
                   x={x}
                   y={chartModel.H - 15}
-                  fill={isCurrent ? 'rgba(255,255,255,0.78)' : 'rgba(255,255,255,0.34)'}
+                  fill={isCurrent ? svgLines.monthCur : svgLines.month}
                   fontSize="8.5"
                   fontWeight={isCurrent ? 700 : 600}
                   textAnchor="middle"
@@ -355,7 +396,9 @@ export default function HubContractsActiveCard({
 
         {tip?.monthIndex != null && (
           <div
-            className="pointer-events-none absolute z-10 max-w-[15rem] rounded-xl border border-white/[0.12] px-3 py-2 text-xs shadow-xl"
+            className={`pointer-events-none absolute z-10 max-w-[15rem] rounded-xl border px-3 py-2 text-xs shadow-xl ${
+              hubLight ? 'border-[color:var(--hub-chrome-border)]' : 'border-white/[0.12]'
+            }`}
             style={{
               left: `${Math.min(Math.max(tip.x, 14), chartRef.current ? chartRef.current.clientWidth - 200 : tip.x)}px`,
               top: `${Math.min(Math.max(tip.y, 12), tip.y)}px`,
@@ -363,28 +406,46 @@ export default function HubContractsActiveCard({
               transform: 'translate(-50%, -100%) translateY(-4px)'
             }}
           >
-            <div className="font-semibold capitalize text-white/90">{tip.label}</div>
-            <ul className="mt-2 space-y-1 text-[11px] text-white/65">
+            <div
+              className={`font-semibold capitalize ${hubLight ? 'text-[color:var(--hub-chrome-text)]' : 'text-white/90'}`}
+            >
+              {tip.label}
+            </div>
+            <ul
+              className={`mt-2 space-y-1 text-[11px] ${hubLight ? 'text-[color:var(--hub-chrome-text-secondary)]' : 'text-white/65'}`}
+            >
               <li className="flex justify-between gap-4 tabular-nums">
-                <span className="text-white/50">Previsto</span>
-                <span className="text-white">{fmtEuroCompact(tip.previsto ?? 0)}</span>
+                <span className={hubLight ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-white/50'}>Previsto</span>
+                <span className={hubLight ? 'text-[color:var(--hub-chrome-text)]' : 'text-white'}>
+                  {fmtEuroCompact(tip.previsto ?? 0)}
+                </span>
               </li>
               <li className="flex justify-between gap-4 tabular-nums">
-                <span className="text-white/50">Pagato</span>
-                <span className="text-white">{fmtEuroCompact(tip.pagato ?? 0)}</span>
+                <span className={hubLight ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-white/50'}>Pagato</span>
+                <span className={hubLight ? 'text-[color:var(--hub-chrome-text)]' : 'text-white'}>
+                  {fmtEuroCompact(tip.pagato ?? 0)}
+                </span>
               </li>
               <li className="flex justify-between gap-4 tabular-nums">
-                <span className="text-white/50">Mancante</span>
-                <span className="text-white">{fmtEuroCompact(tip.mancante ?? 0)}</span>
+                <span className={hubLight ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-white/50'}>Mancante</span>
+                <span className={hubLight ? 'text-[color:var(--hub-chrome-text)]' : 'text-white'}>
+                  {fmtEuroCompact(tip.mancante ?? 0)}
+                </span>
               </li>
             </ul>
           </div>
         )}
       </div>
 
-      <div className="mt-1.5 flex flex-wrap justify-center gap-3 border-t border-white/[0.06] pt-1.5 text-[9px] text-white/38">
+      <div
+        className={`mt-1.5 flex flex-wrap justify-center gap-3 border-t pt-1.5 text-[9px] ${
+          hubLight
+            ? 'border-[color:var(--hub-chrome-border-soft)] text-[color:var(--hub-chrome-text-muted)]'
+            : 'border-white/[0.06] text-white/38'
+        }`}
+      >
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: COL_TRACK }} />{' '}
+          <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: COL_TRACK_UI }} />{' '}
           Previsto nel mese
         </span>
         <span className="flex items-center gap-1.5">
@@ -395,13 +456,19 @@ export default function HubContractsActiveCard({
   );
 }
 
-function SegmentBtn({ active, children, onClick }) {
+function SegmentBtn({ active, light, children, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
-        active ? 'bg-white/[0.12] text-white' : 'text-white/42 hover:text-white/70'
+        active
+          ? light
+            ? 'bg-[color:var(--hub-chrome-muted-fill)] text-[color:var(--hub-chrome-text)] shadow-sm'
+            : 'bg-white/[0.12] text-white'
+          : light
+            ? 'text-[color:var(--hub-chrome-text-muted)] hover:text-[color:var(--hub-chrome-text-secondary)]'
+            : 'text-white/42 hover:text-white/70'
       }`}
     >
       {children}
@@ -409,22 +476,38 @@ function SegmentBtn({ active, children, onClick }) {
   );
 }
 
-function KpiMoneyCol({ title, subline, value, highlight }) {
+function KpiMoneyCol({ title, subline, value, highlight, light }) {
+  const hi = highlight
+    ? light
+      ? {
+          wrap: 'text-emerald-800',
+          ttl: 'text-emerald-700/90',
+          sub: 'text-emerald-700/55'
+        }
+      : {
+          wrap: 'text-emerald-200/95',
+          ttl: 'text-emerald-200/75',
+          sub: 'text-emerald-200/45'
+        }
+    : light
+      ? {
+          wrap: 'text-[color:var(--hub-chrome-text)]',
+          ttl: 'text-[color:var(--hub-chrome-text-muted)]',
+          sub: 'text-[color:var(--hub-chrome-text-fainter)]'
+        }
+      : {
+          wrap: 'text-white',
+          ttl: 'text-white/45',
+          sub: 'text-white/32'
+        };
+
   return (
-    <div
-      className={`min-w-0 px-1.5 py-1.5 sm:px-2 ${highlight ? 'text-emerald-200/95' : 'text-white'}`}
-    >
+    <div className={`min-w-0 px-1.5 py-1.5 sm:px-2 ${hi.wrap}`}>
       <div className="flex items-baseline justify-between gap-1.5">
         <span className="text-xs font-bold tabular-nums leading-none sm:text-sm">{fmtEuroCompact(value)}</span>
-        <span
-          className={`shrink-0 text-[9px] font-semibold uppercase tracking-wide ${highlight ? 'text-emerald-200/75' : 'text-white/45'}`}
-        >
-          {title}
-        </span>
+        <span className={`shrink-0 text-[9px] font-semibold uppercase tracking-wide ${hi.ttl}`}>{title}</span>
       </div>
-      <div className={`mt-0.5 text-[8px] leading-tight ${highlight ? 'text-emerald-200/45' : 'text-white/32'}`}>
-        {subline}
-      </div>
+      <div className={`mt-0.5 text-[8px] leading-tight ${hi.sub}`}>{subline}</div>
     </div>
   );
 }

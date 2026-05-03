@@ -12,7 +12,8 @@ import {
 } from 'lucide-react';
 import { hexToRgba, hubEmbeddedRootInlineStyle, hubEmbeddedBackBtnInlineStyle, readableOnAccent } from '../../utils/techHubAccent';
 
-function alertLevelMeta(level) {
+/** Toni avviso allineati a `--hub-chrome-*` (leggibili sia Hub scuro sia «Chiaro»). */
+export function hubAlertLevelChrome(level) {
   switch (level) {
     case 'danger':
       return {
@@ -154,7 +155,7 @@ export default function ImportantAlertsHubEmbedded({
         ) : (
           <div role="list" className="space-y-4">
             {alerts.map((a) => {
-              const meta = alertLevelMeta(a.level);
+              const meta = hubAlertLevelChrome(a.level);
               const Icon = meta.Icon;
               const title = (a.title && String(a.title).trim()) || '(Senza titolo)';
               const body = (a.body && String(a.body)) || '';

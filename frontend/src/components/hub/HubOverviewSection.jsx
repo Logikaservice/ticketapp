@@ -97,6 +97,9 @@ const HUB_LIBRARY_GROUPS = [
     : [])
 ];
 
+/** Solo tema Chiaro ha ombra; in scuro `--hub-chrome-card-shadow` è `none`. */
+const hubOverviewCardLift = { boxShadow: 'var(--hub-chrome-card-shadow)' };
+
 function ModuleLaunchCard({
   icon: Icon,
   label,
@@ -115,7 +118,7 @@ function ModuleLaunchCard({
         onClick={onClick}
         aria-label={label}
         className={`flex h-full min-h-[4.5rem] w-full flex-col items-center justify-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-3 text-[color:var(--hub-chrome-text)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
-        style={{ backgroundColor: 'var(--hub-chrome-surface)' }}
+        style={{ backgroundColor: 'var(--hub-chrome-surface)', ...hubOverviewCardLift }}
       >
         <div className="inline-flex rounded-xl p-2.5" style={{ backgroundColor: hexToRgba(accent, 0.14) }}>
           <Icon size={26} style={{ color: accent }} aria-hidden />
@@ -129,7 +132,7 @@ function ModuleLaunchCard({
       type="button"
       onClick={onClick}
       className={`flex h-full min-h-[6rem] w-full items-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-left transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
-      style={{ backgroundColor: 'var(--hub-chrome-surface)' }}
+      style={{ backgroundColor: 'var(--hub-chrome-surface)', ...hubOverviewCardLift }}
     >
       <div className="flex w-full min-w-0 items-center gap-3">
         <div
@@ -215,7 +218,7 @@ function TicketHubStatCard({
     </div>
   );
 
-  const surfaceStyle = { backgroundColor: 'var(--hub-chrome-surface)' };
+  const surfaceStyle = { backgroundColor: 'var(--hub-chrome-surface)', ...hubOverviewCardLift };
   const veil = subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : '';
   const noPtr = suppressInteraction ? 'pointer-events-none' : '';
   const fullRow =
@@ -273,7 +276,7 @@ function HubNewTicketCard({
         style={{
           backgroundColor: hexToRgba(accentHex, 0.24),
           borderColor: hexToRgba(accentHex, 0.55),
-          boxShadow: `0 0 0 1px ${hexToRgba(accentHex, 0.12)} inset`
+          boxShadow: `0 0 0 1px ${hexToRgba(accentHex, 0.12)} inset, var(--hub-chrome-card-shadow)`
         }}
       >
         <div
@@ -295,7 +298,7 @@ function HubNewTicketCard({
       style={{
         backgroundColor: hexToRgba(accentHex, 0.24),
         borderColor: hexToRgba(accentHex, 0.55),
-        boxShadow: `0 0 0 1px ${hexToRgba(accentHex, 0.12)} inset`
+        boxShadow: `0 0 0 1px ${hexToRgba(accentHex, 0.12)} inset, var(--hub-chrome-card-shadow)`
       }}
       aria-label={aria}
     >
@@ -316,6 +319,8 @@ function HubNewTicketCard({
 /** Griglia panoramica con modifica layout (solo controlli esterni attivati dal parent per ruolo tecnico). */
 export default function HubOverviewSection({
   accentHex,
+  /** `light` → card ombreggiature e moduli KPI come dashboard chiara. */
+  hubSurfaceMode = 'dark',
   hubTicketCounts,
   hubLayout,
   setHubLayout,
@@ -591,6 +596,7 @@ export default function HubOverviewSection({
         return (
           <HubAgentEventsInteractiveCard
             accentHex={accentHex}
+            hubSurfaceMode={hubSurfaceMode}
             getAuthHeader={getAuthHeader}
             socket={socket}
             onOpenNetworkMonitoring={() => setHubCenterView?.('network-monitoring')}
@@ -661,6 +667,7 @@ export default function HubOverviewSection({
             <HubContractsActiveCard
               backgroundColor="var(--hub-chrome-surface)"
               accentHex={accentHex}
+              hubSurfaceMode={hubSurfaceMode}
               getAuthHeader={getAuthHeader}
               currentUser={currentUser}
               onOpenContractsList={() => setHubCenterView?.('contratti')}
@@ -674,7 +681,7 @@ export default function HubOverviewSection({
               className={`flex h-full min-h-[4.5rem] items-center justify-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-3 text-[color:var(--hub-chrome-text-secondary)] ${
                 veil ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''
               } ${suppressInteraction ? 'pointer-events-none' : ''}`}
-              style={{ backgroundColor: 'var(--hub-chrome-surface)' }}
+              style={{ backgroundColor: 'var(--hub-chrome-surface)', ...hubOverviewCardLift }}
               role="img"
               aria-label={txt(item, HUB_MODULE_META[id].label)}
             >
@@ -689,7 +696,7 @@ export default function HubOverviewSection({
             className={`flex h-full min-h-[6rem] items-center gap-3 rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 ${
               veil ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''
             } ${suppressInteraction ? 'pointer-events-none' : ''}`}
-            style={{ backgroundColor: 'var(--hub-chrome-surface)' }}
+            style={{ backgroundColor: 'var(--hub-chrome-surface)', ...hubOverviewCardLift }}
           >
             <div className="inline-flex shrink-0 self-center rounded-xl bg-[color:var(--hub-chrome-muted-fill)] p-2.5">
               <Layers size={22} className="shrink-0 text-[color:var(--hub-chrome-text-muted)]" aria-hidden />
@@ -782,7 +789,7 @@ export default function HubOverviewSection({
               )}
               {item.locked && hubLayoutEditMode && isTechnician && (
                 <div
-                  className="pointer-events-none absolute right-2 top-2 z-20 rounded-md border border-amber-500/35 bg-black/70 p-1 text-amber-200/95"
+                  className="pointer-events-none absolute right-2 top-2 z-20 rounded-md border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-badge-scrim)] p-1 text-[color:var(--hub-chrome-badge-warn-text)]"
                   title="Bloccata"
                 >
                   <Lock size={14} aria-hidden />

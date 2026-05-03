@@ -26,14 +26,10 @@ import {
   ChevronsLeft,
   ChevronsRight,
   ChevronLeft,
-  Info,
-  AlertTriangle,
-  AlertCircle,
-  Sparkles,
   LayoutTemplate
 } from 'lucide-react';
 import { fetchImportantAlertsForHub } from '../utils/importantAlertsFeed';
-import ImportantAlertsHubEmbedded from '../components/hub/ImportantAlertsHubEmbedded';
+import ImportantAlertsHubEmbedded, { hubAlertLevelChrome } from '../components/hub/ImportantAlertsHubEmbedded';
 import CommAgentDashboard from '../components/CommAgentDashboard';
 import CommAgentManager from '../components/CommAgentManager';
 import ContractsListModal from '../components/Modals/ContractsListModal';
@@ -213,46 +209,12 @@ function RightPanel({
   );
 }
 
-function alertLevelSidebarMeta(level) {
-  switch (level) {
-    case 'danger':
-      return {
-        Icon: AlertTriangle,
-        iconClassName: 'text-red-400',
-        titleClassName: 'text-red-400',
-        bodyClassName: 'text-red-300/90'
-      };
-    case 'info':
-      return {
-        Icon: Info,
-        iconClassName: 'text-sky-400',
-        titleClassName: 'text-sky-300',
-        bodyClassName: 'text-sky-200/85'
-      };
-    case 'features':
-      return {
-        Icon: Sparkles,
-        iconClassName: 'text-emerald-400',
-        titleClassName: 'text-emerald-300',
-        bodyClassName: 'text-emerald-200/85'
-      };
-    case 'warning':
-    default:
-      return {
-        Icon: AlertCircle,
-        iconClassName: 'text-amber-400',
-        titleClassName: 'text-amber-300',
-        bodyClassName: 'text-amber-200/85'
-      };
-  }
-}
-
 /** Righe lista avvisi (sola lettura). */
 function ImportantAlertsSidebarRows({ items }) {
   return (
     <div role="list" className="space-y-3">
       {items.map((a) => {
-        const meta = alertLevelSidebarMeta(a.level);
+        const meta = hubAlertLevelChrome(a.level);
         const Icon = meta.Icon;
         const title = (a.title && String(a.title).trim()) || '(Senza titolo)';
         const body = (a.body && String(a.body)) || '';
@@ -1389,6 +1351,7 @@ export default function TechnicianWorkbenchPage({
             ) : (
               <HubOverviewSection
                 accentHex={accentHex}
+                hubSurfaceMode={hubSurfaceMode}
                 hubTicketCounts={hubTicketCounts}
                 hubLayout={hubLayout}
                 setHubLayout={setHubLayout}

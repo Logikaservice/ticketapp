@@ -31,6 +31,7 @@ export function hubChromeCssVariables(surfaceMode = 'dark') {
       '--hub-chrome-surface': HUB_SURFACE,
       '--hub-chrome-sidebar': '#171717',
       '--hub-chrome-ring-offset': HUB_PAGE_BG,
+      '--hub-chrome-card-shadow': 'none',
       '--hub-chrome-muted-fill': 'rgba(255,255,255,0.06)',
       '--hub-chrome-row-fill': 'rgba(0,0,0,0.2)',
       '--hub-chrome-input-bg': HUB_SURFACE,
@@ -104,10 +105,11 @@ export function hubChromeCssVariables(surfaceMode = 'dark') {
     };
   }
   return {
-    '--hub-chrome-page': '#eef0f4',
+    /** Sfondo pagina leggermente più chiaro delle card (riferimento UI “dashboard chiara”). */
+    '--hub-chrome-page': '#f3f5f9',
     '--hub-chrome-surface': '#ffffff',
     '--hub-chrome-sidebar': '#ffffff',
-    '--hub-chrome-ring-offset': '#eef0f4',
+    '--hub-chrome-ring-offset': '#f3f5f9',
     '--hub-chrome-muted-fill': 'rgba(0,0,0,0.04)',
     '--hub-chrome-row-fill': 'rgba(0,0,0,0.04)',
     '--hub-chrome-input-bg': '#f4f6f9',
@@ -125,8 +127,10 @@ export function hubChromeCssVariables(surfaceMode = 'dark') {
     '--hub-chrome-well-mid': 'rgba(15,23,42,0.06)',
     '--hub-chrome-input-well': 'rgba(249,250,251,0.96)',
     '--hub-chrome-badge-scrim': 'rgba(255,255,255,0.75)',
-    '--hub-chrome-hidden-mask': 'rgba(255,255,255,0.55)',
-    '--hub-chrome-link': '#0369a1',
+    '--hub-chrome-hidden-mask': 'rgba(15,23,42,0.12)',
+    /** Link/evidenziazioni informative: stesso colore scelto in Impostazioni (`--hub-accent` sulla shell). */
+    '--hub-chrome-link': 'var(--hub-accent, #0284c7)',
+    '--hub-chrome-card-shadow': '0 1px 2px rgba(15,23,42,0.05), 0 8px 24px rgba(15,23,42,0.06)',
     '--hub-chrome-band-info-bg': 'rgba(14,165,233,0.10)',
     '--hub-chrome-band-info-text': '#0c4a6e',
     '--hub-chrome-band-info-mark': '#0284c7',
@@ -157,9 +161,10 @@ export function hubChromeCssVariables(surfaceMode = 'dark') {
     '--hub-chrome-tone-danger-icon': '#dc2626',
     '--hub-chrome-tone-danger-title': '#b91c1c',
     '--hub-chrome-tone-danger-body': 'rgba(127,29,29,0.9)',
-    '--hub-chrome-tone-info-icon': '#0284c7',
-    '--hub-chrome-tone-info-title': '#0369a1',
-    '--hub-chrome-tone-info-body': 'rgba(12,74,110,0.9)',
+    /** Titolo/icona info: stesso accento scelto in Impostazioni; corpo resta grigio‑blu leggibile. */
+    '--hub-chrome-tone-info-icon': 'var(--hub-accent, #0284c7)',
+    '--hub-chrome-tone-info-title': 'var(--hub-accent, #0369a1)',
+    '--hub-chrome-tone-info-body': 'rgba(51,65,85,0.92)',
     '--hub-chrome-tone-warn-icon': '#d97706',
     '--hub-chrome-tone-warn-title': '#b45309',
     '--hub-chrome-tone-warn-body': 'rgba(120,53,15,0.9)',
