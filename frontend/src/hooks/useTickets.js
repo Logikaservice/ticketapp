@@ -371,6 +371,11 @@ export const useTickets = (
   };
 
   const handleSelectTicket = async (ticket) => {
+    /** Chiusura chat (es. X in ChatInterface): `setSelectedTicket(null)` passa qui — non usare `ticket.id`. */
+    if (ticket == null) {
+      setSelectedTicket(null);
+      return;
+    }
     // Opzione A: non far scorrere la pagina quando si apre/chiude la chat
     const savedScrollY = typeof window !== 'undefined' ? (window.scrollY || window.pageYOffset || 0) : 0;
     if (ticket && (!selectedTicket || selectedTicket.id !== ticket.id)) {
