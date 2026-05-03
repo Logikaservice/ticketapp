@@ -25,10 +25,10 @@ import {
   hexToRgba,
   normalizeHex,
   getStoredTechHubAccent,
-  HUB_PAGE_BG,
-  HUB_SURFACE,
+  hubEmbeddedBackBtnInlineStyle,
   readableOnAccent
 } from '../utils/techHubAccent';
+import { useTechHubSurfaceMode } from '../hooks/useTechHubSurfaceMode';
 
 /** Riempimento arco ping (indipendente dalla soglia colore). */
 function getPingPct(ping) {
@@ -593,40 +593,44 @@ const styles = {
     fontWeight: 600,
     padding: '3px 10px',
     borderRadius: 6
-  }
+  },
+  cardTextPrimary: '#f1f5f9',
+  cardTextMuted: '#94a3b8',
+  cardTextDim: '#64748b',
+  gaugeDisabledFg: '#475569'
 };
 
 /** Stili Speed Test quando è integrato nell’Hub (no slate #0f172a / viola #7c3aed di default). */
 function buildHubSpeedStyles(accentHex) {
   const a = normalizeHex(accentHex) || getStoredTechHubAccent();
-  const border = 'rgba(255,255,255,0.10)';
+  const border = 'var(--hub-chrome-border-soft)';
   const borderHover = hexToRgba(a, 0.48);
-  const cardBg = 'rgba(0,0,0,0.22)';
-  const gaugeTrack = 'rgba(255,255,255,0.11)';
+  const cardBg = 'var(--hub-chrome-well-mid)';
+  const gaugeTrack = 'var(--hub-chrome-pagination-dot-off)';
   return {
     ...styles,
     page: {
       ...styles.page,
-      background: HUB_PAGE_BG,
-      color: 'rgba(255,255,255,0.88)'
+      background: 'var(--hub-chrome-page)',
+      color: 'var(--hub-chrome-text-secondary)'
     },
     header: {
       ...styles.header,
-      background: HUB_SURFACE,
+      background: 'var(--hub-chrome-surface)',
       borderBottom: `1px solid ${border}`
     },
     filterBar: {
       ...styles.filterBar,
       borderBottom: `1px solid ${border}`,
-      background: HUB_PAGE_BG
+      background: 'var(--hub-chrome-page)'
     },
     searchInput: {
       ...styles.searchInput,
-      background: 'rgba(0,0,0,0.28)',
-      border: `1px solid rgba(255,255,255,0.14)`,
-      color: 'rgba(255,255,255,0.9)'
+      background: 'var(--hub-chrome-input-well)',
+      border: `1px solid var(--hub-chrome-border)`,
+      color: 'var(--hub-chrome-text)'
     },
-    statsBar: { ...styles.statsBar, color: 'rgba(255,255,255,0.42)' },
+    statsBar: { ...styles.statsBar, color: 'var(--hub-chrome-text-muted)' },
     grid: styles.grid,
     cardOuter: (clickable, speedtestOn, isHovered) => ({
       ...styles.cardOuter(clickable, speedtestOn, isHovered),
@@ -639,12 +643,12 @@ function buildHubSpeedStyles(accentHex) {
       ...styles.gaugeRing(pct, colorVar),
       background: `conic-gradient(${colorVar} ${pct}%, ${gaugeTrack} 0)`
     }),
-    gaugeInner: { ...styles.gaugeInner, background: HUB_SURFACE },
+    gaugeInner: { ...styles.gaugeInner, background: 'var(--hub-chrome-surface)' },
     detailGaugeRing: (pct, colorVar) => ({
       ...styles.detailGaugeRing(pct, colorVar),
-      background: `conic-gradient(${colorVar} ${pct}%, ${HUB_SURFACE} 0)`
+      background: `conic-gradient(${colorVar} ${pct}%, var(--hub-chrome-surface) 0)`
     }),
-    detailGaugeInner: { ...styles.detailGaugeInner, background: HUB_PAGE_BG },
+    detailGaugeInner: { ...styles.detailGaugeInner, background: 'var(--hub-chrome-page)' },
     chartSection: {
       ...styles.chartSection,
       background: cardBg,
@@ -654,8 +658,8 @@ function buildHubSpeedStyles(accentHex) {
       if (!active) {
         return {
           ...styles.periodBtn(false),
-          background: 'rgba(0,0,0,0.32)',
-          color: 'rgba(255,255,255,0.45)',
+          background: 'var(--hub-chrome-well)',
+          color: 'var(--hub-chrome-text-muted)',
           border: `1px solid ${border}`
         };
       }
@@ -668,10 +672,14 @@ function buildHubSpeedStyles(accentHex) {
     },
     backBtnSquare: {
       ...styles.backBtnSquare,
-      background: 'rgba(255,255,255,0.08)',
-      border: `1px solid rgba(255,255,255,0.12)`,
-      color: 'rgba(255,255,255,0.9)'
+      background: 'var(--hub-chrome-muted-fill)',
+      border: `1px solid var(--hub-chrome-border)`,
+      color: 'var(--hub-chrome-text-secondary)'
     },
+    cardTextPrimary: 'var(--hub-chrome-text)',
+    cardTextMuted: 'var(--hub-chrome-text-muted)',
+    cardTextDim: 'var(--hub-chrome-text-faint)',
+    gaugeDisabledFg: 'var(--hub-chrome-text-fainter)',
     toggle: styles.toggle,
     toggleDot: styles.toggleDot,
     gaugeWrap: styles.gaugeWrap,
@@ -682,6 +690,10 @@ function buildHubSpeedStyles(accentHex) {
 
 // === COMPONENTE CARD ===
 const CompanyCard = React.memo(({ company, lastSeenNowMs, onOpenDetail, onToggle, palette = styles, ipLinkColor = '#7c3aed' }) => {
+    const cHi = palette.cardTextPrimary ?? '#f1f5f9';
+    const cMuted = palette.cardTextMuted ?? '#94a3b8';
+    const cDim = palette.cardTextDim ?? '#64748b';
+    const cOff = palette.gaugeDisabledFg ?? '#475569';
     const [hovered, setHovered] = useState(false);
     const enabled = company.speedtest_enabled !== false;
     const agentIdNum = resolveAgentIdFromRow(company);
@@ -703,9 +715,9 @@ const CompanyCard = React.memo(({ company, lastSeenNowMs, onOpenDetail, onToggle
         !Number.isNaN(Number(company.ping_ms)) &&
         !isStale
     );
-    const pqPing = enabled && hasData ? pingQuality(company.ping_ms) : { color: '#475569', pct: 0, label: 'PING' };
-    const dqDown = enabled && hasData ? downloadQuality(company.download_mbps) : { color: '#475569', pct: 0, label: 'DOWNLOAD' };
-    const uqUp = enabled && hasData ? uploadQuality(company.upload_mbps) : { color: '#475569', pct: 0, label: 'UPLOAD' };
+    const pqPing = enabled && hasData ? pingQuality(company.ping_ms) : { color: cOff, pct: 0, label: 'PING' };
+    const dqDown = enabled && hasData ? downloadQuality(company.download_mbps) : { color: cOff, pct: 0, label: 'DOWNLOAD' };
+    const uqUp = enabled && hasData ? uploadQuality(company.upload_mbps) : { color: cOff, pct: 0, label: 'UPLOAD' };
 
     const openDetail = () => {
       if (!canOpenDetail) return;
@@ -730,7 +742,7 @@ const CompanyCard = React.memo(({ company, lastSeenNowMs, onOpenDetail, onToggle
           {/* Intestazione (spazio a destra per toggle assoluto) */}
           <div style={{ paddingRight: 56, marginBottom: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#f1f5f9', minWidth: 0, lineHeight: 1.25 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: cHi, minWidth: 0, lineHeight: 1.25 }}>
                 {company.azienda_name || company.agent_name || 'N/A'}
               </div>
             </div>
@@ -743,7 +755,7 @@ const CompanyCard = React.memo(({ company, lastSeenNowMs, onOpenDetail, onToggle
                 justifyContent: 'space-between',
                 gap: '4px 10px',
                 fontSize: 11,
-                color: '#64748b',
+                color: cDim,
                 lineHeight: 1.35
               }}
             >
@@ -758,7 +770,7 @@ const CompanyCard = React.memo(({ company, lastSeenNowMs, onOpenDetail, onToggle
                 return (
                   <span
                     title={seen.detailTitle ?? 'Tempo trascorso dall’ultimo invio dati speedtest'}
-                    style={{ color: seen.isStale ? '#fbbf24' : '#94a3b8', fontWeight: seen.isStale ? 600 : 500, whiteSpace: 'nowrap' }}
+                    style={{ color: seen.isStale ? '#fbbf24' : cMuted, fontWeight: seen.isStale ? 600 : 500, whiteSpace: 'nowrap' }}
                   >
                     {seen.line}
                   </span>
@@ -768,7 +780,7 @@ const CompanyCard = React.memo(({ company, lastSeenNowMs, onOpenDetail, onToggle
           </div>
 
           {/* Info ISP */}
-          <div style={{ fontSize: 11, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+          <div style={{ fontSize: 11, color: cMuted, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
             {enabled && hasData ? (
               <>
                 <Globe size={14} />
@@ -803,10 +815,10 @@ const CompanyCard = React.memo(({ company, lastSeenNowMs, onOpenDetail, onToggle
               <div style={palette.gaugeWrap}>
                 <div style={palette.gaugeRing(enabled && hasData ? pqPing.pct : 0, pqPing.color)} />
                 <div style={palette.gaugeInner}>
-                  <span style={{ fontSize: 18, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: enabled ? cHi : cOff, lineHeight: 1.1 }}>
                     {enabled && hasData ? fmtPing(company.ping_ms) : '—'}
                   </span>
-                  <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'ms' : ''}</span>
+                  <span style={{ fontSize: 10, color: cMuted, fontWeight: 500 }}>{enabled && hasData ? 'ms' : ''}</span>
                 </div>
               </div>
               <div
@@ -828,7 +840,7 @@ const CompanyCard = React.memo(({ company, lastSeenNowMs, onOpenDetail, onToggle
                 <div style={palette.gaugeRing(enabled && hasData ? dqDown.pct : 0, dqDown.color)} />
                 <div style={palette.gaugeInner}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '2px 4px' }}>
-                    <span style={{ fontSize: 18, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: enabled ? cHi : cOff, lineHeight: 1.1 }}>
                       {enabled && hasData ? fmtMbps(company.download_mbps) : '—'}
                     </span>
                     {enabled && hasData && company.download_vs_hist_pct != null && (
@@ -840,7 +852,7 @@ const CompanyCard = React.memo(({ company, lastSeenNowMs, onOpenDetail, onToggle
                       </span>
                     )}
                   </div>
-                  <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'Mbps' : ''}</span>
+                  <span style={{ fontSize: 10, color: cMuted, fontWeight: 500 }}>{enabled && hasData ? 'Mbps' : ''}</span>
                 </div>
               </div>
               <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.2, lineHeight: 1.25, color: dqDown.color, marginTop: 2, padding: '0 2px' }}>{dqDown.label}</div>
@@ -850,7 +862,7 @@ const CompanyCard = React.memo(({ company, lastSeenNowMs, onOpenDetail, onToggle
                 <div style={palette.gaugeRing(enabled && hasData ? uqUp.pct : 0, uqUp.color)} />
                 <div style={palette.gaugeInner}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '2px 4px' }}>
-                    <span style={{ fontSize: 18, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: enabled ? cHi : cOff, lineHeight: 1.1 }}>
                       {enabled && hasData ? fmtMbps(company.upload_mbps) : '—'}
                     </span>
                     {enabled && hasData && company.upload_vs_hist_pct != null && (
@@ -862,7 +874,7 @@ const CompanyCard = React.memo(({ company, lastSeenNowMs, onOpenDetail, onToggle
                       </span>
                     )}
                   </div>
-                  <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'Mbps' : ''}</span>
+                  <span style={{ fontSize: 10, color: cMuted, fontWeight: 500 }}>{enabled && hasData ? 'Mbps' : ''}</span>
                 </div>
               </div>
               <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.2, lineHeight: 1.25, color: uqUp.color, marginTop: 2, padding: '0 2px' }}>{uqUp.label}</div>
@@ -951,46 +963,68 @@ const SpeedTestPage = ({
   const [heartbeatTick, setHeartbeatTick] = useState(0);
   const pageScrollRef = useRef(null);
   const accent = useMemo(() => normalizeHex(accentHexProp) || getStoredTechHubAccent(), [accentHexProp]);
+  const hubSurface = useTechHubSurfaceMode();
   const palette = useMemo(() => (embedded ? buildHubSpeedStyles(accent) : styles), [embedded, accent]);
   const chartDownloadColor = embedded ? accent : '#7c3aed';
   const chartUploadColor = embedded ? '#eab308' : '#06b6d4';
   const ui = useMemo(
     () =>
       embedded
-        ? {
-            dayFieldBg: HUB_PAGE_BG,
-            dayFieldBorder: 'rgba(255,255,255,0.14)',
-            btnSecondary: 'rgba(0,0,0,0.38)',
-            btnSecondaryText: 'rgba(255,255,255,0.88)',
-            calOpenBg: accent,
-            calOpenText: readableOnAccent(accent),
-            popoverBg: HUB_SURFACE,
-            popoverBorder: 'rgba(255,255,255,0.12)',
-            calCellEmpty: HUB_PAGE_BG,
-            calCell: 'rgba(0,0,0,0.32)',
-            calCellSelBg: hexToRgba(accent, 0.22),
-            calCellSelBorder: accent,
-            theadBg: HUB_PAGE_BG,
-            tableBorder: 'rgba(255,255,255,0.10)',
-            gridStroke: 'rgba(255,255,255,0.08)',
-            axisLabel: 'rgba(255,255,255,0.40)',
-            stalePopBg: HUB_SURFACE,
-            stalePopBorder: 'rgba(255,255,255,0.12)',
-            staleRowBorder: 'rgba(255,255,255,0.10)',
-            tableCellDown: accent,
-            tableCellUp: chartUploadColor,
-            tableIp: hexToRgba(accent, 0.88),
-            chartTooltipBg: hexToRgba(HUB_SURFACE, 0.97),
-            chartTooltipBorder: 'rgba(255,255,255,0.14)',
-            chartTooltipText: 'rgba(255,255,255,0.92)',
-            chartAxisTitle: 'rgba(255,255,255,0.45)',
-            chartHoverLine: 'rgba(255,255,255,0.22)',
-            calBtnClosedBg: 'rgba(0,0,0,0.32)',
-            resetPeriodBorder: 'rgba(255,255,255,0.18)',
-            resetPeriodText: 'rgba(255,255,255,0.55)',
-            resultLinkColor: accent,
-            backBtnHoverBg: 'rgba(255,255,255,0.12)'
-          }
+        ? (() => {
+            const light = hubSurface === 'light';
+            const chart = light
+              ? {
+                  gridStroke: 'rgba(15,23,42,0.08)',
+                  axisLabel: 'rgba(75,85,99,0.78)',
+                  chartTooltipBg: 'rgba(255,255,255,0.98)',
+                  chartTooltipBorder: 'rgba(15,23,42,0.12)',
+                  chartTooltipText: 'rgba(17,24,39,0.90)',
+                  chartAxisTitle: 'rgba(75,85,99,0.88)',
+                  chartHoverLine: 'rgba(15,23,42,0.16)',
+                  staleRowBorder: 'rgba(15,23,42,0.10)',
+                  tableHeaderColor: 'rgba(71,85,105,0.95)',
+                  calCellFg: 'rgba(17,24,39,0.92)'
+                }
+              : {
+                  gridStroke: 'rgba(255,255,255,0.08)',
+                  axisLabel: 'rgba(255,255,255,0.40)',
+                  chartTooltipBg: 'rgba(30,30,30,0.94)',
+                  chartTooltipBorder: 'rgba(255,255,255,0.14)',
+                  chartTooltipText: 'rgba(255,255,255,0.92)',
+                  chartAxisTitle: 'rgba(255,255,255,0.45)',
+                  chartHoverLine: 'rgba(255,255,255,0.22)',
+                  staleRowBorder: 'rgba(255,255,255,0.10)',
+                  tableHeaderColor: '#94a3b8',
+                  calCellFg: '#f1f5f9'
+                };
+            return {
+              dayFieldBg: 'var(--hub-chrome-page)',
+              dayFieldBorder: 'var(--hub-chrome-border)',
+              btnSecondary: 'var(--hub-chrome-well)',
+              btnSecondaryText: 'var(--hub-chrome-text-secondary)',
+              calOpenBg: accent,
+              calOpenText: readableOnAccent(accent),
+              popoverBg: 'var(--hub-chrome-surface)',
+              popoverBorder: 'var(--hub-chrome-border-soft)',
+              calCellEmpty: 'var(--hub-chrome-page)',
+              calCell: 'var(--hub-chrome-well)',
+              calCellSelBg: hexToRgba(accent, 0.22),
+              calCellSelBorder: accent,
+              theadBg: 'var(--hub-chrome-page)',
+              tableBorder: 'var(--hub-chrome-border-soft)',
+              ...chart,
+              stalePopBg: 'var(--hub-chrome-surface)',
+              stalePopBorder: 'var(--hub-chrome-border-soft)',
+              tableCellDown: accent,
+              tableCellUp: chartUploadColor,
+              tableIp: hexToRgba(accent, 0.88),
+              calBtnClosedBg: 'var(--hub-chrome-well)',
+              resetPeriodBorder: 'var(--hub-chrome-border)',
+              resetPeriodText: 'var(--hub-chrome-text-muted)',
+              resultLinkColor: accent,
+              backBtnHoverBg: 'var(--hub-chrome-hover)'
+            };
+          })()
         : {
             dayFieldBg: '#0f172a',
             dayFieldBorder: '#475569',
@@ -1023,33 +1057,33 @@ const SpeedTestPage = ({
             resetPeriodBorder: '#64748b',
             resetPeriodText: '#94a3b8',
             resultLinkColor: '#a78bfa',
-            backBtnHoverBg: '#475569'
+            backBtnHoverBg: '#475569',
+            tableHeaderColor: '#94a3b8',
+            calCellFg: '#f1f5f9'
           },
-    [embedded, accent, chartUploadColor]
+    [embedded, accent, chartUploadColor, hubSurface]
   );
+
+  const ect = embedded
+    ? {
+        hi: 'var(--hub-chrome-text)',
+        mid: 'var(--hub-chrome-text-secondary)',
+        lo: 'var(--hub-chrome-text-muted)',
+        faint: 'var(--hub-chrome-text-faint)'
+      }
+    : {
+        hi: '#f1f5f9',
+        mid: '#e2e8f0',
+        lo: '#94a3b8',
+        faint: '#64748b'
+      };
 
   const onEmbeddedHubBack = useCallback(() => {
     if (typeof closeEmbedded === 'function') closeEmbedded();
     else onNavigateHome?.();
   }, [closeEmbedded, onNavigateHome]);
 
-  const embeddedBackBtnStyle = useMemo(
-    () => ({
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 8,
-      padding: '8px 12px',
-      borderRadius: 12,
-      border: '1px solid rgba(255,255,255,0.12)',
-      background: 'rgba(0,0,0,0.28)',
-      color: 'rgba(255,255,255,0.82)',
-      cursor: 'pointer',
-      fontSize: 13,
-      fontWeight: 600,
-      flexShrink: 0
-    }),
-    []
-  );
+  const embeddedBackBtnStyle = useMemo(() => hubEmbeddedBackBtnInlineStyle(), []);
 
   const embeddedOuterStyle = useMemo(
     () =>
@@ -1065,7 +1099,7 @@ const SpeedTestPage = ({
             maxHeight: '100%',
             zIndex: 1,
             borderRadius: 16,
-            border: '1px solid rgba(255,255,255,0.08)',
+            border: '1px solid var(--hub-chrome-border-soft)',
             ['--hub-accent']: accent,
             ['--hub-accent-border']: hexToRgba(accent, 0.48)
           }
@@ -1654,10 +1688,10 @@ const SpeedTestPage = ({
               <Gauge size={20} color="white" />
             </div>
             <div>
-              <h1 style={{ fontSize: 20, fontWeight: 700, color: '#f1f5f9', margin: 0 }}>Speed Test Dashboard</h1>
-              <p style={{ fontSize: 12, color: '#94a3b8', margin: '2px 0 0' }}>Monitoraggio velocità connessione · Solo tecnici</p>
-              <p style={{ fontSize: 11, color: '#64748b', margin: '2px 0 0' }}>
-                Build: <span style={{ fontFamily: 'monospace', color: '#94a3b8' }}>{SPEEDTEST_BUILD_MARK}</span>
+              <h1 style={{ fontSize: 20, fontWeight: 700, color: ect.hi, margin: 0 }}>Speed Test Dashboard</h1>
+              <p style={{ fontSize: 12, color: ect.lo, margin: '2px 0 0' }}>Monitoraggio velocità connessione · Solo tecnici</p>
+              <p style={{ fontSize: 11, color: ect.faint, margin: '2px 0 0' }}>
+                Build: <span style={{ fontFamily: 'monospace', color: ect.lo }}>{SPEEDTEST_BUILD_MARK}</span>
               </p>
             </div>
           </div>
@@ -1684,13 +1718,13 @@ const SpeedTestPage = ({
                   <ArrowLeft size={22} strokeWidth={2.25} />
                 </button>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <h2 style={{ fontSize: 28, fontWeight: 800, color: '#f1f5f9', margin: 0, lineHeight: 1.15 }}>
+                  <h2 style={{ fontSize: 28, fontWeight: 800, color: ect.hi, margin: 0, lineHeight: 1.15 }}>
                     {companyInfo?.azienda_name || selectedCompany.aziendaName}
                   </h2>
-                  <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>
+                  <div style={{ fontSize: 13, color: ect.lo, marginTop: 4 }}>
                     {historyDayFilter ? (
                       <>
-                        Giorno <strong style={{ color: '#e2e8f0' }}>{ymdToItDisplay(historyDayFilter)}</strong>
+                        Giorno <strong style={{ color: ect.mid }}>{ymdToItDisplay(historyDayFilter)}</strong>
                         {' · '}
                         ultima misura: {lastResult ? formatDate(lastResult.test_date) : '—'}
                       </>
@@ -1705,7 +1739,7 @@ const SpeedTestPage = ({
                 );
                 return (
                   <div
-                    style={{ fontSize: 12, color: seen.isStale ? '#fbbf24' : '#64748b', marginTop: 6, fontWeight: seen.isStale ? 600 : 500 }}
+                    style={{ fontSize: 12, color: seen.isStale ? '#fbbf24' : ect.faint, marginTop: 6, fontWeight: seen.isStale ? 600 : 500 }}
                     title={seen.detailTitle ?? 'Ultimo heartbeat verso il server'}
                   >
                     {seen.line}
@@ -1718,7 +1752,7 @@ const SpeedTestPage = ({
                 </div>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#94a3b8' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: ect.lo }}>
               <span>Speed Test</span>
               <button
                 type="button"
@@ -1731,7 +1765,7 @@ const SpeedTestPage = ({
           </div>
 
           {historyLoading ? (
-            <div style={{ textAlign: 'center', padding: 60, color: '#94a3b8' }}>
+            <div style={{ textAlign: 'center', padding: 60, color: ect.lo }}>
               <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite' }} />
               <p style={{ marginTop: 12 }}>Caricamento dati...</p>
             </div>
@@ -2085,7 +2119,7 @@ const SpeedTestPage = ({
                                     borderRadius: 8,
                                     border: isSel ? `2px solid ${ui.calCellSelBorder}` : '1px solid transparent',
                                     background: !hasData ? ui.calCellEmpty : isSel ? ui.calCellSelBg : ui.calCell,
-                                    color: !hasData ? ui.axisLabel : '#f1f5f9',
+                                    color: !hasData ? ui.axisLabel : ui.calCellFg,
                                     fontSize: 13,
                                     fontWeight: hasData ? 600 : 400,
                                     cursor: hasData ? 'pointer' : 'not-allowed',
@@ -2163,7 +2197,7 @@ const SpeedTestPage = ({
                     <div style={{ overflowX: 'auto', borderRadius: 10, border: `1px solid ${ui.tableBorder}` }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                         <thead>
-                          <tr style={{ background: ui.theadBg, color: '#94a3b8', textAlign: 'left' }}>
+                          <tr style={{ background: ui.theadBg, color: ui.tableHeaderColor, textAlign: 'left' }}>
                             <th style={{ padding: '10px 12px', fontWeight: 600 }}>Data / ora</th>
                             <th style={{ padding: '10px 12px', fontWeight: 600 }}>Ping</th>
                             <th style={{ padding: '10px 12px', fontWeight: 600 }}>↓ Mbps</th>
@@ -2216,10 +2250,10 @@ const SpeedTestPage = ({
             <Gauge size={20} color="white" />
           </div>
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 700, color: '#f1f5f9', margin: 0 }}>Speed Test Dashboard</h1>
-            <p style={{ fontSize: 12, color: '#94a3b8', margin: '2px 0 0' }}>Monitoraggio velocità connessione · Solo tecnici</p>
-            <p style={{ fontSize: 11, color: '#64748b', margin: '2px 0 0' }}>
-              Build: <span style={{ fontFamily: 'monospace', color: '#94a3b8' }}>{SPEEDTEST_BUILD_MARK}</span>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: ect.hi, margin: 0 }}>Speed Test Dashboard</h1>
+            <p style={{ fontSize: 12, color: ect.lo, margin: '2px 0 0' }}>Monitoraggio velocità connessione · Solo tecnici</p>
+            <p style={{ fontSize: 11, color: ect.faint, margin: '2px 0 0' }}>
+              Build: <span style={{ fontFamily: 'monospace', color: ect.lo }}>{SPEEDTEST_BUILD_MARK}</span>
             </p>
           </div>
         </div>
@@ -2230,7 +2264,7 @@ const SpeedTestPage = ({
           style={{
             background: 'none',
             border: 'none',
-            color: '#94a3b8',
+            color: ect.lo,
             cursor: overviewRefreshing ? 'wait' : 'pointer',
             padding: 8,
             borderRadius: 8,

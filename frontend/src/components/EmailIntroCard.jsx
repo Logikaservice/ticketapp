@@ -3,7 +3,6 @@
 
 import React from 'react';
 import { User, CalendarCheck, Link, MessageCircle, Building } from 'lucide-react';
-import { HUB_SURFACE } from '../utils/techHubAccent';
 
 const features = [
   {
@@ -41,10 +40,16 @@ const features = [
 ];
 
 const hubFeatureIcon = (feat) => {
-  if (feat.title === 'Anagrafica Account') return { wrap: 'bg-sky-500/15', icon: 'text-sky-300' };
-  if (feat.title === 'Controllo Scadenze') return { wrap: 'bg-amber-500/15', icon: 'text-amber-300' };
-  if (feat.title === 'Accesso Diretto') return { wrap: 'bg-emerald-500/15', icon: 'text-emerald-300' };
-  return { wrap: 'bg-violet-500/15', icon: 'text-violet-300' };
+  if (feat.title === 'Anagrafica Account') {
+    return { wrap: 'bg-[color:var(--hub-chrome-palette-sky-bg)]', icon: 'text-[color:var(--hub-chrome-palette-sky-fg)]' };
+  }
+  if (feat.title === 'Controllo Scadenze') {
+    return { wrap: 'bg-[color:var(--hub-chrome-palette-amber-bg)]', icon: 'text-[color:var(--hub-chrome-palette-amber-fg)]' };
+  }
+  if (feat.title === 'Accesso Diretto') {
+    return { wrap: 'bg-[color:var(--hub-chrome-palette-emerald-bg)]', icon: 'text-[color:var(--hub-chrome-palette-emerald-fg)]' };
+  }
+  return { wrap: 'bg-[color:var(--hub-chrome-palette-violet-bg)]', icon: 'text-[color:var(--hub-chrome-palette-violet-fg)]' };
 };
 
 const EmailIntroCard = ({ companies = [], value = '', onChange = null, embedded = false }) => {
@@ -56,16 +61,16 @@ const EmailIntroCard = ({ companies = [], value = '', onChange = null, embedded 
     <div
       className={
         embedded
-          ? 'mb-0 rounded-2xl border border-white/[0.08] p-6 transition-shadow duration-300 md:p-8'
+          ? 'mb-0 rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-6 transition-shadow duration-300 md:p-8'
           : 'mb-8 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-shadow duration-300 md:p-8'
       }
-      style={embedded ? { backgroundColor: HUB_SURFACE } : undefined}
+      style={embedded ? { backgroundColor: 'var(--hub-chrome-surface)' } : undefined}
     >
       {/* Blocco 1: CTA (+ selettore solo fuori dall’Hub: in Hub c’è quello in header) */}
       <div
-        className={`flex flex-col items-center text-center ${embedded ? 'mb-8 border-b border-white/[0.08] pb-8' : 'mb-8 border-b border-gray-200 pb-8'}`}
+        className={`flex flex-col items-center text-center ${embedded ? 'mb-8 border-b border-[color:var(--hub-chrome-border-soft)] pb-8' : 'mb-8 border-b border-gray-200 pb-8'}`}
       >
-        <p className={`mb-3 max-w-lg ${embedded ? 'text-sm text-white/55' : 'text-gray-600'}`}>
+        <p className={`mb-3 max-w-lg ${embedded ? 'text-sm text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}>
           {embedded
             ? "Seleziona un'azienda dal menu in alto per vedere le caselle di posta e i servizi attivi."
             : 'Seleziona la tua azienda nel menu per vedere le caselle di posta e i servizi attivi.'}
@@ -94,19 +99,19 @@ const EmailIntroCard = ({ companies = [], value = '', onChange = null, embedded 
       <span
         className={
           embedded
-            ? 'mb-4 inline-block rounded-full border border-[color:var(--hub-accent-border)] bg-white/[0.06] px-3 py-1 text-xs font-semibold text-[color:var(--hub-accent)]'
+            ? 'mb-4 inline-block rounded-full border border-[color:var(--hub-accent-border)] bg-[color:var(--hub-chrome-muted-fill)] px-3 py-1 text-xs font-semibold text-[color:var(--hub-accent)]'
             : 'mb-4 inline-block rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800'
         }
       >
         PROGETTO ESCLUSIVO & PERSONALIZZATO
       </span>
 
-      <h2 className={`mb-3 text-2xl font-bold md:text-3xl ${embedded ? 'text-white' : 'text-gray-900'}`}>
+      <h2 className={`mb-3 text-2xl font-bold md:text-3xl ${embedded ? 'text-[color:var(--hub-chrome-text)]' : 'text-gray-900'}`}>
         I tuoi accessi Email,{' '}
         <span className={embedded ? 'italic text-[color:var(--hub-accent)]' : 'italic text-blue-600'}>organizzati e sicuri.</span>
       </h2>
 
-      <p className={`mb-8 max-w-3xl text-base leading-relaxed ${embedded ? 'text-white/55' : 'text-gray-600'}`}>
+      <p className={`mb-8 max-w-3xl text-base leading-relaxed ${embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}>
         Questa sezione ti offre un riepilogo immediato delle tue caselle di posta e dei servizi attivi. Abbiamo semplificato la gestione tecnica per permetterti di trovare ciò che ti serve in pochi secondi, garantendo la continuità del tuo lavoro.
       </p>
 
@@ -120,7 +125,7 @@ const EmailIntroCard = ({ companies = [], value = '', onChange = null, embedded 
               key={feat.title}
               className={
                 embedded
-                  ? 'flex cursor-default items-start gap-4 rounded-xl border border-white/[0.08] bg-black/25 p-4 transition-all duration-200 hover:border-[color:var(--hub-accent-border)] hover:bg-white/[0.04]'
+                  ? 'flex cursor-default items-start gap-4 rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-well-mid)] p-4 transition-all duration-200 hover:border-[color:var(--hub-accent-border)] hover:bg-[color:var(--hub-chrome-hover)]'
                   : `flex cursor-default items-start gap-4 rounded-xl border border-gray-100 bg-white p-4 transition-all duration-200 ${feat.cardHover}`
               }
             >
@@ -130,8 +135,8 @@ const EmailIntroCard = ({ companies = [], value = '', onChange = null, embedded 
                 <Icon size={24} className={embedded ? hi.icon : feat.iconColor} strokeWidth={2} />
               </div>
               <div className="min-w-0">
-                <h3 className={`mb-1 font-bold ${embedded ? 'text-white/92' : 'text-gray-900'}`}>{feat.title}</h3>
-                <p className={`text-sm leading-snug ${embedded ? 'text-white/50' : 'text-gray-600'}`}>{feat.description}</p>
+                <h3 className={`mb-1 font-bold ${embedded ? 'text-[color:var(--hub-chrome-text)]' : 'text-gray-900'}`}>{feat.title}</h3>
+                <p className={`text-sm leading-snug ${embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}>{feat.description}</p>
               </div>
             </div>
           );
@@ -139,10 +144,10 @@ const EmailIntroCard = ({ companies = [], value = '', onChange = null, embedded 
       </div>
 
       {/* Sezione "Perché è utile" */}
-      <div className={`mt-8 border-t pt-6 ${embedded ? 'border-white/[0.08]' : 'border-gray-200'}`}>
-        <h3 className={`mb-2 font-semibold ${embedded ? 'text-white/88' : 'text-gray-900'}`}>Perché è utile per te?</h3>
-        <p className={`text-sm leading-relaxed italic ${embedded ? 'text-white/45' : 'text-gray-600'}`}>
-          Non dovrai più cercare tra vecchie fatture o documenti cartacei: qui hai l&apos;elenco aggiornato delle tue risorse digitali, con la possibilità di richiedere intervento tecnico con un solo clic grazie al tasto <strong className={embedded ? 'text-white/70' : ''}>Apri ticket</strong>.
+      <div className={`mt-8 border-t pt-6 ${embedded ? 'border-[color:var(--hub-chrome-border-soft)]' : 'border-gray-200'}`}>
+        <h3 className={`mb-2 font-semibold ${embedded ? 'text-[color:var(--hub-chrome-text-secondary)]' : 'text-gray-900'}`}>Perché è utile per te?</h3>
+        <p className={`text-sm leading-relaxed italic ${embedded ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-gray-600'}`}>
+          Non dovrai più cercare tra vecchie fatture o documenti cartacei: qui hai l&apos;elenco aggiornato delle tue risorse digitali, con la possibilità di richiedere intervento tecnico con un solo clic grazie al tasto <strong className={embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : ''}>Apri ticket</strong>.
         </p>
       </div>
     </div>

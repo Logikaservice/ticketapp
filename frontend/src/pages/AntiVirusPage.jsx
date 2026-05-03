@@ -18,12 +18,12 @@ import { buildApiUrl } from '../utils/apiConfig';
 import AntiVirusIntroCard from '../components/AntiVirusIntroCard';
 import SectionNavMenu from '../components/SectionNavMenu';
 import {
-  HUB_PAGE_BG,
-  HUB_SURFACE,
   hexToRgba,
   normalizeHex,
   readableOnAccent,
-  getStoredTechHubAccent
+  getStoredTechHubAccent,
+  hubEmbeddedRootInlineStyle,
+  hubEmbeddedBackBtnInlineStyle
 } from '../utils/techHubAccent';
 
 const AntiVirusPage = ({
@@ -57,32 +57,9 @@ const AntiVirusPage = ({
       if (typeof closeEmbedded === 'function') closeEmbedded();
       else if (typeof onClose === 'function') onClose();
     };
-    const embeddedBackBtnStyle = useMemo(
-      () => ({
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '8px 12px',
-        borderRadius: 12,
-        border: '1px solid rgba(255,255,255,0.12)',
-        background: 'rgba(0,0,0,0.28)',
-        color: 'rgba(255,255,255,0.82)',
-        cursor: 'pointer',
-        fontSize: 13,
-        fontWeight: 600,
-        flexShrink: 0
-      }),
-      []
-    );
+    const embeddedBackBtnStyle = useMemo(() => hubEmbeddedBackBtnInlineStyle(), []);
     const rootEmbeddedStyle = useMemo(
-      () =>
-        embedded
-          ? {
-              backgroundColor: HUB_PAGE_BG,
-              ['--hub-accent']: accent,
-              ['--hub-accent-border']: hexToRgba(accent, 0.48)
-            }
-          : undefined,
+      () => (embedded ? hubEmbeddedRootInlineStyle(accent) : undefined),
       [embedded, accent]
     );
     const companySelectCls = embedded
@@ -91,9 +68,9 @@ const AntiVirusPage = ({
 
     /** Su sfondo Hub: color-scheme + bg opachi; altrimenti Chrome/OS rendono gli input quasi bianchi. */
     const embedHubFieldCls =
-      'anti-virus-hub-field appearance-none rounded border border-white/[0.14] !bg-[#171717] px-2 py-1 text-sm !text-zinc-100 shadow-none outline-none ring-0 [color-scheme:dark] placeholder:!text-zinc-500 focus-visible:border-transparent focus-visible:ring-1 focus-visible:!ring-[color:var(--hub-accent)]';
+      'appearance-none rounded border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-input-well)] px-2 py-1 text-sm text-[color:var(--hub-chrome-text)] shadow-none outline-none ring-0 placeholder:text-[color:var(--hub-chrome-placeholder)] focus-visible:border-transparent focus-visible:ring-1 focus-visible:ring-[color:var(--hub-accent)]';
     const embedHubSearchCls =
-      'anti-virus-hub-field appearance-none w-full rounded-lg border border-white/[0.14] !bg-[#171717] py-2 pl-10 pr-4 text-sm !text-zinc-100 outline-none shadow-none ring-0 [color-scheme:dark] placeholder:!text-zinc-500 focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)]';
+      'appearance-none w-full rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-input-well)] py-2 pl-10 pr-4 text-sm text-[color:var(--hub-chrome-text)] outline-none shadow-none ring-0 placeholder:text-[color:var(--hub-chrome-placeholder)] focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)]';
 
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId || '');
@@ -528,7 +505,7 @@ const AntiVirusPage = ({
     };
 
     const rootClassName = embedded
-        ? 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.08] font-sans'
+        ? 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[color:var(--hub-chrome-border-soft)] font-sans'
         : 'fixed inset-0 z-50 flex flex-col bg-gray-100 font-sans';
 
     return (
@@ -537,10 +514,10 @@ const AntiVirusPage = ({
             <div
                 className={
                     embedded
-                        ? 'flex shrink-0 items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3'
+                        ? 'flex shrink-0 items-center justify-between gap-3 border-b border-[color:var(--hub-chrome-border-soft)] px-4 py-3'
                         : 'flex items-center justify-between border-b bg-white px-6 py-4 shadow-sm'
                 }
-                style={embedded ? { backgroundColor: HUB_SURFACE } : undefined}
+                style={embedded ? { backgroundColor: 'var(--hub-chrome-surface)' } : undefined}
             >
                 <div className="flex min-w-0 items-center gap-3">
                     {embedded ? (
@@ -572,11 +549,11 @@ const AntiVirusPage = ({
                         <Shield size={24} style={embedded ? { color: accent } : undefined} />
                     </div>
                     <div className="min-w-0">
-                        <h1 className={`font-bold ${embedded ? 'truncate text-lg text-white' : 'text-xl text-gray-800'}`}>
+                        <h1 className={`font-bold ${embedded ? 'truncate text-lg text-[color:var(--hub-chrome-text)]' : 'text-xl text-gray-800'}`}>
                             Gestione Anti-Virus
                         </h1>
                         {readOnly && (
-                            <p className={`mt-0.5 text-sm ${embedded ? 'text-white/50' : 'text-gray-500'}`}>Sola consultazione</p>
+                            <p className={`mt-0.5 text-sm ${embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-500'}`}>Sola consultazione</p>
                         )}
                     </div>
                 </div>
@@ -606,7 +583,7 @@ const AntiVirusPage = ({
                 {!selectedCompanyId ? (
                     <div
                         className={`flex-1 overflow-auto ${embedded ? 'bg-[transparent] px-4 py-4 md:px-5' : 'p-6'}`}
-                        style={embedded ? { backgroundColor: HUB_PAGE_BG } : undefined}
+                        style={embedded ? { backgroundColor: 'var(--hub-chrome-page)' } : undefined}
                     >
                         <div className="mx-auto w-full max-w-4xl">
                             <AntiVirusIntroCard
@@ -630,11 +607,11 @@ const AntiVirusPage = ({
                                 <div
                                     style={{
                                         width: sidebarWidth,
-                                        ...(embedded ? { backgroundColor: HUB_SURFACE } : {})
+                                        ...(embedded ? { backgroundColor: 'var(--hub-chrome-surface)' } : {})
                                     }}
-                                    className={`relative flex shrink-0 flex-col border-r ${embedded ? 'border-white/[0.08]' : 'bg-white'}`}
+                                    className={`relative flex shrink-0 flex-col border-r ${embedded ? 'border-[color:var(--hub-chrome-border-soft)]' : 'bg-white'}`}
                                 >
-                                    <div className={`space-y-3 border-b p-4 ${embedded ? 'border-white/[0.08]' : ''}`}>
+                                    <div className={`space-y-3 border-b p-4 ${embedded ? 'border-[color:var(--hub-chrome-border-soft)]' : ''}`}>
                                         <button
                                             type="button"
                                             onClick={handleAddManualDevice}
@@ -650,7 +627,7 @@ const AntiVirusPage = ({
                                         </button>
                                         <div className="relative">
                                             <Search
-                                                className={`absolute left-3 top-1/2 -translate-y-1/2 ${embedded ? 'text-white/35' : 'text-gray-400'}`}
+                                                className={`absolute left-3 top-1/2 -translate-y-1/2 ${embedded ? 'text-[color:var(--hub-chrome-text-fainter)]' : 'text-gray-400'}`}
                                                 size={18}
                                             />
                                             <input
@@ -669,18 +646,18 @@ const AntiVirusPage = ({
                                     </div>
                                     <div className="flex-1 overflow-y-auto">
                                         {!selectedCompanyId ? (
-                                            <div className={`p-8 text-center ${embedded ? 'text-white/50' : 'text-gray-500'}`}>
+                                            <div className={`p-8 text-center ${embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-500'}`}>
                                                 Seleziona un cliente per visualizzare i dispositivi
                                             </div>
                                         ) : loading ? (
-                                            <div className={`flex flex-col items-center p-8 text-center ${embedded ? 'text-white/50' : 'text-gray-500'}`}>
+                                            <div className={`flex flex-col items-center p-8 text-center ${embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-500'}`}>
                                                 <span className="mb-2 animate-spin text-2xl">⌛</span>
                                                 Caricamento...
                                             </div>
                                         ) : filteredDevices.length === 0 ? (
-                                            <div className={`p-8 text-center ${embedded ? 'text-white/50' : 'text-gray-500'}`}>Nessun dispositivo trovato</div>
+                                            <div className={`p-8 text-center ${embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-500'}`}>Nessun dispositivo trovato</div>
                                         ) : (
-                                            <div className={embedded ? 'divide-y divide-white/[0.08]' : 'divide-y'}>
+                                            <div className={embedded ? 'divide-y divide-[color:var(--hub-chrome-border-soft)]' : 'divide-y'}>
                                                 {filteredDevices.map(dev => {
                                                     const isAdded = selectedDeviceIds.includes(dev.device_id);
                                                     const showIp = !dev.ip_address.startsWith('no-ip-');
@@ -689,7 +666,7 @@ const AntiVirusPage = ({
                                                             key={dev.device_id}
                                                             onClick={() => handleSelectDevice(dev)}
                                                             className={`flex cursor-pointer items-center gap-2 px-3 py-2 transition-colors ${
-                                                                embedded ? 'border-l-4 hover:bg-white/[0.06]' : 'cursor-pointer hover:bg-gray-50'
+                                                                embedded ? 'border-l-4 hover:bg-[color:var(--hub-chrome-hover)]' : 'cursor-pointer hover:bg-gray-50'
                                                             } ${isAdded && !embedded ? 'border-l-4 border-indigo-600 bg-indigo-50' : embedded ? '' : 'border-transparent'}`}
                                                             style={
                                                                 isAdded && embedded
@@ -704,18 +681,18 @@ const AntiVirusPage = ({
                                                                       : undefined
                                                             }
                                                         >
-                                                            <div className={`flex w-full items-center gap-2 overflow-hidden text-sm ${embedded ? 'text-white/90' : ''}`}>
+                                                            <div className={`flex w-full items-center gap-2 overflow-hidden text-sm ${embedded ? 'text-[color:var(--hub-chrome-text)]' : ''}`}>
                                                                 {showIp && (
                                                                     <>
-                                                                        <span className={`whitespace-nowrap font-mono font-medium ${embedded ? 'text-white' : 'text-gray-800'}`}>{dev.ip_address}</span>
-                                                                        <span className={embedded ? 'text-white/25' : 'text-gray-300'}>-</span>
+                                                                        <span className={`whitespace-nowrap font-mono font-medium ${embedded ? 'text-[color:var(--hub-chrome-text)]' : 'text-gray-800'}`}>{dev.ip_address}</span>
+                                                                        <span className={embedded ? 'text-[color:var(--hub-chrome-text-fainter)]' : 'text-gray-300'}>-</span>
                                                                     </>
                                                                 )}
-                                                                <span className={`truncate font-medium ${embedded ? 'text-white/82' : 'text-gray-700'}`} title={dev.hostname}>{dev.hostname || 'N/A'}</span>
+                                                                <span className={`truncate font-medium ${embedded ? 'text-[color:var(--hub-chrome-text-secondary)]' : 'text-gray-700'}`} title={dev.hostname}>{dev.hostname || 'N/A'}</span>
                                                                 {dev.keepass_path && (
                                                                     <>
-                                                                        <span className={embedded ? 'text-white/25' : 'text-gray-300'}>-</span>
-                                                                        <span className={`truncate italic ${embedded ? 'text-white/45' : 'text-gray-500'}`} title={dev.keepass_path}>{dev.keepass_path}</span>
+                                                                        <span className={embedded ? 'text-[color:var(--hub-chrome-text-fainter)]' : 'text-gray-300'}>-</span>
+                                                                        <span className={`truncate italic ${embedded ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-gray-500'}`} title={dev.keepass_path}>{dev.keepass_path}</span>
                                                                     </>
                                                                 )}
                                                             </div>
@@ -727,7 +704,7 @@ const AntiVirusPage = ({
                                     </div>
                                 </div>
                                 <div
-                                    className={`z-10 w-1 cursor-col-resize transition-colors ${embedded ? 'bg-white/[0.06] hover:bg-[color:var(--hub-accent)]' : 'bg-gray-100 hover:bg-indigo-300'}`}
+                                    className={`z-10 w-1 cursor-col-resize transition-colors ${embedded ? 'bg-[color:var(--hub-chrome-muted-fill)] hover:bg-[color:var(--hub-accent)]' : 'bg-gray-100 hover:bg-indigo-300'}`}
                                     onMouseDown={startResizing}
                                 />
                             </>
@@ -736,61 +713,61 @@ const AntiVirusPage = ({
                         {/* Pannello destro: tabella compilata dal tecnico (le aziende vedono solo questa, in sola lettura) */}
                         <div
                             className={`flex-1 overflow-y-auto p-8 ${embedded ? '' : 'bg-gray-50'}`}
-                            style={embedded ? { backgroundColor: HUB_PAGE_BG } : undefined}
+                            style={embedded ? { backgroundColor: 'var(--hub-chrome-page)' } : undefined}
                         >
                             {selectedDeviceIds.length > 0 ? (
                                 <div
-                                    className={`relative overflow-visible rounded-xl border shadow-sm ${embedded ? 'border-white/[0.10] bg-black/[0.22]' : 'border bg-white'}`}
+                                    className={`relative overflow-visible rounded-xl border shadow-sm ${embedded ? 'border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well-mid)]' : 'border bg-white'}`}
                                 >
                                     <table className="w-full text-left text-sm">
                                         <thead
                                             className={
-                                                embedded ? 'border-b border-white/[0.08] bg-black/35' : 'border-b bg-gray-50'
+                                                embedded ? 'border-b border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-row-fill)]' : 'border-b bg-gray-50'
                                             }
                                         >
                                             <tr>
                                                 <th className="w-8 px-2 py-3"></th>
                                                 <th
-                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-600'}`}
+                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
                                                 >
                                                     Attivo
                                                 </th>
                                                 <th
-                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-600'}`}
+                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
                                                 >
                                                     Tipo
                                                 </th>
                                                 <th
-                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-600'}`}
+                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
                                                 >
                                                     Dispositivo
                                                 </th>
                                                 <th
-                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-600'}`}
+                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
                                                 >
                                                     Utente
                                                 </th>
                                                 <th
-                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-600'}`}
+                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
                                                 >
                                                     Prodotto
                                                 </th>
                                                 <th
-                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-600'}`}
+                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
                                                 >
                                                     Scadenza
                                                 </th>
                                                 {showAssistenzaButton && (
                                                     <th
-                                                        className={`w-32 px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-600'}`}
+                                                        className={`w-32 px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
                                                     >
                                                         Assistenza
                                                     </th>
                                                 )}
-                                                <th className={`px-4 py-3 text-right font-medium ${embedded ? 'text-white/50' : 'text-gray-600'}`}></th>
+                                                <th className={`px-4 py-3 text-right font-medium ${embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}></th>
                                             </tr>
                                         </thead>
-                                        <tbody className={embedded ? 'divide-y divide-white/[0.08]' : 'divide-y'}>
+                                        <tbody className={embedded ? 'divide-y divide-[color:var(--hub-chrome-border-soft)]' : 'divide-y'}>
                                             {selectedDeviceIds.map((id, index) => {
                                                 const device = devices.find(d => d.device_id === id);
                                                 const draft = drafts[id] || {};
@@ -807,7 +784,7 @@ const AntiVirusPage = ({
                                                                     ? 'bg-red-500/12 hover:bg-red-500/18'
                                                                     : 'bg-red-50 hover:bg-red-100'
                                                                 : embedded
-                                                                  ? 'hover:bg-white/[0.04]'
+                                                                  ? 'hover:bg-[color:var(--hub-chrome-hover)]'
                                                                   : 'hover:bg-gray-50'
                                                         }`}
                                                         draggable={!readOnly}
@@ -815,7 +792,7 @@ const AntiVirusPage = ({
                                                         onDragOver={(e) => !readOnly && handleDragOver(e, index)}
                                                         onDrop={(e) => handleDrop(e, index)}
                                                     >
-                                                        <td className={`w-8 px-2 py-3 ${embedded ? 'text-white/35' : 'text-gray-400'}`}>
+                                                        <td className={`w-8 px-2 py-3 ${embedded ? 'text-[color:var(--hub-chrome-text-fainter)]' : 'text-gray-400'}`}>
                                                             {readOnly ? <span className="block w-4" /> : <GripVertical size={16} className="cursor-grab active:cursor-grabbing" />}
                                                         </td>
                                                         <td className="px-4 py-3">
@@ -835,7 +812,7 @@ const AntiVirusPage = ({
                                                         <td className="px-4 py-3 relative">
                                                             {readOnly ? (
                                                                 <div
-                                                                    className={`flex items-center gap-1 rounded p-1.5 ${embedded ? 'bg-black/25 text-white/75' : 'bg-gray-50 text-gray-600'}`}
+                                                                    className={`flex items-center gap-1 rounded p-1.5 ${embedded ? 'bg-[color:var(--hub-chrome-well)] text-[color:var(--hub-chrome-text-secondary)]' : 'bg-gray-50 text-gray-600'}`}
                                                                 >
                                                                     {(() => {
                                                                         const types = { pc: Monitor, server: Server, virtual: Layers, laptop: Laptop, smartphone: Smartphone, tablet: Tablet };
@@ -851,7 +828,7 @@ const AntiVirusPage = ({
                                                                         onClick={() => setActiveDropdown(activeDropdown === id ? null : id)}
                                                                         className={
                                                                             embedded
-                                                                                ? 'flex items-center gap-1 rounded border border-white/[0.12] bg-black/28 p-1.5 text-white/82 shadow-none hover:bg-white/[0.06]'
+                                                                                ? 'flex items-center gap-1 rounded border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] p-1.5 text-[color:var(--hub-chrome-text-secondary)] shadow-none hover:bg-[color:var(--hub-chrome-hover)]'
                                                                                 : 'flex items-center gap-1 rounded border bg-white p-1.5 text-gray-600 shadow-sm hover:bg-gray-50'
                                                                         }
                                                                         title="Cambia Tipo"
@@ -878,7 +855,7 @@ const AntiVirusPage = ({
                                                                             />
                                                                             <div
                                                                                 className={`absolute left-0 top-full z-[110] mt-1 grid w-48 grid-cols-3 gap-2 rounded-lg border p-2 shadow-xl ${
-                                                                                    embedded ? 'border-white/[0.12] bg-[#1e1e1e]' : 'border bg-white'
+                                                                                    embedded ? 'border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)]' : 'border bg-white'
                                                                                 }`}
                                                                             >
                                                                                 {[
@@ -902,7 +879,7 @@ const AntiVirusPage = ({
                                                                                                     ? 'text-[color:var(--hub-accent)]'
                                                                                                     : 'bg-indigo-50 text-indigo-600'
                                                                                                 : embedded
-                                                                                                  ? 'text-white/72 hover:bg-white/[0.08]'
+                                                                                                  ? 'text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)]'
                                                                                                   : 'text-gray-600 hover:bg-gray-50'
                                                                                         }`}
                                                                                         style={
@@ -947,31 +924,31 @@ const AntiVirusPage = ({
                                                             ) : (
                                                                 <>
                                                                     {!device.ip_address?.startsWith('no-ip-') && (
-                                                                        <div className={`font-mono font-medium ${embedded ? 'text-white' : 'text-gray-900'}`}>
+                                                                        <div className={`font-mono font-medium ${embedded ? 'text-[color:var(--hub-chrome-text)]' : 'text-gray-900'}`}>
                                                                             {device.ip_address}
                                                                         </div>
                                                                     )}
                                                                     {device.mac_address && (
-                                                                        <div className={`font-mono text-xs ${embedded ? 'text-white/38' : 'text-gray-400'}`}>{device.mac_address}</div>
+                                                                        <div className={`font-mono text-xs ${embedded ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-gray-400'}`}>{device.mac_address}</div>
                                                                     )}
                                                                 </>
                                                             )}
                                                         </td>
                                                         <td className="px-4 py-3">
                                                             {device.hostname && device.hostname !== '-' && device.hostname !== '' ? (
-                                                                <div className={`text-sm font-medium ${embedded ? 'text-white/88' : 'text-gray-800'}`}>{device.hostname}</div>
+                                                                <div className={`text-sm font-medium ${embedded ? 'text-[color:var(--hub-chrome-text-secondary)]' : 'text-gray-800'}`}>{device.hostname}</div>
                                                             ) : null}
                                                             {device.device_username && device.device_username !== '-' && device.device_username !== '' ? (
-                                                                <div className={`text-xs ${embedded ? 'text-white/50' : 'text-gray-500'}`}>{device.device_username}</div>
+                                                                <div className={`text-xs ${embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-500'}`}>{device.device_username}</div>
                                                             ) : (
                                                                 !device.hostname || device.hostname === '-' ? (
-                                                                    <span className={embedded ? 'text-white/25' : 'text-gray-300'}>-</span>
+                                                                    <span className={embedded ? 'text-[color:var(--hub-chrome-text-fainter)]' : 'text-gray-300'}>-</span>
                                                                 ) : null
                                                             )}
                                                         </td>
                                                         <td className="px-4 py-3">
                                                             {readOnly ? (
-                                                                <span className={embedded ? 'text-white/90' : 'text-gray-900'}>{draft.product_name || '-'}</span>
+                                                                <span className={embedded ? 'text-[color:var(--hub-chrome-text)]' : 'text-gray-900'}>{draft.product_name || '-'}</span>
                                                             ) : (
                                                                 <input
                                                                     type="text"
@@ -988,7 +965,7 @@ const AntiVirusPage = ({
                                                         </td>
                                                         <td className="px-4 py-3">
                                                             {readOnly ? (
-                                                                <span className={embedded ? 'text-white/90' : 'text-gray-900'}>
+                                                                <span className={embedded ? 'text-[color:var(--hub-chrome-text)]' : 'text-gray-900'}>
                                                                     {draft.expiration_date ? new Date(draft.expiration_date).toLocaleDateString('it-IT') : '-'}
                                                                 </span>
                                                             ) : (
@@ -1013,7 +990,7 @@ const AntiVirusPage = ({
                                                                     })}
                                                                     className={
                                                                         embedded
-                                                                            ? 'inline-flex items-center gap-1 whitespace-nowrap rounded border border-[color:var(--hub-accent-border)] bg-black/28 px-2 py-1 text-xs font-medium text-[color:var(--hub-accent)] transition-colors hover:bg-white/[0.06]'
+                                                                            ? 'inline-flex items-center gap-1 whitespace-nowrap rounded border border-[color:var(--hub-accent-border)] bg-[color:var(--hub-chrome-muted-fill)] px-2 py-1 text-xs font-medium text-[color:var(--hub-accent)] transition-colors hover:bg-[color:var(--hub-chrome-hover)]'
                                                                             : 'inline-flex items-center gap-1 whitespace-nowrap rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100'
                                                                     }
                                                                     title="Apri un ticket di assistenza"
@@ -1045,14 +1022,14 @@ const AntiVirusPage = ({
                                 </div>
                             ) : (
                                 <div
-                                    className={`flex h-full flex-col items-center justify-center ${embedded ? 'text-white/42' : 'text-gray-400'}`}
+                                    className={`flex h-full flex-col items-center justify-center ${embedded ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-gray-400'}`}
                                 >
                                     <div
-                                        className={`mb-4 rounded-full p-6 ${embedded ? 'bg-white/[0.06]' : 'bg-gray-100'}`}
+                                        className={`mb-4 rounded-full p-6 ${embedded ? 'bg-[color:var(--hub-chrome-muted-fill)]' : 'bg-gray-100'}`}
                                     >
-                                        <Shield size={48} className={embedded ? 'text-white/35' : 'text-gray-300'} />
+                                        <Shield size={48} className={embedded ? 'text-[color:var(--hub-chrome-text-fainter)]' : 'text-gray-300'} />
                                     </div>
-                                    <p className={`text-lg font-medium ${embedded ? 'text-white/75' : ''}`}>
+                                    <p className={`text-lg font-medium ${embedded ? 'text-[color:var(--hub-chrome-text-secondary)]' : ''}`}>
                                         {readOnly ? 'Nessun dispositivo con Anti-Virus configurato' : 'Nessun dispositivo selezionato'}
                                     </p>
                                     <p className="text-sm">

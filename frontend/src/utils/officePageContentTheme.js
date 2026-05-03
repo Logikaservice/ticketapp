@@ -3,7 +3,7 @@
  */
 
 const H_INP =
-  'w-full rounded-md border border-white/14 bg-black/35 px-3 py-2 text-sm text-white outline-none placeholder:text-white/38 focus:border-[color:var(--hub-accent-border)] focus:ring-1 focus:ring-[color:var(--hub-accent)]';
+  'w-full rounded-md border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-input-well)] px-3 py-2 text-sm text-[color:var(--hub-chrome-text)] outline-none placeholder:text-[color:var(--hub-chrome-placeholder)] focus:border-[color:var(--hub-accent-border)] focus:ring-1 focus:ring-[color:var(--hub-accent)]';
 const L_INP =
   'w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500';
 
@@ -96,79 +96,90 @@ export function getOfficeContentTheme(embedded) {
   return {
     embed: true,
     loadSpin: 'animate-spin text-[color:var(--hub-accent)] mx-auto mb-4',
-    loadTxt: 'text-white/60',
+    loadTxt: 'text-[color:var(--hub-chrome-text-muted)]',
     errBoxOuter: 'max-w-2xl mx-auto mt-8',
-    errBoxInner: 'rounded-xl border border-red-500/35 bg-red-950/45 p-4 flex items-start gap-3',
-    errIcon: 'text-red-400 shrink-0 mt-0.5',
-    errTitle: 'font-semibold text-red-200 mb-1',
-    errMsg: 'text-red-100',
+    errBoxInner:
+      'rounded-xl border border-[color:var(--hub-chrome-msg-error-border)] bg-[color:var(--hub-chrome-msg-error-bg)] p-4 flex items-start gap-3',
+    errIcon: 'text-[color:var(--hub-chrome-tone-danger-icon)] shrink-0 mt-0.5',
+    errTitle: 'font-semibold text-[color:var(--hub-chrome-msg-error-text)] mb-1',
+    errMsg: 'text-[color:var(--hub-chrome-msg-error-text)]',
     rowBanner:
-      'mb-4 flex items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-[#1E1E1E] px-4 py-3',
-    textSingle: 'text-sm text-white/88',
-    hSmBold: 'text-sm font-medium text-white/92',
-    textMutedXs: 'text-xs text-white/52',
+      'mb-4 flex items-center justify-between gap-3 rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] px-4 py-3',
+    textSingle: 'text-sm text-[color:var(--hub-chrome-text-secondary)]',
+    hSmBold: 'text-sm font-medium text-[color:var(--hub-chrome-text)]',
+    textMutedXs: 'text-xs text-[color:var(--hub-chrome-text-muted)]',
     btnGhostNav:
-      'inline-flex items-center gap-1 rounded-lg border border-white/14 bg-black/35 px-3 py-1.5 text-xs font-medium text-white/88 hover:bg-white/[0.08] transition-colors',
+      'inline-flex items-center gap-1 rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] px-3 py-1.5 text-xs font-medium text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)] transition-colors',
     btnGhostSm:
-      'inline-flex items-center gap-1 rounded-md border border-white/14 bg-black/35 px-2 py-1 text-xs font-medium text-white/82 hover:bg-white/[0.08] transition-colors whitespace-nowrap disabled:opacity-50',
+      'inline-flex items-center gap-1 rounded-md border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] px-2 py-1 text-xs font-medium text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)] transition-colors whitespace-nowrap disabled:opacity-50',
     btnGhostMd:
-      'rounded-lg border border-white/14 bg-black/35 px-3 py-1.5 text-xs font-medium text-white/88 hover:bg-white/[0.08] transition-colors',
+      'rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] px-3 py-1.5 text-xs font-medium text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)] transition-colors',
     btnGhostWFit:
-      'w-fit rounded-lg border border-white/14 bg-black/35 px-3 py-1.5 text-xs font-medium text-white/85 hover:bg-white/[0.08] transition-colors',
-    panelWhite: 'mb-4 rounded-xl border border-white/[0.08] bg-[#1E1E1E] p-4',
-    panelHeading: 'text-sm font-semibold text-white mb-3',
+      'w-fit rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] px-3 py-1.5 text-xs font-medium text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)] transition-colors',
+    panelWhite: 'mb-4 rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] p-4',
+    panelHeading: 'text-sm font-semibold text-[color:var(--hub-chrome-text)] mb-3',
     inp: H_INP,
     btnRedGhost:
-      'rounded-md px-3 py-1.5 text-xs font-medium text-red-200 bg-red-950/50 border border-red-500/40 hover:bg-red-950/65 transition-colors disabled:opacity-50',
+      'rounded-md border border-[color:var(--hub-chrome-notice-danger-border)] bg-[color:var(--hub-chrome-notice-danger-bg)] px-3 py-1.5 text-xs font-medium text-[color:var(--hub-chrome-notice-danger-text)] hover:brightness-95 transition-colors disabled:opacity-50',
     btnDelDanger:
-      'inline-flex items-center gap-1 rounded-md border border-red-500/45 bg-red-950/50 px-3 py-1.5 text-xs font-medium text-red-100 hover:bg-red-950/65 transition-colors disabled:opacity-50',
-    panelLoading: 'rounded-xl border border-white/[0.08] bg-[#1E1E1E] p-6 text-center',
+      'inline-flex items-center gap-1 rounded-md border border-[color:var(--hub-chrome-notice-danger-border)] bg-[color:var(--hub-chrome-notice-danger-bg)] px-3 py-1.5 text-xs font-medium text-[color:var(--hub-chrome-notice-danger-text)] hover:brightness-95 transition-colors disabled:opacity-50',
+    panelLoading:
+      'rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] p-6 text-center',
     spinSm: 'animate-spin text-[color:var(--hub-accent)] mx-auto mb-2',
-    msgLoadingSm: 'text-sm text-white/60',
-    errStrip: 'rounded-lg border border-red-500/35 bg-red-950/45 p-3 text-sm text-red-100',
-    emptyBox: 'rounded-xl border border-white/[0.08] bg-[#1E1E1E] p-6 text-sm text-white/45 italic',
+    msgLoadingSm: 'text-sm text-[color:var(--hub-chrome-text-muted)]',
+    errStrip:
+      'rounded-lg border border-[color:var(--hub-chrome-msg-error-border)] bg-[color:var(--hub-chrome-msg-error-bg)] p-3 text-sm text-[color:var(--hub-chrome-msg-error-text)]',
+    emptyBox:
+      'rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] p-6 text-sm text-[color:var(--hub-chrome-text-faint)] italic',
     listCardDrag: (drag) =>
-      `rounded-xl border p-4 transition-colors bg-[#1E1E1E] ${
-        drag ? 'border-[color:var(--hub-accent)] bg-[color:var(--hub-accent)]/12' : 'border-white/[0.1]'
+      `rounded-xl border p-4 transition-colors bg-[color:var(--hub-chrome-surface)] ${
+        drag ? 'border-[color:var(--hub-accent)] bg-[color:var(--hub-accent)]/12' : 'border-[color:var(--hub-chrome-border)]'
       }`,
-    titleLink: 'text-sm font-semibold text-white',
-    descLink: 'text-xs text-white/55',
-    lblLinkRow: 'text-xs text-white/72 truncate',
+    titleLink: 'text-sm font-semibold text-[color:var(--hub-chrome-text)]',
+    descLink: 'text-xs text-[color:var(--hub-chrome-text-muted)]',
+    lblLinkRow: 'text-xs text-[color:var(--hub-chrome-text-secondary)] truncate',
     linkOpenPill:
-      'shrink-0 rounded-md border border-sky-500/35 bg-sky-950/40 px-2 py-1 text-[11px] font-medium text-sky-200 hover:bg-sky-500/15 transition-colors',
+      'shrink-0 rounded-md border border-[color:var(--hub-chrome-link)]/40 bg-[color:var(--hub-chrome-band-info-bg)] px-2 py-1 text-[11px] font-medium text-[color:var(--hub-chrome-link)] hover:brightness-110 transition-colors',
     dragBadge:
-      'inline-flex items-center gap-1 rounded-md border border-white/12 bg-black/35 px-2 py-1 text-xs font-medium text-white/50',
-    inlineErr: 'rounded-xl border border-white/[0.08] bg-[#1E1E1E] p-6 text-center',
-    inlineEmptyMsg: 'text-sm text-white/45 italic',
-    pwdChip: 'font-mono rounded bg-white/[0.1] px-2 py-0.5 text-xs text-white/92',
-    eyeBtn: 'rounded p-1 text-white/45 hover:bg-white/[0.08] hover:text-white',
-    readNote: 'text-xs text-white/70 truncate',
-    ticketFootText: 'text-xs text-white/58 truncate min-w-0 flex-1',
+      'inline-flex items-center gap-1 rounded-md border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] px-2 py-1 text-xs font-medium text-[color:var(--hub-chrome-text-muted)]',
+    inlineErr:
+      'rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] p-6 text-center',
+    inlineEmptyMsg: 'text-sm text-[color:var(--hub-chrome-text-faint)] italic',
+    pwdChip:
+      'font-mono rounded bg-[color:var(--hub-chrome-muted-fill)] px-2 py-0.5 text-xs text-[color:var(--hub-chrome-text)]',
+    eyeBtn:
+      'rounded p-1 text-[color:var(--hub-chrome-text-muted)] hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-chrome-text)]',
+    readNote: 'text-xs text-[color:var(--hub-chrome-text-muted)] truncate',
+    ticketFootText: 'text-xs text-[color:var(--hub-chrome-text-faint)] truncate min-w-0 flex-1',
 
     fileCardOuter: (exp) =>
       exp
-        ? 'break-inside-avoid mb-4 rounded-xl border-2 border-red-500/65 bg-red-950/35 px-4 py-3 shadow-none'
-        : 'break-inside-avoid mb-4 rounded-xl border-2 border-white/[0.12] bg-[#1E1E1E] px-4 py-3 shadow-none',
-    borderBHdr: 'mb-2 border-b border-white/[0.08] pb-2',
-    fileTitle: 'truncate text-base font-bold text-white',
-    labelUpperSm: 'shrink-0 text-[10px] font-medium uppercase tracking-wide text-white/42',
-    valMonoXs: 'font-mono text-xs text-white/92',
-    valXs: 'text-xs text-white/90',
-    hAttivo: 'mb-1 text-xs font-semibold text-white/55',
-    pMutedItalicXs: 'text-xs italic text-white/45',
-    pBodySm: 'text-sm text-white/88',
-    pMutedSmItalic: 'text-sm italic text-white/42',
+        ? 'break-inside-avoid mb-4 rounded-xl border-2 border-[color:var(--hub-chrome-notice-danger-border)] bg-[color:var(--hub-chrome-notice-danger-bg)] px-4 py-3 shadow-none'
+        : 'break-inside-avoid mb-4 rounded-xl border-2 border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)] px-4 py-3 shadow-none',
+    borderBHdr: 'mb-2 border-b border-[color:var(--hub-chrome-border-soft)] pb-2',
+    fileTitle: 'truncate text-base font-bold text-[color:var(--hub-chrome-text)]',
+    labelUpperSm:
+      'shrink-0 text-[10px] font-medium uppercase tracking-wide text-[color:var(--hub-chrome-text-faint)]',
+    valMonoXs: 'font-mono text-xs text-[color:var(--hub-chrome-text)]',
+    valXs: 'text-xs text-[color:var(--hub-chrome-text-secondary)]',
+    hAttivo: 'mb-1 text-xs font-semibold text-[color:var(--hub-chrome-text-muted)]',
+    pMutedItalicXs: 'text-xs italic text-[color:var(--hub-chrome-text-faint)]',
+    pBodySm: 'text-sm text-[color:var(--hub-chrome-text-secondary)]',
+    pMutedSmItalic: 'text-sm italic text-[color:var(--hub-chrome-text-fainter)]',
     rowBorderT: (exp) =>
-      exp ? 'border-t border-red-500/40 pt-2' : 'border-t border-white/[0.08] pt-2',
-    calendarIcon: (exp) => (exp ? 'text-red-400' : 'text-white/55'),
-    expLabelXs: 'text-xs text-white/52',
+      exp ? 'border-t border-[color:var(--hub-chrome-msg-error-border)] pt-2' : 'border-t border-[color:var(--hub-chrome-border-soft)] pt-2',
+    calendarIcon: (exp) =>
+      exp ? 'text-[color:var(--hub-chrome-tone-danger-icon)]' : 'text-[color:var(--hub-chrome-text-muted)]',
+    expLabelXs: 'text-xs text-[color:var(--hub-chrome-text-muted)]',
     expDateStrong: (exp) =>
-      exp ? 'text-xs font-medium text-red-300' : 'text-xs font-medium text-white',
+      exp
+        ? 'text-xs font-medium text-[color:var(--hub-chrome-tone-danger-title)]'
+        : 'text-xs font-medium text-[color:var(--hub-chrome-text)]',
     noteInput: (exp) =>
       exp
-        ? 'flex-1 min-w-0 rounded border border-red-500/45 bg-red-950/35 px-2 py-1 text-xs text-white outline-none focus:ring-1 focus:ring-red-400 placeholder:text-white/38'
-        : 'flex-1 min-w-0 rounded border border-white/14 bg-black/35 px-2 py-1 text-xs text-white outline-none focus:border-[color:var(--hub-accent-border)] focus:ring-1 focus:ring-[color:var(--hub-accent)] placeholder:text-white/35',
+        ? 'flex-1 min-w-0 rounded border border-[color:var(--hub-chrome-notice-danger-border)] bg-[color:var(--hub-chrome-notice-danger-bg)] px-2 py-1 text-xs text-[color:var(--hub-chrome-notice-danger-text)] outline-none focus:ring-1 focus:ring-[color:var(--hub-chrome-tone-danger-icon)] placeholder:text-[color:var(--hub-chrome-placeholder)]'
+        : 'flex-1 min-w-0 rounded border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-input-well)] px-2 py-1 text-xs text-[color:var(--hub-chrome-text)] outline-none focus:border-[color:var(--hub-accent-border)] focus:ring-1 focus:ring-[color:var(--hub-accent)] placeholder:text-[color:var(--hub-chrome-placeholder)]',
     footerTicketRow:
-      'mt-3 flex flex-nowrap items-center justify-between gap-3 border-t border-white/[0.08] pt-3'
+      'mt-3 flex flex-nowrap items-center justify-between gap-3 border-t border-[color:var(--hub-chrome-border-soft)] pt-3'
   };
 }

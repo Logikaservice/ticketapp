@@ -20,11 +20,10 @@ import { buildApiUrl } from '../utils/apiConfig';
 import EmailIntroCard from '../components/EmailIntroCard';
 import SectionNavMenu from '../components/SectionNavMenu';
 import {
-  HUB_PAGE_BG,
-  HUB_SURFACE,
-  hexToRgba,
   normalizeHex,
-  getStoredTechHubAccent
+  getStoredTechHubAccent,
+  hubEmbeddedRootInlineStyle,
+  hubEmbeddedBackBtnInlineStyle
 } from '../utils/techHubAccent';
 
 const EmailPage = ({
@@ -345,21 +344,28 @@ const EmailPage = ({
     const activity = getActivityStatus(q.last_email_date);
     const actHub =
       activity.status === 'active'
-        ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-200'
-        : 'border-amber-500/40 bg-amber-500/15 text-amber-100';
+        ? 'border-[color:var(--hub-chrome-chip-live-border)] bg-[color:var(--hub-chrome-chip-live-bg)] text-[color:var(--hub-chrome-chip-live-text)]'
+        : 'border-[color:var(--hub-chrome-chip-idle-border)] bg-[color:var(--hub-chrome-chip-idle-bg)] text-[color:var(--hub-chrome-chip-idle-text)]';
 
     return (
       <tr
         className={
-          embedded ? 'border-b border-white/[0.06] bg-black/20' : 'border-b border-gray-50 bg-gray-50/30'
+          embedded
+            ? 'border-b border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-row-fill)]'
+            : 'border-b border-gray-50 bg-gray-50/30'
         }
       >
         <td colSpan={colCount} className="px-3 py-1.5 align-middle">
           <div className="ml-8 flex items-center gap-4">
             {/* Usage Badge */}
             <div className="flex min-w-[80px] items-center gap-2">
-              <HardDrive size={13} className={embedded ? 'text-white/40' : 'text-gray-400'} />
-              <span className={`text-[11px] font-bold ${embedded ? 'text-white/80' : 'text-gray-700'}`}>
+              <HardDrive
+                size={13}
+                className={embedded ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-gray-400'}
+              />
+              <span
+                className={`text-[11px] font-bold ${embedded ? 'text-[color:var(--hub-chrome-text-secondary)]' : 'text-gray-700'}`}
+              >
                 {formatBytes(q.usage_bytes)}
               </span>
             </div>
@@ -367,7 +373,7 @@ const EmailPage = ({
             {/* Progress Bar */}
             <div className="flex max-w-md flex-1 items-center gap-2">
               <div
-                className={`relative h-2 flex-1 overflow-hidden rounded-full ${embedded ? 'bg-white/10' : 'bg-gray-200'}`}
+                className={`relative h-2 flex-1 overflow-hidden rounded-full ${embedded ? 'bg-[color:var(--hub-chrome-muted-fill)]' : 'bg-gray-200'}`}
                 title={`${percent.toFixed(1)}% occupato`}
               >
                 <div
@@ -378,7 +384,9 @@ const EmailPage = ({
                   }}
                 />
               </div>
-              <span className={`w-12 text-right text-[10px] ${embedded ? 'text-white/45' : 'text-gray-500'}`}>
+              <span
+                className={`w-12 text-right text-[10px] ${embedded ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-gray-500'}`}
+              >
                 {percent.toFixed(0)}%
               </span>
               {percent >= 70 && (
@@ -402,14 +410,18 @@ const EmailPage = ({
                 {activity.label}
               </span>
               {activity.status === 'inactive' && (
-                <span className={`text-[10px] italic ${embedded ? 'text-white/40' : 'text-gray-400'}`}>
+                <span
+                  className={`text-[10px] italic ${embedded ? 'text-[color:var(--hub-chrome-text-fainter)]' : 'text-gray-400'}`}
+                >
                   (Ultima email {q.last_email_date ? new Date(q.last_email_date).toLocaleDateString() : 'mai'})
                 </span>
               )}
             </div>
 
             {/* Limit Info */}
-            <div className={`ml-auto flex items-center gap-1 text-[10px] ${embedded ? 'text-white/40' : 'text-gray-400'}`}>
+            <div
+              className={`ml-auto flex items-center gap-1 text-[10px] ${embedded ? 'text-[color:var(--hub-chrome-text-fainter)]' : 'text-gray-400'}`}
+            >
               Max: {formatBytes(q.limit_bytes)}
             </div>
           </div>
@@ -430,38 +442,15 @@ const EmailPage = ({
   };
 
   const rootClassName = embedded
-    ? 'flex flex-1 min-h-0 flex-col overflow-hidden rounded-2xl border border-white/[0.08] font-sans'
+    ? 'flex flex-1 min-h-0 flex-col overflow-hidden rounded-2xl border border-[color:var(--hub-chrome-border-soft)] font-sans'
     : 'fixed inset-0 bg-gray-50 z-[100] flex flex-col font-sans w-full h-full overflow-hidden';
 
   const rootEmbeddedStyle = useMemo(
-    () =>
-      embedded
-        ? {
-            backgroundColor: HUB_PAGE_BG,
-            ['--hub-accent']: accent,
-            ['--hub-accent-border']: hexToRgba(accent, 0.48)
-          }
-        : undefined,
+    () => (embedded ? hubEmbeddedRootInlineStyle(accent) : undefined),
     [embedded, accent]
   );
 
-  const embeddedBackBtnStyle = useMemo(
-    () => ({
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 8,
-      padding: '8px 12px',
-      borderRadius: 12,
-      border: '1px solid rgba(255,255,255,0.12)',
-      background: 'rgba(0,0,0,0.28)',
-      color: 'rgba(255,255,255,0.82)',
-      cursor: 'pointer',
-      fontSize: 13,
-      fontWeight: 600,
-      flexShrink: 0
-    }),
-    []
-  );
+  const embeddedBackBtnStyle = useMemo(() => hubEmbeddedBackBtnInlineStyle(), []);
 
   // Il menu nativo del <select> su Windows/Chromium usa spesso uno sfondo chiaro: non usare text-white sulla
   // `<select>` o le `<option>` risultano invisibili (testo chiaro su sfondo chiaro). Stile “pill” chiaro sulla barra Hub.
@@ -474,10 +463,10 @@ const EmailPage = ({
       <div
         className={
           embedded
-            ? 'flex shrink-0 items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3 z-10'
+            ? 'flex shrink-0 items-center justify-between gap-3 border-b border-[color:var(--hub-chrome-border-soft)] px-4 py-3 z-10'
             : 'bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10'
         }
-        style={embedded ? { backgroundColor: HUB_SURFACE } : undefined}
+        style={embedded ? { backgroundColor: 'var(--hub-chrome-surface)' } : undefined}
       >
         <div className={`flex min-w-0 items-center ${embedded ? 'gap-3' : 'gap-4'}`}>
           {embedded ? (
@@ -502,8 +491,10 @@ const EmailPage = ({
             />
           )}
           <div className="min-w-0">
-            <h1 className={`font-bold truncate ${embedded ? 'text-lg text-white' : 'text-xl text-gray-900'}`}>Email</h1>
-            <p className={`truncate ${embedded ? 'text-xs text-white/55' : 'text-sm text-gray-600'}`}>{companyName || 'Seleziona un\'azienda'}</p>
+            <h1 className={`font-bold truncate ${embedded ? 'text-lg text-[color:var(--hub-chrome-text)]' : 'text-xl text-gray-900'}`}>
+              Email
+            </h1>
+            <p className={`truncate ${embedded ? 'text-xs text-[color:var(--hub-chrome-text-muted)]' : 'text-sm text-gray-600'}`}>{companyName || 'Seleziona un\'azienda'}</p>
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-3">
@@ -511,16 +502,22 @@ const EmailPage = ({
           {isTecnico && selectedCompanyValid && companyName && items.length > 0 && (
             <div className="flex items-center gap-2">
               {quotaCount > 0 && (
-                <div className={`mr-1 flex flex-wrap items-center gap-2 text-xs ${embedded ? 'text-white/42' : 'text-gray-400'}`}>
+                <div
+                  className={`mr-1 flex flex-wrap items-center gap-2 text-xs ${embedded ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-gray-400'}`}
+                >
                   <Clock size={12} />
                   <span>{formatScanTime(lastScanTime) || 'Mai'}</span>
                   {quotaCritical > 0 && (
-                    <span className={`rounded-full px-1.5 py-0.5 font-medium ${embedded ? 'bg-red-500/20 text-red-300' : 'bg-red-100 text-red-600'}`}>
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 font-medium ${embedded ? 'bg-[color:var(--hub-chrome-badge-critical-bg)] text-[color:var(--hub-chrome-badge-critical-text)]' : 'bg-red-100 text-red-600'}`}
+                    >
                       {quotaCritical} critico
                     </span>
                   )}
                   {quotaWarning > 0 && (
-                    <span className={`rounded-full px-1.5 py-0.5 font-medium ${embedded ? 'bg-amber-500/20 text-amber-200' : 'bg-amber-100 text-amber-600'}`}>
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 font-medium ${embedded ? 'bg-[color:var(--hub-chrome-badge-warn-bg)] text-[color:var(--hub-chrome-badge-warn-text)]' : 'bg-amber-100 text-amber-600'}`}
+                    >
                       {quotaWarning} att.
                     </span>
                   )}
@@ -533,7 +530,7 @@ const EmailPage = ({
                 className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium shadow-sm transition-all ${
                   scanning
                     ? embedded
-                      ? 'cursor-not-allowed border border-white/12 bg-white/5 text-blue-300/70'
+                      ? 'cursor-not-allowed border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-muted-fill)] text-[color:var(--hub-chrome-link)]'
                       : 'cursor-not-allowed border border-blue-200 bg-blue-50 text-blue-500'
                     : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
                 }`}
@@ -581,7 +578,7 @@ const EmailPage = ({
       <div className={embedded ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'flex-1 overflow-y-auto p-6'}>
         <div
           className={embedded ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-5 md:px-5' : 'max-w-7xl mx-auto w-full'}
-          style={embedded ? { backgroundColor: HUB_PAGE_BG } : undefined}
+          style={embedded ? { backgroundColor: 'var(--hub-chrome-page)' } : undefined}
         >
           {loadingCompanies && (
             <div className="flex items-center justify-center py-12">
@@ -589,7 +586,9 @@ const EmailPage = ({
                 size={32}
                 className={`mr-3 animate-spin ${embedded ? 'text-[color:var(--hub-accent)]' : 'text-blue-600'}`}
               />
-              <span className={embedded ? 'text-white/60' : 'text-gray-600'}>Caricamento aziende...</span>
+              <span className={embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}>
+                Caricamento aziende...
+              </span>
             </div>
           )}
 
@@ -597,7 +596,7 @@ const EmailPage = ({
             <div
               className={
                 embedded
-                  ? 'mb-4 rounded-lg border border-red-500/35 bg-red-950/45 px-4 py-3 text-sm text-red-100'
+                  ? 'mb-4 rounded-lg border border-[color:var(--hub-chrome-msg-error-border)] bg-[color:var(--hub-chrome-msg-error-bg)] px-4 py-3 text-sm text-[color:var(--hub-chrome-msg-error-text)]'
                   : 'mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700'
               }
             >
@@ -609,37 +608,51 @@ const EmailPage = ({
             <div
               className={
                 embedded
-                  ? 'overflow-hidden rounded-2xl border border-white/[0.08]'
+                  ? 'overflow-hidden rounded-2xl border border-[color:var(--hub-chrome-border-soft)]'
                   : 'overflow-hidden rounded-lg border border-gray-200 bg-white shadow'
               }
-              style={embedded ? { backgroundColor: HUB_SURFACE } : undefined}
+              style={embedded ? { backgroundColor: 'var(--hub-chrome-surface)' } : undefined}
             >
               <table className="w-full text-sm">
                 <thead>
                   <tr
                     className={
                       embedded
-                        ? 'border-b border-white/[0.08] bg-black/30'
+                        ? 'border-b border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-row-fill)]'
                         : 'border-b border-gray-200 bg-gray-50'
                     }
                   >
-                    <th className={`px-3 py-1.5 text-left font-semibold ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-700'}`}>
+                    <th
+                      className={`px-3 py-1.5 text-left font-semibold ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-700'}`}
+                    >
                       Titolo
                     </th>
-                    <th className={`px-3 py-1.5 text-left font-semibold ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-700'}`}>
+                    <th
+                      className={`px-3 py-1.5 text-left font-semibold ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-700'}`}
+                    >
                       Nome Utente
                     </th>
                     {showPasswordColumn && (
-                      <th className={`min-w-[120px] px-3 py-1.5 text-left font-semibold ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-700'}`}>
+                      <th
+                        className={`min-w-[120px] px-3 py-1.5 text-left font-semibold ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-700'}`}
+                      >
                         Password
                       </th>
                     )}
-                    <th className={`px-3 py-1.5 text-left font-semibold ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-700'}`}>URL</th>
-                    <th className={`px-3 py-1.5 text-left font-semibold ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-700'}`}>
+                    <th
+                      className={`px-3 py-1.5 text-left font-semibold ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-700'}`}
+                    >
+                      URL
+                    </th>
+                    <th
+                      className={`px-3 py-1.5 text-left font-semibold ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-700'}`}
+                    >
                       Scadenza
                     </th>
                     {showAssistenzaButton && (
-                      <th className={`min-w-[140px] w-40 px-3 py-1.5 text-left font-semibold ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-700'}`}>
+                      <th
+                        className={`min-w-[140px] w-40 px-3 py-1.5 text-left font-semibold ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-700'}`}
+                      >
                         Assistenza
                       </th>
                     )}
@@ -676,15 +689,19 @@ const EmailPage = ({
                           key={`div-${idx}`}
                           className={
                             embedded
-                              ? `border-y border-sky-500/30 bg-sky-500/10 ${isNested ? 'border-l-4 border-l-sky-400 bg-sky-500/10' : ''}`
+                              ? `border-y border-[color:var(--hub-chrome-band-info-mark)]/35 bg-[color:var(--hub-chrome-band-info-bg)] ${isNested ? 'border-l-4 border-[color:var(--hub-chrome-band-info-mark)] bg-[color:var(--hub-chrome-band-info-bg)]' : ''}`
                               : `border-y border-sky-200 bg-sky-100 ${isNested ? 'border-l-4 border-l-sky-400 bg-sky-50' : ''}`
                           }
                         >
                           <td
                             colSpan={4 + (showPasswordColumn ? 1 : 0) + (showAssistenzaButton ? 1 : 0)}
-                            className={`px-3 py-1 font-medium ${embedded ? 'text-sky-100' : 'text-sky-800'} ${isNested ? 'pl-10' : ''}`}
+                            className={`px-3 py-1 font-medium ${embedded ? 'text-[color:var(--hub-chrome-band-info-text)]' : 'text-sky-800'} ${isNested ? 'pl-10' : ''}`}
                           >
-                            {isNested && <span className={`mr-2 ${embedded ? 'text-sky-300' : 'text-sky-600'}`}>└</span>}
+                            {isNested && (
+                              <span className={`mr-2 ${embedded ? 'text-[color:var(--hub-chrome-band-info-mark)]' : 'text-sky-600'}`}>
+                                └
+                              </span>
+                            )}
                             {item.name || '—'}
                           </td>
                         </tr>
@@ -695,15 +712,15 @@ const EmailPage = ({
                     const isExpired = expiresDate && !isNaN(expiresDate.getTime()) && expiresDate < new Date();
                     const rowClass = embedded
                       ? isNested
-                        ? 'border-b border-white/[0.06] border-l-4 border-l-sky-500/50 bg-sky-500/10 hover:bg-sky-500/15'
-                        : `border-b border-white/[0.06] ${isExpired ? 'bg-red-950/35 hover:bg-red-950/45' : 'hover:bg-white/[0.04]'}`
+                        ? 'border-b border-[color:var(--hub-chrome-border-soft)] border-l-4 border-[color:var(--hub-chrome-band-info-mark)] bg-[color:var(--hub-chrome-row-nested-bg)] hover:bg-[color:var(--hub-chrome-row-nested-hover)]'
+                        : `border-b border-[color:var(--hub-chrome-border-soft)] ${isExpired ? 'bg-[color:var(--hub-chrome-row-expired-bg)] hover:brightness-95' : 'hover:bg-[color:var(--hub-chrome-hover)]'}`
                       : isNested
                         ? 'border-b border-gray-100 border-l-4 border-l-sky-300 bg-sky-50/50 hover:bg-sky-50'
                         : `border-b border-gray-100 ${isExpired ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`;
                     const cellPad = isNested ? 'py-1 px-3 pl-10' : 'py-1 px-3';
-                    const txtMain = embedded ? 'text-white/92' : 'text-gray-900';
-                    const txtMuted = embedded ? 'text-white/60' : 'text-gray-600';
-                    const treeMark = embedded ? 'text-sky-400' : 'text-sky-500';
+                    const txtMain = embedded ? 'text-[color:var(--hub-chrome-text)]' : 'text-gray-900';
+                    const txtMuted = embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600';
+                    const treeMark = embedded ? 'text-[color:var(--hub-chrome-link)]' : 'text-sky-500';
                     const hasQuota = item.username && item.username.includes('@') && quotaData[item.username.toLowerCase()];
 
                     return (
@@ -719,14 +736,14 @@ const EmailPage = ({
                               {visiblePasswords[key] !== undefined ? (
                                 <div className="flex items-center gap-1">
                                   <span
-                                    className={`rounded px-2 py-0.5 font-mono text-xs ${embedded ? 'bg-white/10 text-white/90' : 'bg-gray-50 text-gray-800'}`}
+                                    className={`rounded px-2 py-0.5 font-mono text-xs ${embedded ? 'bg-[color:var(--hub-chrome-muted-fill)] text-[color:var(--hub-chrome-text)]' : 'bg-gray-50 text-gray-800'}`}
                                   >
                                     {visiblePasswords[key]}
                                   </span>
                                   <button
                                     type="button"
                                     onClick={() => hidePassword(item)}
-                                    className={`rounded p-1 ${embedded ? 'text-white/50 hover:bg-white/10 hover:text-white/80' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}
+                                    className={`rounded p-1 ${embedded ? 'text-[color:var(--hub-chrome-text-muted)] hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-chrome-text)]' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}
                                     title="Nascondi password"
                                   >
                                     <EyeOff size={14} />
@@ -739,7 +756,7 @@ const EmailPage = ({
                                   disabled={loadingPasswords[key]}
                                   className={`inline-flex items-center gap-1 whitespace-nowrap rounded border px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
                                     embedded
-                                      ? 'border-white/15 bg-white/10 text-white/85 hover:bg-white/15'
+                                      ? 'border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)]'
                                       : 'border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'
                                   }`}
                                   title="Mostra password"
@@ -756,7 +773,9 @@ const EmailPage = ({
                                 href={item.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className={embedded ? 'text-sky-400 hover:underline' : 'text-blue-600 hover:underline'}
+                                className={
+                                  embedded ? 'text-[color:var(--hub-chrome-link)] hover:underline' : 'text-blue-600 hover:underline'
+                                }
                               >
                                 {item.url}
                               </a>
@@ -765,7 +784,7 @@ const EmailPage = ({
                             )}
                           </td>
                           <td
-                            className={`${cellPad} whitespace-nowrap ${isExpired ? (embedded ? 'font-medium text-red-300' : 'font-medium text-red-700') : txtMuted}`}
+                            className={`${cellPad} whitespace-nowrap ${isExpired ? (embedded ? 'font-medium text-[color:var(--hub-chrome-tone-danger-title)]' : 'font-medium text-red-700') : txtMuted}`}
                           >
                             {item.expires ? (
                               <span title={isExpired ? 'Scaduta' : ''}>
@@ -835,7 +854,9 @@ const EmailPage = ({
                 size={32}
                 className={`mr-3 animate-spin ${embedded ? 'text-[color:var(--hub-accent)]' : 'text-blue-600'}`}
               />
-              <span className={embedded ? 'text-white/60' : 'text-gray-600'}>Caricamento Email da KeePass...</span>
+              <span className={embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}>
+                Caricamento Email da KeePass...
+              </span>
             </div>
           )}
 
@@ -843,10 +864,10 @@ const EmailPage = ({
             <div
               className={
                 embedded
-                  ? 'rounded-2xl border border-white/[0.08] px-8 py-10 text-center text-white/50'
+                  ? 'rounded-2xl border border-[color:var(--hub-chrome-border-soft)] px-8 py-10 text-center text-[color:var(--hub-chrome-text-faint)]'
                   : 'rounded-lg border border-gray-200 bg-white p-8 text-center text-gray-500 shadow'
               }
-              style={embedded ? { backgroundColor: HUB_SURFACE } : undefined}
+              style={embedded ? { backgroundColor: 'var(--hub-chrome-surface)' } : undefined}
             >
               Nessuna voce nella cartella Email per questa azienda.
             </div>

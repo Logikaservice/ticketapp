@@ -625,6 +625,7 @@ export default function TechnicianWorkbenchPage({
     } catch (_) {
       /* ignore */
     }
+    window.dispatchEvent(new Event('tech-hub-surface'));
   }, [hubSurfaceMode]);
 
   useEffect(() => {
@@ -684,6 +685,7 @@ export default function TechnicianWorkbenchPage({
       ...hubChromeCssVariables(hubSurfaceMode),
       backgroundColor: 'var(--hub-chrome-page)',
       color: 'var(--hub-chrome-text)',
+      colorScheme: hubSurfaceMode === 'light' ? 'light' : 'dark',
       ['--hub-accent']: accentHex,
       ['--hub-accent-border']: hexToRgba(accentHex, 0.52),
       ['--hub-accent-glow']: hexToRgba(accentHex, 0.32)
@@ -1119,7 +1121,7 @@ export default function TechnicianWorkbenchPage({
                         </button>
                       </div>
                       <p className="mt-2 text-[10px] leading-snug text-[color:var(--hub-chrome-text-fainter)]">
-                        Chiaro usa bianco/grigio per il guscio Hub; i moduli (Email, Office…) restano sul loro tema.
+                        Chiaro applica sfondo chiaro anche ai moduli centrali (Email, Office, Rete…) con testo adeguato.
                       </p>
                     </div>
                   </div>

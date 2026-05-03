@@ -4,12 +4,12 @@ import { buildApiUrl } from '../utils/apiConfig';
 import DispositiviAziendaliIntroCard from '../components/DispositiviAziendaliIntroCard';
 import SectionNavMenu from '../components/SectionNavMenu';
 import {
-  HUB_PAGE_BG,
-  HUB_SURFACE,
   hexToRgba,
   normalizeHex,
   readableOnAccent,
-  getStoredTechHubAccent
+  getStoredTechHubAccent,
+  hubEmbeddedRootInlineStyle,
+  hubEmbeddedBackBtnInlineStyle
 } from '../utils/techHubAccent';
 
 /** Formatta indirizzo MAC con due punti (es. 00:50:56:C0:00:01) */
@@ -19,7 +19,7 @@ const formatMacWithColons = (mac) => {
 };
 
 const renderDisks = (disksJson, embedded = false) => {
-  const emptyCls = embedded ? 'text-white/45' : 'text-gray-500';
+  const emptyCls = embedded ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-gray-500';
   if (!disksJson) return <span className={emptyCls}>—</span>;
   try {
     const arr = typeof disksJson === 'string' ? JSON.parse(disksJson) : disksJson;
@@ -35,21 +35,27 @@ const renderDisks = (disksJson, embedded = false) => {
               key={i}
               className={
                 embedded
-                  ? 'flex w-full flex-col gap-1 rounded border border-white/[0.10] bg-black/[0.22] p-2 text-xs'
+                  ? 'flex w-full flex-col gap-1 rounded border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well-mid)] p-2 text-xs'
                   : 'flex w-full flex-col gap-1 rounded border border-gray-100 bg-gray-50 p-2 text-xs'
               }
             >
-              <div className={`flex justify-between font-medium ${embedded ? 'text-white/82' : 'text-gray-700'}`}>
+              <div
+                className={`flex justify-between font-medium ${embedded ? 'text-[color:var(--hub-chrome-text-secondary)]' : 'text-gray-700'}`}
+              >
                 <span>Disco {d.letter}</span>
                 <span>{percent}% in uso</span>
               </div>
-              <div className={`h-1.5 w-full overflow-hidden rounded-full ${embedded ? 'bg-white/10' : 'bg-gray-200'}`}>
+              <div
+                className={`h-1.5 w-full overflow-hidden rounded-full ${embedded ? 'bg-[color:var(--hub-chrome-muted-fill)]' : 'bg-gray-200'}`}
+              >
                 <div
                   className={`h-1.5 rounded-full ${percent > 90 ? 'bg-red-500' : percent > 75 ? 'bg-yellow-500' : embedded ? 'bg-[color:var(--hub-accent)]' : 'bg-teal-500'}`}
                   style={{ width: `${percent}%` }}
                 />
               </div>
-              <div className={`flex justify-between text-[10px] ${embedded ? 'text-white/45' : 'text-gray-500'}`}>
+              <div
+                className={`flex justify-between text-[10px] ${embedded ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-gray-500'}`}
+              >
                 <span>Liberi: {d.free_gb} GB</span>
                 <span>Totali: {d.total_gb} GB</span>
               </div>
@@ -95,39 +101,16 @@ const DispositiviAziendaliPage = ({
     if (typeof closeEmbedded === 'function') closeEmbedded();
     else if (typeof onClose === 'function') onClose();
   };
-  const embeddedBackBtnStyle = useMemo(
-    () => ({
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 8,
-      padding: '8px 12px',
-      borderRadius: 12,
-      border: '1px solid rgba(255,255,255,0.12)',
-      background: 'rgba(0,0,0,0.28)',
-      color: 'rgba(255,255,255,0.82)',
-      cursor: 'pointer',
-      fontSize: 13,
-      fontWeight: 600,
-      flexShrink: 0
-    }),
-    []
-  );
+  const embeddedBackBtnStyle = useMemo(() => hubEmbeddedBackBtnInlineStyle(), []);
   const rootEmbeddedStyle = useMemo(
-    () =>
-      embedded
-        ? {
-            backgroundColor: HUB_PAGE_BG,
-            ['--hub-accent']: accent,
-            ['--hub-accent-border']: hexToRgba(accent, 0.48)
-          }
-        : undefined,
+    () => (embedded ? hubEmbeddedRootInlineStyle(accent) : undefined),
     [embedded, accent]
   );
   const companySelectCls = embedded
     ? 'min-w-[180px] rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none [color-scheme:light] focus:ring-2 focus:ring-[color:var(--hub-accent)] sm:min-w-[200px]'
     : 'min-w-[200px] rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500';
   const rootClassName = embedded
-    ? 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.08] font-sans'
+    ? 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[color:var(--hub-chrome-border-soft)] font-sans'
     : 'fixed inset-0 z-50 flex flex-col overflow-hidden bg-gray-100 font-sans';
   const [companies, setCompanies] = useState([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId || '');
@@ -327,17 +310,17 @@ const DispositiviAziendaliPage = ({
     }
   }, [highlightMac, devices]);
 
-  const statHintCls = embedded ? 'text-[10px] text-white/40' : 'text-[10px] text-gray-400';
+  const statHintCls = embedded ? 'text-[10px] text-[color:var(--hub-chrome-text-fainter)]' : 'text-[10px] text-gray-400';
 
   return (
     <div className={rootClassName} style={rootEmbeddedStyle}>
       <div
         className={
           embedded
-            ? 'flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3'
+            ? 'flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[color:var(--hub-chrome-border-soft)] px-4 py-3'
             : 'flex flex-wrap items-center justify-between border-b bg-white px-6 py-4 shadow-sm'
         }
-        style={embedded ? { backgroundColor: HUB_SURFACE } : undefined}
+        style={embedded ? { backgroundColor: 'var(--hub-chrome-surface)' } : undefined}
       >
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           {embedded ? (
@@ -369,11 +352,11 @@ const DispositiviAziendaliPage = ({
             <Monitor size={24} style={embedded ? { color: accent } : undefined} />
           </div>
           <div className="min-w-0">
-            <h1 className={`font-bold ${embedded ? 'truncate text-lg text-white' : 'text-xl text-gray-800'}`}>
+            <h1 className={`font-bold ${embedded ? 'truncate text-lg text-[color:var(--hub-chrome-text)]' : 'text-xl text-gray-800'}`}>
               Dispositivi aziendali
             </h1>
             {readOnly && (
-              <p className={`mt-0.5 text-sm ${embedded ? 'text-white/50' : 'text-gray-500'}`}>Sola consultazione</p>
+              <p className={`mt-0.5 text-sm ${embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-500'}`}>Sola consultazione</p>
             )}
           </div>
         </div>
@@ -420,7 +403,9 @@ const DispositiviAziendaliPage = ({
               title="Comunicazioni"
               onClick={() => setShowGearMenu((v) => !v)}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors ${
-                embedded ? 'border border-white/[0.12] bg-black/30 hover:bg-black/45' : 'bg-gray-700 hover:bg-gray-800'
+                embedded
+                  ? 'border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well-mid)] hover:bg-[color:var(--hub-chrome-well)]'
+                  : 'bg-gray-700 hover:bg-gray-800'
               }`}
             >
               <Settings size={16} />
@@ -429,13 +414,13 @@ const DispositiviAziendaliPage = ({
               <div
                 className={`absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border py-1 shadow-2xl ${
                   embedded
-                    ? 'border-white/[0.12] bg-[#1e1e1e]'
+                    ? 'border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)]'
                     : 'border-gray-200 bg-white'
                 }`}
               >
                 <div
                   className={`mb-1 border-b px-3 py-2 text-xs font-semibold uppercase tracking-wide ${
-                    embedded ? 'border-white/[0.08] text-white/45' : 'text-gray-400'
+                    embedded ? 'border-[color:var(--hub-chrome-border-soft)] text-[color:var(--hub-chrome-text-faint)]' : 'text-gray-400'
                   }`}
                 >
                   Comunicazioni
@@ -444,7 +429,7 @@ const DispositiviAziendaliPage = ({
                   type="button"
                   className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
                     embedded
-                      ? 'text-white/85 hover:bg-white/[0.06] hover:text-[color:var(--hub-accent)]'
+                      ? 'text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)]'
                       : 'text-gray-700 hover:bg-violet-50 hover:text-violet-700'
                   }`}
                   onClick={() => {
@@ -459,7 +444,7 @@ const DispositiviAziendaliPage = ({
                   type="button"
                   className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
                     embedded
-                      ? 'text-white/85 hover:bg-white/[0.06] hover:text-[color:var(--hub-accent)]'
+                      ? 'text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)]'
                       : 'text-gray-700 hover:bg-violet-50 hover:text-violet-700'
                   }`}
                   onClick={() => {
@@ -478,40 +463,46 @@ const DispositiviAziendaliPage = ({
 
       <div
         className={`grid grid-cols-2 gap-3 border-b px-6 py-3 sm:grid-cols-4 ${
-          embedded ? 'border-white/[0.08] bg-transparent' : 'bg-white'
+          embedded ? 'border-[color:var(--hub-chrome-border-soft)] bg-transparent' : 'bg-white'
         }`}
       >
         <div
           className={`flex flex-col gap-1 rounded-xl p-4 shadow-sm ${
-            embedded ? 'border border-white/[0.10] bg-black/[0.22]' : 'border border-gray-200 bg-white'
+            embedded ? 'border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well-mid)]' : 'border border-gray-200 bg-white'
           }`}
         >
-          <div className={`flex items-center gap-2 text-xs font-medium ${embedded ? 'text-emerald-400' : 'text-green-600'}`}>
+          <div
+            className={`flex items-center gap-2 text-xs font-medium ${embedded ? 'text-[color:var(--hub-chrome-palette-emerald-fg)]' : 'text-green-600'}`}
+          >
             <Wifi size={14} /> Online
           </div>
-          <div className={`text-2xl font-bold ${embedded ? 'text-emerald-400' : 'text-green-600'}`}>{globalOnline ?? '—'}</div>
+          <div className={`text-2xl font-bold ${embedded ? 'text-[color:var(--hub-chrome-palette-emerald-fg)]' : 'text-green-600'}`}>{globalOnline ?? '—'}</div>
           <div className={statHintCls}>agent monitor (tutte le aziende)</div>
         </div>
         <div
           className={`flex flex-col gap-1 rounded-xl p-4 shadow-sm ${
-            embedded ? 'border border-white/[0.10] bg-black/[0.22]' : 'border border-gray-200 bg-white'
+            embedded ? 'border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well-mid)]' : 'border border-gray-200 bg-white'
           }`}
         >
-          <div className="flex items-center gap-2 text-xs font-medium text-red-400">
+          <div
+            className={`flex items-center gap-2 text-xs font-medium ${embedded ? 'text-[color:var(--hub-chrome-tone-danger-title)]' : 'text-red-400'}`}
+          >
             <WifiOff size={14} /> Offline
           </div>
-          <div className="text-2xl font-bold text-red-400">{globalOffline ?? '—'}</div>
+          <div className={`text-2xl font-bold ${embedded ? 'text-[color:var(--hub-chrome-tone-danger-title)]' : 'text-red-400'}`}>{globalOffline ?? '—'}</div>
           <div className={statHintCls}>agent monitor (tutte le aziende)</div>
         </div>
         <div
           className={`flex flex-col gap-1 rounded-xl p-4 shadow-sm ${
-            embedded ? 'border border-white/[0.10] bg-black/[0.22]' : 'border border-gray-200 bg-white'
+            embedded ? 'border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well-mid)]' : 'border border-gray-200 bg-white'
           }`}
         >
-          <div className={`flex items-center gap-2 text-xs font-medium ${embedded ? 'text-sky-400' : 'text-blue-600'}`}>
+          <div
+            className={`flex items-center gap-2 text-xs font-medium ${embedded ? 'text-[color:var(--hub-chrome-palette-sky-fg)]' : 'text-blue-600'}`}
+          >
             <Activity size={14} /> Agent Online
           </div>
-          <div className={`text-2xl font-bold ${embedded ? 'text-sky-400' : 'text-blue-600'}`}>
+          <div className={`text-2xl font-bold ${embedded ? 'text-[color:var(--hub-chrome-palette-sky-fg)]' : 'text-blue-600'}`}>
             {selectedCompanyId ? companyAgentsOnline : '—'}
           </div>
           {selectedCompanyId ? (
@@ -522,13 +513,15 @@ const DispositiviAziendaliPage = ({
         </div>
         <div
           className={`flex flex-col gap-1 rounded-xl p-4 shadow-sm ${
-            embedded ? 'border border-white/[0.10] bg-black/[0.22]' : 'border border-gray-200 bg-white'
+            embedded ? 'border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well-mid)]' : 'border border-gray-200 bg-white'
           }`}
         >
-          <div className="flex items-center gap-2 text-xs font-medium text-orange-400">
+          <div
+            className={`flex items-center gap-2 text-xs font-medium ${embedded ? 'text-[color:var(--hub-chrome-tone-warn-title)]' : 'text-orange-400'}`}
+          >
             <Activity size={14} /> Agent Offline
           </div>
-          <div className="text-2xl font-bold text-orange-400">
+          <div className={`text-2xl font-bold ${embedded ? 'text-[color:var(--hub-chrome-tone-warn-title)]' : 'text-orange-400'}`}>
             {selectedCompanyId ? companyAgentsOffline : '—'}
           </div>
           {selectedCompanyId ? (
@@ -541,7 +534,7 @@ const DispositiviAziendaliPage = ({
 
       <div
         className={`flex-1 overflow-auto ${embedded ? 'bg-[transparent] px-4 py-4 md:px-5' : 'p-6'}`}
-        style={embedded ? { backgroundColor: HUB_PAGE_BG } : undefined}
+        style={embedded ? { backgroundColor: 'var(--hub-chrome-page)' } : undefined}
       >
         {!selectedCompanyId ? (
           <div className="mx-auto w-full max-w-4xl">
@@ -555,25 +548,27 @@ const DispositiviAziendaliPage = ({
           </div>
         ) : (
           <div className="w-full">
-            <h3 className={`mb-4 text-lg font-semibold ${embedded ? 'text-white' : 'text-gray-900'}`}>Dispositivi (dati dagli agent)</h3>
+            <h3 className={`mb-4 text-lg font-semibold ${embedded ? 'text-[color:var(--hub-chrome-text)]' : 'text-gray-900'}`}>
+              Dispositivi (dati dagli agent)
+            </h3>
             {devicesLoading ? (
-              <div className={`flex items-center gap-2 py-8 ${embedded ? 'text-white/50' : 'text-gray-500'}`}>
+              <div className={`flex items-center gap-2 py-8 ${embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-500'}`}>
                 <Loader2 size={20} className="animate-spin" />
                 Caricamento...
               </div>
             ) : devices.length === 0 ? (
-              <p className={`py-6 ${embedded ? 'text-white/50' : 'text-gray-500'}`}>
+              <p className={`py-6 ${embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-500'}`}>
                 Nessun dispositivo con agent registrato per questa azienda, oppure i dati non sono ancora stati inviati.
               </p>
             ) : (
               <div className="space-y-4">
                 {devices.map((row) => {
                   const hasInfo = row.mac || row.device_name || row.os_name;
-                  const lbl = embedded ? 'text-white/45' : 'text-gray-500';
-                  const muted = embedded ? 'text-white/35' : 'text-gray-400';
+                  const lbl = embedded ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-gray-500';
+                  const muted = embedded ? 'text-[color:var(--hub-chrome-text-fainter)]' : 'text-gray-400';
                   const delBtn =
                     embedded
-                      ? 'text-white/40 hover:bg-red-500/15 hover:text-red-400'
+                      ? 'text-[color:var(--hub-chrome-text-fainter)] hover:bg-red-500/15 hover:text-[color:var(--hub-chrome-tone-danger-icon)]'
                       : 'text-gray-400 hover:bg-red-50 hover:text-red-500';
                   return (
                     <div
@@ -583,7 +578,7 @@ const DispositiviAziendaliPage = ({
                         embedded
                           ? highlightedDeviceId === row.agent_id
                             ? 'border-yellow-400/50 bg-yellow-500/15 ring-4 ring-yellow-400/85'
-                            : 'border-white/[0.10] bg-black/[0.22]'
+                            : 'border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well-mid)]'
                           : highlightedDeviceId === row.agent_id
                             ? 'border-gray-200 bg-yellow-50 ring-4 ring-yellow-400'
                             : 'border-gray-200 bg-white'
@@ -591,7 +586,7 @@ const DispositiviAziendaliPage = ({
                     >
                       {!hasInfo ? (
                         <div className="flex items-center justify-between gap-4">
-                          <p className={`text-sm ${embedded ? 'text-white/55' : 'text-gray-500'}`}>
+                          <p className={`text-sm ${embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-500'}`}>
                             Dispositivo {row.machine_name || row.email} — in attesa di dati dall&apos;agent.
                           </p>
                           <button
@@ -605,16 +600,18 @@ const DispositiviAziendaliPage = ({
                         </div>
                       ) : (
                         <>
-                          <div className={`mb-2 flex flex-wrap items-center gap-2 font-semibold ${embedded ? 'text-white' : 'text-gray-800'}`}>
+                          <div className={`mb-2 flex flex-wrap items-center gap-2 font-semibold ${embedded ? 'text-[color:var(--hub-chrome-text)]' : 'text-gray-800'}`}>
                             <Monitor size={16} style={embedded ? { color: accent } : undefined} className={embedded ? '' : 'text-teal-600'} />
                             <span>{row.device_name || row.machine_name || '—'}</span>
-                            <span className={`font-normal text-sm ${embedded ? 'text-white/50' : 'text-gray-500'}`}>
+                            <span className={`font-normal text-sm ${embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-500'}`}>
                               {row.mac ? `(MAC: ${formatMacWithColons(row.mac)})` : ''}
                             </span>
                             {row.real_status === 'online' && (
                               <span
                                 className={
-                                  embedded ? 'rounded bg-emerald-500/20 px-1.5 py-0.5 text-xs text-emerald-300' : 'rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700'
+                                  embedded
+                                    ? 'rounded border border-[color:var(--hub-chrome-chip-live-border)] bg-[color:var(--hub-chrome-chip-live-bg)] px-1.5 py-0.5 text-xs text-[color:var(--hub-chrome-chip-live-text)]'
+                                    : 'rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700'
                                 }
                               >
                                 Online
@@ -631,11 +628,11 @@ const DispositiviAziendaliPage = ({
                               </button>
                             </div>
                           </div>
-                          <div className={`mb-4 flex items-center gap-1 text-sm ${embedded ? 'text-white/82' : ''}`}>
+                          <div className={`mb-4 flex items-center gap-1 text-sm ${embedded ? 'text-[color:var(--hub-chrome-text-secondary)]' : ''}`}>
                             <User size={14} className={muted} />
                             <span className={lbl}>Utente:</span> {row.current_user || '—'}
                           </div>
-                          <div className={`grid grid-cols-1 gap-6 text-sm md:grid-cols-3 ${embedded ? 'text-white/85' : ''}`}>
+                          <div className={`grid grid-cols-1 gap-6 text-sm md:grid-cols-3 ${embedded ? 'text-[color:var(--hub-chrome-text-secondary)]' : ''}`}>
                             <div className="space-y-1">
                               <div>
                                 <span className={lbl}>IP:</span>{' '}
@@ -651,7 +648,11 @@ const DispositiviAziendaliPage = ({
                                         {i > 0 && ', '}
                                         {inMonitoring ? (
                                           <strong
-                                            className={embedded ? 'font-semibold text-white' : 'font-semibold text-gray-900'}
+                                            className={
+                                              embedded
+                                                ? 'font-semibold text-[color:var(--hub-chrome-text)]'
+                                                : 'font-semibold text-gray-900'
+                                            }
                                             title="Presente nel monitoraggio rete"
                                           >
                                             {seg}
@@ -718,18 +719,18 @@ const DispositiviAziendaliPage = ({
                                           return gb != null ? `${name} · ${gb} GB` : name;
                                         });
                                         return (
-                                          <span className={embedded ? 'text-white/82' : 'text-gray-700'}>{' '}{parts.join(', ')}</span>
+                                          <span className={embedded ? 'text-[color:var(--hub-chrome-text-secondary)]' : 'text-gray-700'}>{' '}{parts.join(', ')}</span>
                                         );
                                       }
                                     } catch (_) {
                                       /* ignore */
                                     }
                                     return (
-                                      <span className={embedded ? 'text-white/82' : 'text-gray-700'}> {row.gpu_name || '—'}</span>
+                                      <span className={embedded ? 'text-[color:var(--hub-chrome-text-secondary)]' : 'text-gray-700'}> {row.gpu_name || '—'}</span>
                                     );
                                   })()
                                 ) : row.gpu_name ? (
-                                  <span className={embedded ? 'text-white/82' : 'text-gray-700'}> {row.gpu_name}</span>
+                                  <span className={embedded ? 'text-[color:var(--hub-chrome-text-secondary)]' : 'text-gray-700'}> {row.gpu_name}</span>
                                 ) : (
                                   <span className={`italic ${muted}`} title="Riavvia o aggiorna l’agent sul PC per inviare i dati delle schede video">
                                     Nessun dato ricevuto dall’agent
@@ -754,7 +755,7 @@ const DispositiviAziendaliPage = ({
                         </>
                       )}
                       <div
-                        className={`mt-2 border-t pt-2 text-xs ${embedded ? 'border-white/[0.08] text-white/38' : 'border-gray-100 text-gray-400'}`}
+                        className={`mt-2 border-t pt-2 text-xs ${embedded ? 'border-[color:var(--hub-chrome-border-soft)] text-[color:var(--hub-chrome-text-faint)]' : 'border-gray-100 text-gray-400'}`}
                       >
                         {row.email} · Aggiornato:{' '}
                         {row.device_info_updated_at ? new Date(row.device_info_updated_at).toLocaleString('it-IT') : 'mai'}

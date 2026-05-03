@@ -14,6 +14,7 @@ import {
     readableOnAccent,
     getStoredTechHubAccent,
     buildCommHubMessagingTheme,
+    buildHubEmbeddedMessagingTheme,
     lightenHex,
     darkenHex
 } from '../utils/techHubAccent';
@@ -38,7 +39,11 @@ const CommAgentDashboard = ({
     /** Accento tema (coerente con Hub); default da localStorage come l’Hub. */
     accentHex: accentHexProp
 }) => {
-    const th = useMemo(() => buildCommHubMessagingTheme(accentHexProp), [accentHexProp]);
+    const th = useMemo(
+        () =>
+            embedded ? buildHubEmbeddedMessagingTheme(accentHexProp) : buildCommHubMessagingTheme(accentHexProp),
+        [embedded, accentHexProp]
+    );
     // State
     const [activeTab, setActiveTab] = useState('send');
     const [agents, setAgents] = useState([]);

@@ -6,11 +6,11 @@ import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
 import OfficeIntroCard from '../components/OfficeIntroCard';
 import {
-  HUB_PAGE_BG,
-  HUB_SURFACE,
   hexToRgba,
   normalizeHex,
-  getStoredTechHubAccent
+  getStoredTechHubAccent,
+  hubEmbeddedRootInlineStyle,
+  hubEmbeddedBackBtnInlineStyle
 } from '../utils/techHubAccent';
 import { getOfficeContentTheme } from '../utils/officePageContentTheme';
 
@@ -718,45 +718,22 @@ const OfficePage = ({
   };
 
   const rootClassName = embedded
-    ? 'flex flex-1 min-h-0 flex-col overflow-hidden rounded-2xl border border-white/[0.08] font-sans'
+    ? 'flex flex-1 min-h-0 flex-col overflow-hidden rounded-2xl border border-[color:var(--hub-chrome-border-soft)] font-sans'
     : 'fixed inset-0 bg-gray-50 z-[100] flex flex-col font-sans w-full h-full overflow-hidden';
 
   const rootEmbeddedStyle = useMemo(
-    () =>
-      embedded
-        ? {
-            backgroundColor: HUB_PAGE_BG,
-            ['--hub-accent']: accent,
-            ['--hub-accent-border']: hexToRgba(accent, 0.48)
-          }
-        : undefined,
+    () => (embedded ? hubEmbeddedRootInlineStyle(accent) : undefined),
     [embedded, accent]
   );
 
-  const embeddedBackBtnStyle = useMemo(
-    () => ({
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 8,
-      padding: '8px 12px',
-      borderRadius: 12,
-      border: '1px solid rgba(255,255,255,0.12)',
-      background: 'rgba(0,0,0,0.28)',
-      color: 'rgba(255,255,255,0.82)',
-      cursor: 'pointer',
-      fontSize: 13,
-      fontWeight: 600,
-      flexShrink: 0
-    }),
-    []
-  );
+  const embeddedBackBtnStyle = useMemo(() => hubEmbeddedBackBtnInlineStyle(), []);
 
   const selectClsOffice = embedded
     ? 'rounded-md border border-gray-300 bg-gray-50 px-3 py-1.5 text-sm text-gray-900 outline-none [color-scheme:light] focus:ring-2 focus:ring-blue-500/80'
     : 'border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none';
 
   const refreshOfficeBtnCls = embedded
-    ? 'inline-flex items-center gap-1 rounded-md border border-white/14 bg-black/35 px-2.5 py-1.5 text-xs font-medium text-white/88 transition-colors hover:bg-white/[0.08] disabled:opacity-50'
+    ? 'inline-flex items-center gap-1 rounded-md border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] px-2.5 py-1.5 text-xs font-medium text-[color:var(--hub-chrome-text-secondary)] transition-colors hover:bg-[color:var(--hub-chrome-hover)] disabled:opacity-50'
     : 'inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors disabled:opacity-50';
 
   const ox = getOfficeContentTheme(embedded);
@@ -767,10 +744,10 @@ const OfficePage = ({
       <div
         className={
           embedded
-            ? 'flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3 z-10 shadow-none'
+            ? 'flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[color:var(--hub-chrome-border-soft)] px-4 py-3 z-10 shadow-none'
             : 'bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10'
         }
-        style={embedded ? { backgroundColor: HUB_SURFACE } : undefined}
+        style={embedded ? { backgroundColor: 'var(--hub-chrome-surface)' } : undefined}
       >
         <div className={`flex min-w-0 items-center ${embedded ? 'gap-3' : 'gap-4'}`}>
           {embedded ? (
@@ -795,8 +772,12 @@ const OfficePage = ({
             />
           )}
           <div className="min-w-0">
-            <h1 className={`font-bold truncate ${embedded ? 'text-lg text-white' : 'text-xl text-gray-900'}`}>Office</h1>
-            <p className={`truncate ${embedded ? 'text-xs text-white/55' : 'text-sm text-gray-600'}`}>
+            <h1
+              className={`font-bold truncate ${embedded ? 'text-lg text-[color:var(--hub-chrome-text)]' : 'text-xl text-gray-900'}`}
+            >
+              Office
+            </h1>
+            <p className={`truncate ${embedded ? 'text-xs text-[color:var(--hub-chrome-text-muted)]' : 'text-sm text-gray-600'}`}>
               {companyName || 'Seleziona un\'azienda'}
             </p>
           </div>
@@ -847,7 +828,7 @@ const OfficePage = ({
       <div className={embedded ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'flex-1 overflow-y-auto p-6'}>
         <div
           className={embedded ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-6 md:px-5' : 'h-full'}
-          style={embedded ? { backgroundColor: HUB_PAGE_BG } : undefined}
+          style={embedded ? { backgroundColor: 'var(--hub-chrome-page)' } : undefined}
         >
         {loadingCompanies && (
           <div className="flex items-center justify-center h-full">

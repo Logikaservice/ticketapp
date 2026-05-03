@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import TicketListContainer from '../TicketListContainer';
 import TicketsHubTicketChrome from './TicketsHubTicketChrome';
 import { formatDateItalian } from '../../utils/formatters';
-import { HUB_SURFACE, hubModalCssVars } from '../../utils/techHubAccent';
+import { hubModalCssVars } from '../../utils/techHubAccent';
 import { ticketMatchesAdvancedSearch } from '../../utils/ticketAdvancedSearch';
 
 /** Stessa logica “ticket visibili” della dashboard per ruolo / filtro azienda. */
@@ -78,8 +78,8 @@ export default function TicketsHubEmbedded({
 
   return (
     <div
-      className="w-full shrink-0 rounded-2xl border border-white/[0.08]"
-      style={{ backgroundColor: HUB_SURFACE, ...hubModalCssVars(accentHex) }}
+      className="w-full shrink-0 rounded-2xl border border-[color:var(--hub-chrome-border-soft)]"
+      style={{ backgroundColor: 'var(--hub-chrome-surface)', ...hubModalCssVars(accentHex) }}
     >
       <div className="px-3 py-3 md:px-4 md:py-4">
         <TicketsHubTicketChrome

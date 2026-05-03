@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import SectionNavMenu from './SectionNavMenu';
-import { buildCommHubMessagingTheme } from '../utils/techHubAccent';
+import { buildCommHubMessagingTheme, buildHubEmbeddedMessagingTheme } from '../utils/techHubAccent';
 
 const TAB_DEFS = [
     { id: 'agents', label: 'Agent Esistenti', icon: Monitor },
@@ -48,7 +48,11 @@ const CommAgentManager = ({
     const [selectedAzienda, setSelectedAzienda] = useState('');
     const [downloadingId, setDownloadingId] = useState(null);
 
-    const th = useMemo(() => buildCommHubMessagingTheme(accentHexProp), [accentHexProp]);
+    const th = useMemo(
+        () =>
+            embedded ? buildHubEmbeddedMessagingTheme(accentHexProp) : buildCommHubMessagingTheme(accentHexProp),
+        [embedded, accentHexProp]
+    );
 
     const getHeaders = useCallback(() => {
         const token = localStorage.getItem('authToken');

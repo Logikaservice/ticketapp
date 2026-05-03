@@ -2,6 +2,8 @@ import React from 'react';
 import { X } from 'lucide-react';
 import {
   getStoredTechHubAccent,
+  getStoredTechHubSurfaceMode,
+  hubChromeCssVariables,
   HUB_PAGE_BG,
   HUB_SURFACE,
   hexToRgba,
@@ -11,6 +13,15 @@ import {
   HUB_MODAL_FIELD_CLS,
   HUB_MODAL_TEXTAREA_CLS
 } from '../../utils/techHubAccent';
+
+function modalChromeInlineStyle(ah) {
+  const skin = getStoredTechHubSurfaceMode();
+  return {
+    ...hubChromeCssVariables(skin),
+    ...hubModalCssVars(ah),
+    colorScheme: skin === 'light' ? 'light' : 'dark'
+  };
+}
 
 export {
   getStoredTechHubAccent,
@@ -55,8 +66,8 @@ export function HubModalScaffold({
       role={onBackdropClick ? 'presentation' : undefined}
     >
       <div
-        className={`flex max-h-[90vh] w-full flex-col overflow-hidden rounded-2xl border border-white/[0.1] shadow-2xl ${maxWidthClass} ${panelClassName}`}
-        style={{ backgroundColor: HUB_PAGE_BG, ...hubModalCssVars(ah) }}
+        className={`flex max-h-[90vh] w-full flex-col overflow-hidden rounded-2xl border border-[color:var(--hub-chrome-border)] shadow-2xl ${maxWidthClass} ${panelClassName}`}
+        style={{ backgroundColor: 'var(--hub-chrome-page)', ...modalChromeInlineStyle(ah) }}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -70,8 +81,8 @@ export function HubModalInnerCard({ children, maxWidthClass = 'max-w-md', classN
   const ah = accentOverride ?? getStoredTechHubAccent();
   return (
     <div
-      className={`w-full rounded-2xl border border-white/[0.1] shadow-2xl ${maxWidthClass} ${className}`}
-      style={{ backgroundColor: HUB_PAGE_BG, ...hubModalCssVars(ah) }}
+      className={`w-full rounded-2xl border border-[color:var(--hub-chrome-border)] shadow-2xl ${maxWidthClass} ${className}`}
+      style={{ backgroundColor: 'var(--hub-chrome-page)', ...modalChromeInlineStyle(ah) }}
     >
       {children}
     </div>
@@ -90,8 +101,8 @@ export function HubModalChromeHeader({
 
   return (
     <div
-      className={`shrink-0 border-b border-white/[0.08] ${pad}`}
-      style={{ backgroundColor: HUB_SURFACE }}
+      className={`shrink-0 border-b border-[color:var(--hub-chrome-border-soft)] ${pad}`}
+      style={{ backgroundColor: 'var(--hub-chrome-surface)' }}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
@@ -104,15 +115,15 @@ export function HubModalChromeHeader({
             </span>
           ) : null}
           <div className="min-w-0">
-            <h2 className="text-lg font-bold text-white md:text-xl">{title}</h2>
-            {subtitle ? <p className="mt-0.5 text-sm text-white/55">{subtitle}</p> : null}
+            <h2 className="text-lg font-bold text-[color:var(--hub-chrome-text)] md:text-xl">{title}</h2>
+            {subtitle ? <p className="mt-0.5 text-sm text-[color:var(--hub-chrome-text-muted)]">{subtitle}</p> : null}
           </div>
         </div>
         {onClose ? (
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 rounded-lg bg-white/10 p-2 text-white ring-1 ring-white/15 transition hover:bg-white/16"
+            className="shrink-0 rounded-lg bg-[color:var(--hub-chrome-muted-fill)] p-2 text-[color:var(--hub-chrome-text)] ring-1 ring-[color:var(--hub-chrome-border)] transition hover:bg-[color:var(--hub-chrome-hover)]"
             aria-label="Chiudi"
           >
             <X size={20} aria-hidden />
@@ -126,8 +137,8 @@ export function HubModalChromeHeader({
 export function HubModalChromeFooter({ children, className = '' }) {
   return (
     <div
-      className={`flex shrink-0 flex-wrap gap-2 border-t border-white/[0.08] p-4 ${className}`}
-      style={{ backgroundColor: HUB_SURFACE }}
+      className={`flex shrink-0 flex-wrap gap-2 border-t border-[color:var(--hub-chrome-border-soft)] p-4 ${className}`}
+      style={{ backgroundColor: 'var(--hub-chrome-surface)' }}
     >
       {children}
     </div>
@@ -135,7 +146,11 @@ export function HubModalChromeFooter({ children, className = '' }) {
 }
 
 export function HubModalBody({ children, className = '' }) {
-  return <div className={`min-h-0 flex-1 space-y-4 overflow-y-auto p-6 ${className}`}>{children}</div>;
+  return (
+    <div className={`min-h-0 flex-1 space-y-4 overflow-y-auto p-6 text-[color:var(--hub-chrome-text)] ${className}`}>
+      {children}
+    </div>
+  );
 }
 
 export function HubModalPrimaryButton({ children, onClick, type = 'button', disabled, className = '' }) {
@@ -158,7 +173,7 @@ export function HubModalSecondaryButton({ children, onClick, type = 'button', cl
     <button
       type={type}
       onClick={onClick}
-      className={`rounded-lg bg-white/[0.1] px-4 py-2 text-sm font-medium text-white transition hover:bg-white/[0.14] ${className}`}
+      className={`rounded-lg bg-[color:var(--hub-chrome-muted-fill)] px-4 py-2 text-sm font-medium text-[color:var(--hub-chrome-text)] transition hover:bg-[color:var(--hub-chrome-hover)] ${className}`}
     >
       {children}
     </button>
