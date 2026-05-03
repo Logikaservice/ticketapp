@@ -7,6 +7,9 @@ export const HUB_GRID_COLS = 7;
 export const HUB_MAX_ROW_SPAN = 4;
 export const STORAGE_HUB_LAYOUT = 'techHubOverviewLayout';
 
+/** Incrementare quando si aggiungono moduli da fondere nei layout salvati (vedi `loadHubLayout`). */
+export const HUB_LAYOUT_STORAGE_VERSION = 2;
+
 export const HUB_MODULE_META = {
   'new-ticket': { label: 'Nuovo ticket', category: 'Azioni', defaultPlacement: { col: 1, row: 1, w: 3, h: 1 } },
   'stat-aperto': {
@@ -44,7 +47,8 @@ export const HUB_MODULE_META = {
     label: 'Notifiche agent',
     category: 'Moduli',
     resizeBounds: { minW: 2, maxW: 7, minH: 2, maxH: 4 },
-    defaultPlacement: { col: 3, row: 8, w: 5, h: 2 }
+    /** Fila 6: sotto i KPI, sopra Office/Dispositivi — resta visibile senza scroll lungo. */
+    defaultPlacement: { col: 1, row: 6, w: 5, h: 2 }
   },
   'launch-dispositivi': {
     label: 'Dispositivi',
@@ -172,13 +176,53 @@ function storageKey(userId) {
   return STORAGE_HUB_LAYOUT;
 }
 
+/**
+ * Inserisce un modulo alle coordinate predefinite (o la posizione libera più vicina).
+ * Usato in migrazione layout e come alternativa ad «append in fondo».
+ */
+export function insertModuleWithDefaultPlacement(layout, id) {
+  if (!Array.isArray(layout) || layout.some((x) => x.id === id)) return layout;
+  const meta = HUB_MODULE_META[id];
+  if (!meta) return layout;
+  const p = meta.defaultPlacement;
+  const fixed = meta.fixedSize;
+  const w = fixed ? fixed.w : p.w;
+  const h = fixed ? fixed.h : p.h;
+  const next = cloneLayout(layout);
+  const trial = { col: p.col, row: p.row, w, h };
+  let col = trial.col;
+  let row = trial.row;
+  if (hasCollision(next, trial, null)) {
+    const fit = findNearestFit(next, w, h, null, col, row);
+    col = fit.col;
+    row = fit.row;
+  }
+  next.push({
+    id,
+    col,
+    row,
+    w,
+    h,
+    hidden: false,
+    ...normalizeLayoutExtras({})
+  });
+  return resolveCollisions(next);
+}
+
 export function loadHubLayout(userId) {
   try {
     const raw = localStorage.getItem(storageKey(userId));
     if (!raw) return null;
     const data = JSON.parse(raw);
     if (!data || !Array.isArray(data.items)) return null;
-    return sanitizeLayoutItems(data.items);
+    let items = sanitizeLayoutItems(data.items);
+    const fileVer = parseInt(data.v, 10) || 1;
+    if (fileVer < HUB_LAYOUT_STORAGE_VERSION) {
+      if (!items.some((x) => x.id === 'agent-events')) {
+        items = sanitizeLayoutItems(insertModuleWithDefaultPlacement(items, 'agent-events'));
+      }
+    }
+    return items;
   } catch (_) {
     return null;
   }
@@ -186,7 +230,10 @@ export function loadHubLayout(userId) {
 
 export function saveHubLayout(userId, items) {
   try {
-    localStorage.setItem(storageKey(userId), JSON.stringify({ v: 1, items: cloneLayout(items) }));
+    localStorage.setItem(
+      storageKey(userId),
+      JSON.stringify({ v: HUB_LAYOUT_STORAGE_VERSION, items: cloneLayout(items) })
+    );
   } catch (_) {
     /* ignore */
   }

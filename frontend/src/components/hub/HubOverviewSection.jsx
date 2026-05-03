@@ -598,7 +598,7 @@ export default function HubOverviewSection({
             onOpenNetworkMonitoring={() => setHubCenterView?.('network-monitoring')}
             title={txt(item, HUB_MODULE_META[id].label)}
             subtitle={sub(item, 'Offline, online e avvisi sugli agent')}
-            technicianOnly={Boolean(isTechnician)}
+            technicianOnly={hubCanNetworkMonitoring}
             subdued={veil}
             suppressInteraction={suppressInteraction}
           />

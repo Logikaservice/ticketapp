@@ -18,6 +18,7 @@ export default function HubAgentEventsInteractiveCard({
   subtitle = 'Eventi rete sugli agent',
   subdued,
   suppressInteraction,
+  /** Ruoli con accesso al monitoraggio rete (allineato a Hub: tecnico, admin, cliente multi-azienda). */
   technicianOnly = false
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -41,7 +42,9 @@ export default function HubAgentEventsInteractiveCard({
           </div>
           <div className="min-w-0">
             <h3 className="text-sm font-semibold text-white/70">{title}</h3>
-            <p className="mt-0.5 text-xs text-white/38">Disponibile per il ruolo tecnico.</p>
+            <p className="mt-0.5 text-xs text-white/38">
+              Serve un account con accesso al monitoraggio rete (tecnico, admin o aziende abilitate).
+            </p>
           </div>
         </div>
       </div>
