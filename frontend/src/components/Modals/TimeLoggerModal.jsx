@@ -2,7 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Clock, Check, Plus, Copy, Trash2, Users, Eye, Edit, Save, Wrench, Minus } from 'lucide-react';
 import { calculateDurationHours, normalizeTimeLog, calculateTotalHoursFromIntervals } from '../../utils/helpers';
 import { buildApiUrl } from '../../utils/apiConfig';
-import { HUB_MODAL_FIELD_CLS, HUB_MODAL_TEXTAREA_CLS } from '../../utils/techHubAccent';
+import {
+  HUB_MODAL_FIELD_CLS,
+  HUB_MODAL_TEXTAREA_CLS,
+  HUB_MODAL_LABEL_CLS,
+  HUB_MODAL_NOTICE_INFO
+} from '../../utils/techHubAccent';
 import {
   HubModalInnerCard,
   HubModalChromeHeader,
@@ -328,7 +333,7 @@ const TimeLoggerModal = ({
         onClose={closeModal}
       />
       <HubModalBody className="space-y-6">
-        <div className="rounded-lg border border-sky-500/35 bg-sky-500/12 p-3 text-sm text-sky-50">
+        <div className={`${HUB_MODAL_NOTICE_INFO} text-sm`}>
           Ticket: {selectedTicket.numero} - {selectedTicket.titolo}
         </div>
 
@@ -358,11 +363,11 @@ const TimeLoggerModal = ({
           return (
             <div
               key={log.id}
-              className="relative rounded-lg border border-white/10 bg-black/20 p-4 shadow-sm"
+              className="relative rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-well)] p-4 shadow-sm"
             >
-              <h3 className="mb-4 flex items-center justify-between font-bold text-white">
+              <h3 className="mb-4 flex items-center justify-between text-base font-bold text-[color:var(--hub-chrome-text)]">
                 <span className="flex items-center gap-2">
-                  <Wrench size={20} />
+                  <Wrench size={20} className="shrink-0 text-[color:var(--hub-accent)]" aria-hidden />
                   Intervento #{index + 1}
                 </span>
                 {!fieldsDisabled && (
@@ -373,14 +378,16 @@ const TimeLoggerModal = ({
                           handleRemoveTimeLog(log.id);
                         }
                       }}
-                      className="rounded p-1 text-red-400 transition-colors hover:bg-red-500/15"
+                      className="rounded p-1 text-[color:var(--hub-chrome-tone-danger-icon)] transition-colors hover:bg-[color:var(--hub-chrome-notice-danger-bg)]"
                       title="Elimina intervento"
+                      type="button"
                     >
                       <Trash2 size={18} />
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleDuplicateTimeLog(log)}
-                      className="rounded p-1 text-[color:var(--hub-accent)] transition-colors hover:bg-white/10"
+                      className="rounded p-1 text-[color:var(--hub-accent)] transition-colors hover:bg-[color:var(--hub-chrome-hover)]"
                       title="Duplica intervento"
                     >
                       <Copy size={18} />
@@ -390,14 +397,14 @@ const TimeLoggerModal = ({
               </h3>
 
               {/* Sezione Intervento racchiusa */}
-              <div className="rounded-lg border border-white/10 bg-[#1a1a1a] p-4">
+              <div className="rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)] p-4">
 
                 {/* Fasi lavorative */}
                 <div className="mb-4 space-y-3">
                   {workPhases.map((phase, phaseIndex) => (
                     <div key={phase.id} className="grid md:grid-cols-5 gap-4 items-end">
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-white/70">Modalità</label>
+                        <label className={`${HUB_MODAL_LABEL_CLS} text-xs`}>Modalità</label>
                         <select
                           value={phase.modalita || 'Telefonica'}
                           onChange={(e) => handleUpdateWorkPhase(normalizedLog.id, phase.id, 'modalita', e.target.value)}
@@ -412,7 +419,7 @@ const TimeLoggerModal = ({
                       </div>
 
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-white/70">Data</label>
+                        <label className={`${HUB_MODAL_LABEL_CLS} text-xs`}>Data</label>
                         <input
                           type="date"
                           value={phase.data || ''}
@@ -423,7 +430,7 @@ const TimeLoggerModal = ({
                       </div>
 
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-white/70">Ora Inizio</label>
+                        <label className={`${HUB_MODAL_LABEL_CLS} text-xs`}>Ora Inizio</label>
                         <input
                           type="time"
                           value={phase.oraInizio || ''}
@@ -435,7 +442,7 @@ const TimeLoggerModal = ({
                       </div>
 
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-white/70">Ora Fine</label>
+                        <label className={`${HUB_MODAL_LABEL_CLS} text-xs`}>Ora Fine</label>
                         <input
                           type="time"
                           value={phase.oraFine || ''}
@@ -448,8 +455,8 @@ const TimeLoggerModal = ({
 
                       <div className="flex items-end gap-2">
                         <div className="flex-1">
-                          <div className="text-xs text-white/55 mb-1">Durata</div>
-                          <div className="text-sm font-semibold text-white">
+                          <div className={`${HUB_MODAL_LABEL_CLS} mb-1 text-xs`}>Durata</div>
+                          <div className="text-sm font-semibold text-[color:var(--hub-chrome-text)]">
                             {phase.oraInizio && phase.oraFine
                               ? `${calculateDurationHours(phase.oraInizio, phase.oraFine).toFixed(2)} ore`
                               : '0.00 ore'}
@@ -459,7 +466,8 @@ const TimeLoggerModal = ({
                           {!fieldsDisabled && !normalizedLog.eventoGiornaliero && workPhases.length > 1 && (
                             <button
                               onClick={() => handleRemoveWorkPhase(normalizedLog.id, phase.id)}
-                              className="rounded p-1 text-red-400 transition-colors hover:bg-red-500/15"
+                              type="button"
+                              className="rounded p-1 text-[color:var(--hub-chrome-tone-danger-icon)] transition-colors hover:bg-[color:var(--hub-chrome-notice-danger-bg)]"
                               title="Rimuovi fase"
                             >
                               <Minus size={16} />
@@ -468,7 +476,8 @@ const TimeLoggerModal = ({
                           {!fieldsDisabled && !normalizedLog.eventoGiornaliero && phaseIndex === workPhases.length - 1 && (
                             <button
                               onClick={() => handleAddWorkPhase(normalizedLog.id)}
-                              className="rounded p-1 text-[color:var(--hub-accent)] transition-colors hover:bg-white/10"
+                              type="button"
+                              className="rounded p-1 text-[color:var(--hub-accent)] transition-colors hover:bg-[color:var(--hub-chrome-hover)]"
                               title="Aggiungi fase"
                             >
                               <Plus size={16} />
@@ -481,13 +490,13 @@ const TimeLoggerModal = ({
                 </div>
 
                 {/* Totale ore di tutte le fasi */}
-                <div className="mb-4 text-right text-sm font-semibold text-white">
+                <div className="mb-4 text-right text-sm font-semibold text-[color:var(--hub-chrome-text)]">
                   Totale: {hours.toFixed(2)} ore
                 </div>
 
                 {/* Evento giornaliero */}
                 <div className="mb-4">
-                  <label className="inline-flex items-center gap-2 text-sm text-white/85">
+                  <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-[color:var(--hub-chrome-text-secondary)]">
                     <input
                       type="checkbox"
                       checked={!!normalizedLog.eventoGiornaliero}
@@ -502,7 +511,7 @@ const TimeLoggerModal = ({
                           oreIntervento: 0
                         } : {})
                       } : l))}
-                      className="rounded border-white/20 bg-black/30 accent-[color:var(--hub-accent)]"
+                      className="rounded border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-input-bg)] accent-[color:var(--hub-accent)]"
                     />
                     Evento giornaliero
                   </label>
@@ -534,23 +543,24 @@ const TimeLoggerModal = ({
                   style={{ height: 'auto' }}
                 />
 
-                <div className="mt-5 border-t pt-4">
+                <div className="mt-5 border-t border-[color:var(--hub-chrome-border-soft)] pt-4">
                   {isSectionExpanded(log.id, 'manodopera', normalizedLog) ? (
                     <>
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="text-sm font-bold text-white">Costo Manodopera</h4>
+                      <div className="mb-3 flex items-center justify-between">
+                        <h4 className="text-sm font-bold text-[color:var(--hub-chrome-text)]">Costo Manodopera</h4>
                         {!fieldsDisabled && (
                           <button
+                            type="button"
                             onClick={() => toggleSection(normalizedLog.id, 'manodopera')}
-                            className="text-xs text-white/50 transition hover:text-white/80"
+                            className="text-xs text-[color:var(--hub-chrome-text-faint)] transition hover:text-[color:var(--hub-chrome-text-muted)]"
                           >
                             Nascondi
                           </button>
                         )}
                       </div>
-                      <div className="grid sm:grid-cols-5 gap-4 items-end">
+                      <div className="grid gap-4 sm:grid-cols-5 sm:items-end">
                         <div>
-                          <label className="mb-1 block text-xs font-medium text-white/70">Ore</label>
+                          <label className={`${HUB_MODAL_LABEL_CLS} text-xs`}>Ore</label>
                           <input
                             type="number"
                             step="0.25"
@@ -562,7 +572,7 @@ const TimeLoggerModal = ({
                         </div>
 
                         <div>
-                          <label className="mb-1 block text-xs font-medium text-white/70">Costo Unit.(€)</label>
+                          <label className={`${HUB_MODAL_LABEL_CLS} text-xs`}>Costo Unit.(€)</label>
                           <input
                             type="number"
                             step="0.01"
@@ -574,7 +584,7 @@ const TimeLoggerModal = ({
                         </div>
 
                         <div>
-                          <label className="mb-1 block text-xs font-medium text-white/70">Sconto(%)</label>
+                          <label className={`${HUB_MODAL_LABEL_CLS} text-xs`}>Sconto(%)</label>
                           <input
                             type="number"
                             value={normalizedLog.sconto}
@@ -585,15 +595,15 @@ const TimeLoggerModal = ({
                         </div>
 
                         <div>
-                          <label className="mb-1 block text-xs font-medium text-white/70">Costo Scontato</label>
-                          <div className="rounded-lg bg-black/30 p-2.5 font-bold text-white">
+                          <label className={`${HUB_MODAL_LABEL_CLS} text-xs`}>Costo Scontato</label>
+                          <div className="rounded-lg border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-muted-fill)] p-2.5 font-bold text-[color:var(--hub-chrome-text)]">
                             {(costPerHour * (1 - (discount / 100))).toFixed(2)}€
                           </div>
                         </div>
 
                         <div>
-                          <label className="mb-1 block text-xs font-medium text-white/70">Totale</label>
-                          <div className="rounded-lg border border-[color:var(--hub-accent-border)] bg-[color:var(--hub-accent)]/15 p-2.5 font-bold text-white">
+                          <label className={`${HUB_MODAL_LABEL_CLS} text-xs`}>Totale</label>
+                          <div className="rounded-lg border border-[color:var(--hub-accent-border)] bg-[color:color-mix(in_srgb,var(--hub-accent)_14%,var(--hub-chrome-well))] p-2.5 font-bold text-[color:var(--hub-chrome-text)]">
                             {total.toFixed(2)}€
                           </div>
                         </div>
@@ -603,8 +613,9 @@ const TimeLoggerModal = ({
                     <>
                       {!fieldsDisabled && (
                         <button
+                          type="button"
                           onClick={() => toggleSection(normalizedLog.id, 'manodopera')}
-                          className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/15 p-2 text-sm font-medium text-[color:var(--hub-accent)] transition hover:bg-white/5"
+                          className="flex w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--hub-chrome-border)] p-2 text-sm font-medium text-[color:var(--hub-accent)] transition hover:bg-[color:var(--hub-chrome-hover)]"
                         >
                           <Plus size={16} />
                           Aggiungi Costo Manodopera
@@ -615,18 +626,19 @@ const TimeLoggerModal = ({
                   )}
                 </div>
 
-                <div className="mt-5 border-t pt-4">
+                <div className="mt-5 border-t border-[color:var(--hub-chrome-border-soft)] pt-4">
                   {isSectionExpanded(normalizedLog.id, 'materiali', normalizedLog) ? (
                     <>
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="flex items-center gap-2 text-sm font-bold text-white">
-                          <Users size={16} />
+                      <div className="mb-3 flex items-center justify-between">
+                        <h4 className="flex items-center gap-2 text-sm font-bold text-[color:var(--hub-chrome-text)]">
+                          <Users size={16} className="shrink-0 text-[color:var(--hub-accent)]" aria-hidden />
                           Materiali
                         </h4>
                         {!fieldsDisabled && (
                           <button
+                            type="button"
                             onClick={() => toggleSection(normalizedLog.id, 'materiali')}
-                            className="text-xs text-white/50 transition hover:text-white/80"
+                            className="text-xs text-[color:var(--hub-chrome-text-faint)] transition hover:text-[color:var(--hub-chrome-text-muted)]"
                           >
                             Nascondi
                           </button>
@@ -634,9 +646,12 @@ const TimeLoggerModal = ({
                       </div>
                       <div className="space-y-3">
                         {normalizedLog.materials && normalizedLog.materials.map(m => (
-                          <div key={m.id} className="grid grid-cols-6 items-center gap-3 rounded-lg border border-white/10 bg-black/25 p-2">
+                          <div
+                            key={m.id}
+                            className="grid grid-cols-6 items-center gap-3 rounded-lg border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-well-mid)] p-2"
+                          >
                             <div className="col-span-2">
-                              <label className="mb-1 block text-xs font-medium text-white/70">Materiale</label>
+                              <label className={`${HUB_MODAL_LABEL_CLS} text-xs`}>Materiale</label>
                               <input
                                 type="text"
                                 value={m.nome}
@@ -647,7 +662,7 @@ const TimeLoggerModal = ({
                             </div>
 
                             <div className="col-span-1">
-                              <label className="mb-1 block text-xs font-medium text-white/70">Qta</label>
+                              <label className={`${HUB_MODAL_LABEL_CLS} text-xs`}>Qta</label>
                               <input
                                 type="number"
                                 min="0"
@@ -660,7 +675,7 @@ const TimeLoggerModal = ({
                             </div>
 
                             <div className="col-span-1">
-                              <label className="mb-1 block text-xs font-medium text-white/70">Costo (€)</label>
+                              <label className={`${HUB_MODAL_LABEL_CLS} text-xs`}>Costo (€)</label>
                               <input
                                 type="number"
                                 step="0.01"
@@ -673,8 +688,8 @@ const TimeLoggerModal = ({
                             </div>
 
                             <div className="col-span-1">
-                              <label className="mb-1 block text-xs font-medium text-white/70">Totale (€)</label>
-                              <div className="rounded-lg bg-violet-500/20 p-2 text-right font-bold text-violet-100">
+                              <label className={`${HUB_MODAL_LABEL_CLS} text-xs`}>Totale (€)</label>
+                              <div className="rounded-lg border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-palette-violet-bg)] p-2 text-right font-bold text-[color:var(--hub-chrome-palette-violet-fg)]">
                                 {(() => {
                                   const qta = m.quantita === '' || m.quantita === null || m.quantita === undefined ? 0 : parseFloat(m.quantita) || 0;
                                   const costo = m.costo === '' || m.costo === null || m.costo === undefined ? 0 : parseFloat(m.costo) || 0;
@@ -686,8 +701,9 @@ const TimeLoggerModal = ({
                             <div className="col-span-1 pt-4 text-right">
                               {!fieldsDisabled && normalizedLog.materials.length > 1 && (
                                 <button
+                                  type="button"
                                   onClick={() => handleRemoveMaterial(normalizedLog.id, m.id)}
-                                  className="p-1 text-red-400"
+                                  className="p-1 text-[color:var(--hub-chrome-tone-danger-icon)] hover:bg-[color:var(--hub-chrome-notice-danger-bg)] rounded"
                                 >
                                   <Trash2 size={18} />
                                 </button>
@@ -698,8 +714,9 @@ const TimeLoggerModal = ({
 
                         {!fieldsDisabled && (
                           <button
+                            type="button"
                             onClick={() => handleAddMaterial(normalizedLog.id)}
-                            className="mt-2 flex w-full items-center justify-center gap-1 p-1 text-xs font-medium text-[color:var(--hub-accent)]"
+                            className="mt-2 flex w-full items-center justify-center gap-1 p-1 text-xs font-medium text-[color:var(--hub-accent)] hover:underline"
                           >
                             <Plus size={14} />
                             Aggiungi Materiale
@@ -711,6 +728,7 @@ const TimeLoggerModal = ({
                     <>
                       {!fieldsDisabled && (
                         <button
+                          type="button"
                           onClick={() => {
                             toggleSection(normalizedLog.id, 'materiali');
                             // Se non ci sono materiali, aggiungine uno automaticamente
@@ -718,7 +736,7 @@ const TimeLoggerModal = ({
                               handleAddMaterial(normalizedLog.id);
                             }
                           }}
-                          className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/15 p-2 text-sm font-medium text-[color:var(--hub-accent)] transition hover:bg-white/5"
+                          className="flex w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--hub-chrome-border)] p-2 text-sm font-medium text-[color:var(--hub-accent)] transition hover:bg-[color:var(--hub-chrome-hover)]"
                         >
                           <Plus size={16} />
                           Aggiungi Materiale
@@ -731,21 +749,27 @@ const TimeLoggerModal = ({
 
                 {/* Sezione Come da Offerta - LEGATA A QUESTO INTERVENTO */}
                 {normalizedLog.offerte && normalizedLog.offerte.length > 0 && (
-                  <div className="mt-5 rounded-lg border border-violet-400/30 bg-violet-500/10 p-4">
-                    <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-violet-100">
-                      <Users size={20} />
+                  <div className="mt-5 rounded-lg border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-palette-violet-bg)] p-4">
+                    <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-[color:var(--hub-chrome-palette-violet-fg)]">
+                      <Users size={20} className="shrink-0" aria-hidden />
                       Come da Offerta
                     </h3>
 
                     <div className="space-y-4">
                       {normalizedLog.offerte.map((offerta, offertaIndex) => (
-                        <div key={offerta.id} className="rounded-lg border border-white/10 bg-[#1a1a1a] p-4">
+                        <div
+                          key={offerta.id}
+                          className="rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)] p-4"
+                        >
                           <div className="mb-3 flex items-center justify-between">
-                            <h4 className="font-semibold text-violet-100">Offerta #{offertaIndex + 1}</h4>
+                            <h4 className="font-semibold text-[color:var(--hub-chrome-text)]">
+                              Offerta #{offertaIndex + 1}
+                            </h4>
                             {!fieldsDisabled && (
                               <button
+                                type="button"
                                 onClick={() => handleRemoveOfferta(normalizedLog.id, offerta.id)}
-                                className="rounded p-1 text-red-400 hover:bg-red-500/15"
+                                className="rounded p-1 text-[color:var(--hub-chrome-tone-danger-icon)] hover:bg-[color:var(--hub-chrome-notice-danger-bg)]"
                                 title="Elimina offerta"
                               >
                                 <Trash2 size={16} />
@@ -755,7 +779,7 @@ const TimeLoggerModal = ({
 
                           <div className="flex flex-col md:flex-row md:items-end gap-2 md:gap-3 mb-4">
                             <div className="w-full md:w-auto" style={{ minWidth: 140 }}>
-                              <label className="mb-1 block whitespace-nowrap text-xs font-medium text-white/65">Offerta n°</label>
+                              <label className={`${HUB_MODAL_LABEL_CLS} block whitespace-nowrap text-xs`}>Offerta n°</label>
                               <input
                                 type="text"
                                 value={offerta.numeroOfferta}
@@ -767,7 +791,7 @@ const TimeLoggerModal = ({
                             </div>
 
                             <div className="w-full md:w-auto" style={{ minWidth: 125 }}>
-                              <label className="mb-1 block whitespace-nowrap text-xs font-medium text-white/65">Data</label>
+                              <label className={`${HUB_MODAL_LABEL_CLS} block whitespace-nowrap text-xs`}>Data</label>
                               <input
                                 type="date"
                                 value={offerta.dataOfferta}
@@ -778,7 +802,7 @@ const TimeLoggerModal = ({
                             </div>
 
                             <div className="w-full md:w-auto" style={{ minWidth: 70 }}>
-                              <label className="mb-1 block whitespace-nowrap text-xs font-medium text-white/65">Qta</label>
+                              <label className={`${HUB_MODAL_LABEL_CLS} block whitespace-nowrap text-xs`}>Qta</label>
                               <input
                                 type="number"
                                 min="1"
@@ -791,7 +815,7 @@ const TimeLoggerModal = ({
                             </div>
 
                             <div className="w-full md:w-auto" style={{ minWidth: 120 }}>
-                              <label className="mb-1 block whitespace-nowrap text-xs font-medium text-white/65">Costo Unit.</label>
+                              <label className={`${HUB_MODAL_LABEL_CLS} block whitespace-nowrap text-xs`}>Costo Unit.</label>
                               <input
                                 type="number"
                                 min="0"
@@ -804,7 +828,7 @@ const TimeLoggerModal = ({
                             </div>
 
                             <div className="w-full md:w-auto" style={{ minWidth: 80 }}>
-                              <label className="mb-1 block whitespace-nowrap text-xs font-medium text-white/65">Sconto %</label>
+                              <label className={`${HUB_MODAL_LABEL_CLS} block whitespace-nowrap text-xs`}>Sconto %</label>
                               <input
                                 type="number"
                                 min="0"
@@ -818,15 +842,15 @@ const TimeLoggerModal = ({
                             </div>
 
                             <div className="w-full md:w-auto md:ml-auto" style={{ minWidth: 120 }}>
-                              <label className="mb-1 block whitespace-nowrap text-xs font-medium text-white/65">Totale</label>
-                              <div className="rounded-lg bg-violet-500/20 px-2 py-1.5 text-sm font-bold text-violet-100">
+                              <label className={`${HUB_MODAL_LABEL_CLS} block whitespace-nowrap text-xs`}>Totale</label>
+                              <div className="rounded-lg border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-palette-violet-bg)] px-2 py-1.5 text-sm font-bold text-[color:var(--hub-chrome-palette-violet-fg)]">
                                 {offerta.totale.toFixed(2)}€
                               </div>
                             </div>
                           </div>
 
                           <div>
-                            <label className="mb-1 block text-xs font-medium text-white/65">Descrizione</label>
+                            <label className={`${HUB_MODAL_LABEL_CLS} text-xs`}>Descrizione</label>
                             <textarea
                               rows="2"
                               value={offerta.descrizione}
@@ -856,8 +880,9 @@ const TimeLoggerModal = ({
 
                       {!fieldsDisabled && (
                         <button
+                          type="button"
                           onClick={() => handleAddOfferta(normalizedLog.id)}
-                          className="flex w-full items-center justify-center gap-2 rounded-lg border border-violet-400/40 p-2 text-sm font-medium text-violet-200 transition hover:bg-violet-500/10"
+                          className="flex w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--hub-accent-border)] p-2 text-sm font-medium text-[color:var(--hub-accent)] transition hover:bg-[color:var(--hub-chrome-hover)]"
                         >
                           <Plus size={16} />
                           Aggiungi Offerta
@@ -869,8 +894,9 @@ const TimeLoggerModal = ({
 
                 {!fieldsDisabled && (!log.offerte || log.offerte.length === 0) && (
                   <button
+                    type="button"
                     onClick={() => handleAddOfferta(log.id)}
-                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg border border-violet-400/40 p-2 text-sm font-medium text-violet-200 transition hover:bg-violet-500/10"
+                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--hub-accent-border)] p-2 text-sm font-medium text-[color:var(--hub-accent)] transition hover:bg-[color:var(--hub-chrome-hover)]"
                   >
                     <Plus size={16} />
                     Aggiungi Offerta
@@ -885,7 +911,7 @@ const TimeLoggerModal = ({
           <button
             onClick={handleAddTimeLog}
             type="button"
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--hub-accent)] px-4 py-2 text-[color:var(--hub-accent)] transition hover:bg-white/5"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--hub-accent)] px-4 py-2 text-[color:var(--hub-accent)] transition hover:bg-[color:var(--hub-chrome-hover)]"
           >
             <Plus size={18} />
             Aggiungi Intervento
