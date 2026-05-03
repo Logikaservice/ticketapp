@@ -26,7 +26,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   ChevronLeft,
-  LayoutTemplate
+  LayoutTemplate,
+  Package
 } from 'lucide-react';
 import { fetchImportantAlertsForHub } from '../utils/importantAlertsFeed';
 import ImportantAlertsHubEmbedded, { hubAlertLevelChrome } from '../components/hub/ImportantAlertsHubEmbedded';
@@ -47,7 +48,9 @@ import {
   hexToRgba,
   readableOnAccent,
   getStoredTechHubAccent,
-  getStoredTechHubSurfaceMode
+  getStoredTechHubSurfaceMode,
+  hubKpiActiveForegroundHex,
+  hubModalCssVars
 } from '../utils/techHubAccent';
 import HubOverviewSection from '../components/hub/HubOverviewSection';
 import TemporarySuppliesSummaryHubModal from '../components/hub/TemporarySuppliesSummaryHubModal';
@@ -56,7 +59,6 @@ import TicketsHubEmbedded from '../components/hub/TicketsHubEmbedded';
 import HubTimeCard from '../components/hub/HubTimeCard';
 import TicketsCalendar from '../components/TicketsCalendar';
 import { loadHubLayout, getDefaultHubLayout, sanitizeLayoutItems } from '../utils/hubOverviewLayout';
-import { hubModalCssVars } from '../utils/techHubAccent';
 import { buildApiUrl } from '../utils/apiConfig';
 
 const STORAGE_KEY_SIDEBAR_COLLAPSED = 'techHubSidebarCollapsed';
@@ -705,6 +707,11 @@ export default function TechnicianWorkbenchPage({
     };
   }, [tickets]);
 
+  const ticketSidebarFornitureKpi = useMemo(
+    () => hubKpiActiveForegroundHex(accentHex, hubSurfaceMode),
+    [accentHex, hubSurfaceMode]
+  );
+
   return (
     <div className="fixed inset-0 z-[70] flex min-h-0 flex-col md:flex-row" style={accentStyle}>
       {/* Colonna sinistra */}
@@ -1228,8 +1235,6 @@ export default function TechnicianWorkbenchPage({
                 onNavigateTicketTabState={ticketHubListProps.onNavigateTicketTabState}
                 onOpenUnreadModal={ticketHubExtras?.onOpenUnreadMessages}
                 hubUnreadMessagesTotal={ticketHubExtras?.unreadMessagesTotal ?? 0}
-                hubTemporarySuppliesCount={hubTemporarySuppliesCount}
-                onOpenHubTemporarySupplies={() => setFornitureResocontoOpen(true)}
               />
             ) : hubCenterView === 'email' ? (
               <EmailPage
@@ -1445,23 +1450,59 @@ export default function TechnicianWorkbenchPage({
               showTitle={false}
               variant="flush"
               className="min-h-0 flex-1"
-              bodyClassName="flex min-h-0 flex-col overflow-hidden p-0"
+              bodyClassName="flex min-h-0 flex-col gap-2 overflow-hidden p-0"
               scrollBody={false}
             >
               <div
-                className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+                className="flex min-h-0 min-w-0 flex-1 flex-col gap-2"
                 style={hubModalCssVars(accentHex)}
               >
-                <TicketsCalendar
-                  sidebarHubEmbed
-                  hubSurfaceMode={hubSurfaceMode}
-                  tickets={tickets}
-                  users={ticketHubListProps.users}
-                  contracts={hubCalendarContracts}
-                  currentUser={currentUser}
-                  getAuthHeader={getAuthHeader}
-                  onTicketClick={(ticket) => ticketHubListProps.onCalendarTicketClick?.(ticket)}
-                />
+                <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+                  <TicketsCalendar
+                    sidebarHubEmbed
+                    hubSurfaceMode={hubSurfaceMode}
+                    tickets={tickets}
+                    users={ticketHubListProps.users}
+                    contracts={hubCalendarContracts}
+                    currentUser={currentUser}
+                    getAuthHeader={getAuthHeader}
+                    onTicketClick={(ticket) => ticketHubListProps.onCalendarTicketClick?.(ticket)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFornitureResocontoOpen(true)}
+                  title="Apri resoconto forniture temporanee dai ticket"
+                  className="flex w-full shrink-0 items-center justify-between gap-2 rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] px-3 py-2.5 text-left shadow-[var(--hub-chrome-card-shadow)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)]"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[color:var(--hub-chrome-row-nested-bg)] ring-1 ring-[color:var(--hub-accent-border)]">
+                      <Package size={18} className="text-[color:var(--hub-accent)]" aria-hidden />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--hub-chrome-text-faint)]">
+                        Forniture
+                      </div>
+                      <div className="truncate text-[13px] font-semibold leading-tight text-[color:var(--hub-chrome-text)]">
+                        Temporanee
+                      </div>
+                    </div>
+                  </div>
+                  <span
+                    className={`shrink-0 tabular-nums text-2xl font-bold leading-none ${
+                      typeof hubTemporarySuppliesCount === 'number' && hubTemporarySuppliesCount > 0
+                        ? ''
+                        : 'text-[color:var(--hub-chrome-text-fainter)]'
+                    }`}
+                    style={
+                      typeof hubTemporarySuppliesCount === 'number' && hubTemporarySuppliesCount > 0
+                        ? { color: ticketSidebarFornitureKpi }
+                        : undefined
+                    }
+                  >
+                    {typeof hubTemporarySuppliesCount === 'number' ? hubTemporarySuppliesCount : '…'}
+                  </span>
+                </button>
               </div>
             </RightPanel>
           ) : (

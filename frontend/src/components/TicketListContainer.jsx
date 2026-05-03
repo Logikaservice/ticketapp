@@ -12,11 +12,10 @@ import {
   ChevronRight,
   Crown,
   Building,
-  Mail,
-  Package
+  Mail
 } from 'lucide-react';
 import TicketItem from './TicketItem';
-import { HUB_MODAL_FIELD_CLS, hubKpiActiveForegroundHex } from '../utils/techHubAccent';
+import { HUB_MODAL_FIELD_CLS } from '../utils/techHubAccent';
 
 // ====================================================================
 // COMPONENTE PRINCIPALE
@@ -32,13 +31,7 @@ const TicketListContainer = ({
   showFilters = true,
   externalViewState,
   hubEmbed = false,
-  hubSurfaceMode = 'dark',
-  /** Vista Hub ticket: conteggio forniture visibili; `undefined` durante caricamento. */
-  hubTemporarySuppliesCount = undefined,
-  /** Vista Hub ticket: apre il resoconto forniture (modale). */
-  onOpenHubTemporarySupplies = null,
-  /** Accento Hub (es. da `TicketsHubEmbedded`) per il colore KPI forniture. */
-  hubAccentHex = null
+  hubSurfaceMode = 'dark'
 }) => {
   const [viewState, setViewState] = useState(externalViewState || 'aperto');
   useEffect(() => {
@@ -509,9 +502,6 @@ const TicketListContainer = ({
   const lc =
     hubEmbed && hubSurfaceMode === 'light' ? lcHubLight : hubEmbed ? lcHubDark : lcDashboard;
 
-  const hubFornitureKpiColor =
-    hubEmbed && hubAccentHex ? hubKpiActiveForegroundHex(hubAccentHex, hubSurfaceMode) : null;
-
   return (
     <>
       <div className={lc.shell}>
@@ -523,13 +513,7 @@ const TicketListContainer = ({
           )}
 
           {showFilters && (
-            <div
-              className={`grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 ${
-                hubEmbed && typeof onOpenHubTemporarySupplies === 'function'
-                  ? 'lg:grid-cols-7'
-                  : 'lg:grid-cols-6'
-              }`}
-            >
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
               {['aperto', 'in_lavorazione', 'risolto', 'chiuso', 'inviato', 'fatturato'].map((status) => {
                 const count = ticketCounts[status] || 0;
                 const disabled = count === 0;
@@ -554,31 +538,6 @@ const TicketListContainer = ({
                   </button>
                 );
               })}
-              {hubEmbed && typeof onOpenHubTemporarySupplies === 'function' ? (
-                <button
-                  type="button"
-                  onClick={() => onOpenHubTemporarySupplies()}
-                  title="Apri resoconto forniture temporanee dai ticket"
-                  className={`rounded-xl p-4 text-center transition ${lc.statOff} hover:[border-color:var(--hub-accent-border)]`}
-                >
-                  <div className={lc.statLbl}>
-                    <Package size={14} className="shrink-0" aria-hidden />
-                    <span className="normal-case leading-tight">Forniture</span>
-                  </div>
-                  <div
-                    className={lc.statNum}
-                    style={
-                      typeof hubTemporarySuppliesCount === 'number' &&
-                      hubTemporarySuppliesCount > 0 &&
-                      hubFornitureKpiColor
-                        ? { color: hubFornitureKpiColor }
-                        : undefined
-                    }
-                  >
-                    {typeof hubTemporarySuppliesCount === 'number' ? hubTemporarySuppliesCount : '…'}
-                  </div>
-                </button>
-              ) : null}
             </div>
           )}
 
