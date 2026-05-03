@@ -701,7 +701,6 @@ export default function TechnicianWorkbenchPage({
         }`}
         style={{ backgroundColor: '#171717' }}
       >
-        <HubLogikubeMark railMode={railMode} className={railMode ? 'mb-3' : 'mb-4'} />
         <div ref={userMenuRef} className={`relative ${railMode ? 'flex w-full justify-center md:overflow-visible' : ''}`}>
           <button
             type="button"
@@ -952,29 +951,24 @@ export default function TechnicianWorkbenchPage({
           </div>
         </nav>
 
-        {minMd && (
-          <div
-            className={`mt-auto w-full border-t border-white/[0.06] pt-3 ${railMode ? 'flex flex-col items-center' : ''}`}
-          >
+        <div
+          className={`mt-auto flex w-full flex-col border-t border-white/[0.06] pt-3 ${railMode ? 'items-center gap-3' : 'items-start gap-3'}`}
+        >
+          {minMd && (
             <button
               type="button"
               onClick={() => setSidebarCollapsed((c) => !c)}
               title={railMode ? 'Espandi barra laterale' : 'Comprimi barra (solo icone)'}
               aria-expanded={!railMode}
-              className={`${hubHoverIconBtn} flex items-center justify-center rounded-xl py-2 text-xs font-medium text-white/50 ${railMode ? 'w-full px-2' : 'w-full px-3'}`}
+              className={`${hubHoverIconBtn} flex w-full items-center justify-center rounded-xl py-2 text-xs font-medium text-white/50 ${railMode ? 'px-2' : 'px-3'}`}
             >
               {railMode ? <ChevronsRight size={22} aria-hidden /> : <ChevronsLeft size={22} aria-hidden />}
               {!railMode && <span className="ml-2 shrink-0">Solo icone</span>}
             </button>
+          )}
+          <div className={railMode ? 'flex w-full justify-center' : 'w-full self-start'}>
+            <HubLogikubeMark railMode={railMode} />
           </div>
-        )}
-
-        <div
-          className={`flex items-center gap-2 border-t border-white/[0.06] pt-3 opacity-70 ${railMode ? 'mt-2 w-full flex-col justify-center' : 'mt-2'} ${!minMd ? 'mt-auto' : ''}`}
-          title={railMode ? 'Ticket' : undefined}
-        >
-          <LayoutGrid size={20} style={{ color: accentHex }} />
-          {!railMode && <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/55">Ticket</span>}
         </div>
       </aside>
 
