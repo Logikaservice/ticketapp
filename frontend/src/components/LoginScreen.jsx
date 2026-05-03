@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User } from 'lucide-react';
 import QuickRequestModal from './Modals/QuickRequestModal';
 import { buildApiUrl } from '../utils/apiConfig';
+import { LogikubeWireIcon } from './hub/HubLogikubeMark';
 
 const LoginScreen = ({
   loginData,
@@ -9,9 +10,11 @@ const LoginScreen = ({
   handleLogin,
   onQuickRequest,
   existingClients = [],
+  /** Ticket: logo Logikube (blu) + titolo “Sistema LOGIKUBE” con “kube” evidenziato. */
+  useLogikubeHeader = false,
   // Props per personalizzazione
-  title = 'Sistema Ticketing',
-  subtitle = 'Accedi per gestire i tuoi ticket',
+  title = 'Sistema LOGIKUBE',
+  subtitle = 'La complessità con Logika. Effettua l\'accesso',
   bgGradient = 'from-sky-400 to-sky-600',
   iconBgColor = 'bg-sky-100',
   iconColor = 'text-sky-500',
@@ -133,10 +136,27 @@ const LoginScreen = ({
           }}
         >
           <div className="text-center mb-4 sm:mb-6">
-            <div className={`${iconBgColor} w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3`}>
-              <User size={24} className={`sm:w-7 sm:h-7 md:w-8 md:h-8 ${iconColor}`} />
-            </div>
-            <h1 className="text-2xl sm:text-2xl md:text-3xl font-bold">{title}</h1>
+            {useLogikubeHeader ? (
+              <div className="mx-auto mb-2 flex justify-center sm:mb-3" aria-hidden>
+                <LogikubeWireIcon
+                  fill="#0284c7"
+                  className="h-14 w-14 sm:h-16 sm:w-16 md:h-[4.25rem] md:w-[4.25rem]"
+                />
+              </div>
+            ) : (
+              <div className={`${iconBgColor} w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3`}>
+                <User size={24} className={`sm:w-7 sm:h-7 md:w-8 md:h-8 ${iconColor}`} />
+              </div>
+            )}
+            <h1 className="text-2xl sm:text-2xl md:text-3xl font-bold text-gray-900">
+              {useLogikubeHeader ? (
+                <>
+                  Sistema LOGI<span className="text-sky-600">kube</span>
+                </>
+              ) : (
+                title
+              )}
+            </h1>
             <p className="text-sm sm:text-base text-gray-600 mt-1">{subtitle}</p>
           </div>
 
