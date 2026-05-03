@@ -16,7 +16,7 @@ import {
   Package
 } from 'lucide-react';
 import TicketItem from './TicketItem';
-import { HUB_MODAL_FIELD_CLS } from '../utils/techHubAccent';
+import { HUB_MODAL_FIELD_CLS, hubKpiActiveForegroundHex } from '../utils/techHubAccent';
 
 // ====================================================================
 // COMPONENTE PRINCIPALE
@@ -36,7 +36,9 @@ const TicketListContainer = ({
   /** Vista Hub ticket: conteggio forniture visibili; `undefined` durante caricamento. */
   hubTemporarySuppliesCount = undefined,
   /** Vista Hub ticket: apre il resoconto forniture (modale). */
-  onOpenHubTemporarySupplies = null
+  onOpenHubTemporarySupplies = null,
+  /** Accento Hub (es. da `TicketsHubEmbedded`) per il colore KPI forniture. */
+  hubAccentHex = null
 }) => {
   const [viewState, setViewState] = useState(externalViewState || 'aperto');
   useEffect(() => {
@@ -507,6 +509,9 @@ const TicketListContainer = ({
   const lc =
     hubEmbed && hubSurfaceMode === 'light' ? lcHubLight : hubEmbed ? lcHubDark : lcDashboard;
 
+  const hubFornitureKpiColor =
+    hubEmbed && hubAccentHex ? hubKpiActiveForegroundHex(hubAccentHex, hubSurfaceMode) : null;
+
   return (
     <>
       <div className={lc.shell}>
@@ -561,11 +566,14 @@ const TicketListContainer = ({
                     <span className="normal-case leading-tight">Forniture</span>
                   </div>
                   <div
-                    className={`${lc.statNum} ${
-                      typeof hubTemporarySuppliesCount === 'number' && hubTemporarySuppliesCount > 0
-                        ? 'text-[#15803d]'
-                        : ''
-                    }`}
+                    className={lc.statNum}
+                    style={
+                      typeof hubTemporarySuppliesCount === 'number' &&
+                      hubTemporarySuppliesCount > 0 &&
+                      hubFornitureKpiColor
+                        ? { color: hubFornitureKpiColor }
+                        : undefined
+                    }
                   >
                     {typeof hubTemporarySuppliesCount === 'number' ? hubTemporarySuppliesCount : '…'}
                   </div>

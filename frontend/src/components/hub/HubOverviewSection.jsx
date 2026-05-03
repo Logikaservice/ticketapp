@@ -19,7 +19,7 @@ import {
   Lock,
   Package
 } from 'lucide-react';
-import { hexToRgba } from '../../utils/techHubAccent';
+import { hexToRgba, hubKpiActiveForegroundHex } from '../../utils/techHubAccent';
 import HubContractsActiveCard from './HubContractsActiveCard';
 import HubAgentEventsInteractiveCard from './HubAgentEventsInteractiveCard';
 import {
@@ -44,9 +44,6 @@ import {
   findNearestFit,
   maxRowUsed
 } from '../../utils/hubOverviewLayout';
-
-/** Verde KPI Hub (stesso di Contratti attivi / «pagato»): unico colore evidenza per le card ticket con dato &gt; 0. */
-const HUB_TICKET_KPI_GREEN = '#15803d';
 
 const HUB_REFRESH_TICKET_STAT_IDS = new Set(['stat-aperto', 'stat-lavorazione']);
 
@@ -112,11 +109,12 @@ function ModuleLaunchCard({
   subdued = false,
   suppressInteraction = false,
   iconOnly = false,
-  /** Se definito (numero), mostra conteggio a destra come le card ticket KPI (verde se &gt; 0). */
-  count = undefined
+  /** Se definito (numero), mostra conteggio a destra come le card ticket KPI (colore da accento Hub). */
+  count = undefined,
+  hubSurfaceMode = 'dark'
 }) {
-  const g = HUB_TICKET_KPI_GREEN;
   const hasCount = typeof count === 'number' && !Number.isNaN(count);
+  const g = hasCount ? hubKpiActiveForegroundHex(accent, hubSurfaceMode) : null;
   const n = hasCount ? Math.max(0, Math.floor(count)) : null;
   const countActive = hasCount && n > 0;
 
@@ -216,8 +214,7 @@ function ModuleLaunchCard({
 
 /**
  * KPI ticket: icona sinistra · titolo/sottotitolo subito a destra (come ModuleLaunchCard) · numero a destra.
- * Il blocco testo è allineato verticalmente al centro dell’icona.
- * Zero → grigio; &gt;0 → solo verde KPI hub {@link HUB_TICKET_KPI_GREEN} (nessun accent personalizzato).
+ * Zero → grigio; &gt;0 → colore derivato dall’accento Hub ({@link hubKpiActiveForegroundHex}).
  */
 function TicketHubStatCard({
   icon: Icon,
@@ -228,10 +225,11 @@ function TicketHubStatCard({
   onOpenTicketState,
   subdued,
   suppressInteraction = false,
-  iconOnly = false
+  iconOnly = false,
+  kpiActiveHex
 }) {
   const active = count > 0;
-  const g = HUB_TICKET_KPI_GREEN;
+  const g = kpiActiveHex;
 
   const body = iconOnly ? (
     <div className="flex h-full flex-col items-center justify-center gap-1 py-2">
@@ -310,7 +308,7 @@ function TicketHubStatCard({
       type="button"
       disabled={Boolean(subdued)}
       aria-label={ariaLbl}
-      className={`${fullRow} transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:rgba(21,128,61,0.55)] hover:shadow-[0_0_0_1px_rgba(21,128,61,0.22)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#15803d] ${
+      className={`${fullRow} transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] ${
         iconOnly ? 'justify-center' : ''
       } ${veil} ${noPtr}`}
       style={surfaceStyle}
@@ -407,6 +405,10 @@ export default function HubOverviewSection({
   hubTemporarySuppliesCount = undefined
 }) {
   const hubLight = hubSurfaceMode === 'light';
+  const hubKpiActiveColor = useMemo(
+    () => hubKpiActiveForegroundHex(accentHex, hubSurfaceMode),
+    [accentHex, hubSurfaceMode]
+  );
   const gridRef = useRef(null);
   const dragIdRef = useRef(null);
   const [selectedId, setSelectedId] = useState(null);
@@ -607,6 +609,7 @@ export default function HubOverviewSection({
             subdued={veil}
             suppressInteraction={suppressInteraction}
             iconOnly={io}
+            kpiActiveHex={hubKpiActiveColor}
           />
         );
       case 'stat-lavorazione':
@@ -621,6 +624,7 @@ export default function HubOverviewSection({
             subdued={veil}
             suppressInteraction={suppressInteraction}
             iconOnly={io}
+            kpiActiveHex={hubKpiActiveColor}
           />
         );
       case 'launch-email':
@@ -725,6 +729,7 @@ export default function HubOverviewSection({
             label={txt(item, 'Forniture temporanee')}
             subtitle={sub(item, 'Resoconto dai ticket')}
             accent={accentHex}
+            hubSurfaceMode={hubSurfaceMode}
             onClick={() => onOpenFornitureResoconto?.()}
             subdued={veil}
             suppressInteraction={suppressInteraction || !onOpenFornitureResoconto}

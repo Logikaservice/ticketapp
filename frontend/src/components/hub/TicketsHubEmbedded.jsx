@@ -117,6 +117,7 @@ export default function TicketsHubEmbedded({
           externalViewState={externalViewState}
           hubTemporarySuppliesCount={hubTemporarySuppliesCount}
           onOpenHubTemporarySupplies={onOpenHubTemporarySupplies ?? undefined}
+          hubAccentHex={accentHex}
         />
       </div>
     </div>

@@ -307,6 +307,19 @@ export function darkenHex(hex, amount) {
   return hexFromRgb(r * f, g * f, b * f);
 }
 
+/**
+ * Colore evidenza per KPI «conteggio &gt; 0» (ticket / forniture) sulla panoramica Hub:
+ * deriva dall’accento scelto (armonioso con Email, grafici, ecc.) invece di un verde fisso.
+ * Tema chiaro: accento più scuro per leggibilità su card chiare; tema scuro: leggermente più chiaro sul grigio.
+ */
+export function hubKpiActiveForegroundHex(accentHex, hubSurfaceMode = 'dark') {
+  const a = normalizeHex(accentHex) || DEFAULT_TECH_HUB_ACCENT;
+  if (hubSurfaceMode === 'light') {
+    return darkenHex(a, 0.26);
+  }
+  return lightenHex(a, 0.14);
+}
+
 /** Testo leggibile su sfondo pieno colore accent. */
 export function readableOnAccent(hex) {
   const normalized = normalizeHex(hex);
