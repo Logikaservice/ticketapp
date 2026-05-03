@@ -341,6 +341,7 @@ export default function HubOverviewSection({
   socket = null,
   currentUser
 }) {
+  const hubLight = hubSurfaceMode === 'light';
   const gridRef = useRef(null);
   const dragIdRef = useRef(null);
   const [selectedId, setSelectedId] = useState(null);
@@ -742,7 +743,15 @@ export default function HubOverviewSection({
           dalla vista restano visibili in hub come anteprima sfocata.
         </p>
       )}
-      <div className={`relative rounded-2xl ${hubLayoutEditMode && isTechnician ? 'ring-2 ring-dashed ring-[color:var(--hub-accent-border)] ring-offset-2 ring-offset-[color:var(--hub-chrome-ring-offset)]' : ''}`}>
+      <div
+        className={`relative rounded-2xl ${
+          hubLayoutEditMode && isTechnician
+            ? hubLight
+              ? 'ring-2 ring-dashed ring-slate-400/55 ring-offset-2 ring-offset-[color:var(--hub-chrome-ring-offset)]'
+              : 'ring-2 ring-dashed ring-[color:var(--hub-accent-border)] ring-offset-2 ring-offset-[color:var(--hub-chrome-ring-offset)]'
+            : ''
+        }`}
+      >
         <div
           ref={gridRef}
           role="grid"
@@ -761,7 +770,11 @@ export default function HubOverviewSection({
               role="presentation"
               data-hub-slot={item.id}
               className={`relative min-h-0 min-w-0 outline-none transition-shadow ${
-                hubLayoutEditMode && selectedId === item.id ? 'z-10 shadow-[0_0_0_2px_var(--hub-accent)]' : ''
+                hubLayoutEditMode && selectedId === item.id
+                  ? hubLight
+                    ? 'z-10 rounded-2xl shadow-[0_0_0_2px_var(--hub-accent)] shadow-[0_8px_28px_rgba(15,23,42,0.07)]'
+                    : 'z-10 shadow-[0_0_0_2px_var(--hub-accent)]'
+                  : ''
               }`}
               style={{
                 gridColumn: `${item.col} / span ${item.w}`,
@@ -882,7 +895,9 @@ export default function HubOverviewSection({
                         className={`rounded-xl border px-3 py-2 text-left text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-35 ${
                           inGrid
                             ? selectedId === mid
-                              ? 'border-[color:var(--hub-accent)] bg-[color:color-mix(in_srgb,var(--hub-accent)_16%,transparent)] text-[color:var(--hub-chrome-text)]'
+                              ? hubLight
+                                ? 'border-[color:var(--hub-accent)] bg-[color:color-mix(in_srgb,var(--hub-accent)_20%,var(--hub-chrome-well))] text-[color:var(--hub-chrome-text)] shadow-[0_1px_3px_rgba(15,23,42,0.06)]'
+                                : 'border-[color:var(--hub-accent)] bg-[color:color-mix(in_srgb,var(--hub-accent)_16%,transparent)] text-[color:var(--hub-chrome-text)]'
                               : 'border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well-mid)] text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)]'
                             : canAdd
                               ? 'border-dashed border-[color:var(--hub-chrome-border)] text-[color:var(--hub-chrome-text-muted)] hover:border-[color:var(--hub-accent-border)] hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-chrome-text-secondary)]'

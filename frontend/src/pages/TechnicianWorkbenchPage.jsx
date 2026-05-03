@@ -104,12 +104,31 @@ function NavGroup({ title, open, onToggle, children, railMode }) {
   );
 }
 
-function SidebarLink({ icon: Icon, label, onClick, nested, railMode, active = false, accentHex }) {
+function SidebarLink({
+  icon: Icon,
+  label,
+  onClick,
+  nested,
+  railMode,
+  active = false,
+  accentHex,
+  hubSurfaceMode = 'dark'
+}) {
   const iconSz = railMode ? 20 : nested ? 16 : 18;
+  const hubLight = hubSurfaceMode === 'light';
   const onAccent = readableOnAccent(accentHex);
-  const activeStyle = active
-    ? { backgroundColor: accentHex, color: onAccent }
+  /** Tema chiaro: selezione con tinta leggera e bordo accento (niente “pill” piena come in scuro). */
+  const activeSurfaceStyle = active
+    ? hubLight
+      ? {
+          backgroundColor: `color-mix(in srgb, ${accentHex} 16%, var(--hub-chrome-sidebar))`,
+          color: 'var(--hub-chrome-text)',
+          boxShadow: `inset 0 0 0 1px ${hexToRgba(accentHex, 0.42)}`
+        }
+      : { backgroundColor: accentHex, color: onAccent }
     : undefined;
+  const activeIconColor = active ? (hubLight ? { color: accentHex } : { color: onAccent }) : undefined;
+  const activeLabelColor = active ? (hubLight ? { color: 'var(--hub-chrome-text)' } : { color: onAccent }) : undefined;
 
   if (railMode) {
     return (
@@ -121,10 +140,12 @@ function SidebarLink({ icon: Icon, label, onClick, nested, railMode, active = fa
         aria-current={active ? 'page' : undefined}
         className={`group mx-auto flex w-full max-w-[3rem] items-center justify-center rounded-xl border border-transparent py-2.5 transition ${
           active
-            ? 'shadow-sm hover:brightness-105'
+            ? hubLight
+              ? 'shadow-sm hover:brightness-[1.02]'
+              : 'shadow-sm hover:brightness-105'
             : 'text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)] hover:[border-color:var(--hub-accent-border)]'
         }`}
-        style={activeStyle}
+        style={active ? activeSurfaceStyle : undefined}
       >
         <Icon
           size={iconSz}
@@ -133,7 +154,7 @@ function SidebarLink({ icon: Icon, label, onClick, nested, railMode, active = fa
               ? 'shrink-0'
               : 'shrink-0 text-[color:var(--hub-chrome-text-muted)] transition group-hover:text-[color:var(--hub-accent)]'
           }
-          style={active ? { color: onAccent } : undefined}
+          style={activeIconColor}
         />
       </button>
     );
@@ -149,12 +170,14 @@ function SidebarLink({ icon: Icon, label, onClick, nested, railMode, active = fa
       type="button"
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
-      className={`group flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left text-sm transition ${
+      className={`group flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
         active
-          ? 'font-semibold shadow-sm hover:brightness-105'
-          : 'hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)]'
+          ? hubLight
+            ? 'border-[color:color-mix(in_srgb,var(--hub-accent)_35%,var(--hub-chrome-border))] font-semibold shadow-sm hover:brightness-[1.01]'
+            : 'border-transparent font-semibold shadow-sm hover:brightness-105'
+          : 'border-transparent hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)]'
       } ${nested ? 'pl-6 text-[13px]' : ''}`}
-      style={activeStyle}
+      style={active ? activeSurfaceStyle : undefined}
     >
       <Icon
         size={iconSz}
@@ -163,11 +186,11 @@ function SidebarLink({ icon: Icon, label, onClick, nested, railMode, active = fa
             ? 'shrink-0'
             : 'shrink-0 text-[color:var(--hub-chrome-text-muted)] transition group-hover:text-[color:var(--hub-accent)]'
         }
-        style={active ? { color: onAccent } : undefined}
+        style={activeIconColor}
       />
       <span
         className={`min-w-0 flex-1 truncate ${active ? '' : `${labelColorClass} group-hover:text-[color:var(--hub-accent)]`}`}
-        style={active ? { color: onAccent } : undefined}
+        style={activeLabelColor}
       >
         {label}
       </span>
@@ -806,6 +829,7 @@ export default function TechnicianWorkbenchPage({
         >
           <SidebarLink
             railMode={railMode}
+            hubSurfaceMode={hubSurfaceMode}
             icon={LayoutGrid}
             label="Hub tecnico"
             accentHex={accentHex}
@@ -814,6 +838,7 @@ export default function TechnicianWorkbenchPage({
           />
           <SidebarLink
             railMode={railMode}
+            hubSurfaceMode={hubSurfaceMode}
             icon={TicketHomeIcon}
             label="Ticket"
             accentHex={accentHex}
@@ -822,6 +847,7 @@ export default function TechnicianWorkbenchPage({
           />
           <SidebarLink
             railMode={railMode}
+            hubSurfaceMode={hubSurfaceMode}
             icon={Building2}
             label="Office"
             accentHex={accentHex}
@@ -830,6 +856,7 @@ export default function TechnicianWorkbenchPage({
           />
           <SidebarLink
             railMode={railMode}
+            hubSurfaceMode={hubSurfaceMode}
             icon={Mail}
             label="Email"
             accentHex={accentHex}
@@ -838,6 +865,7 @@ export default function TechnicianWorkbenchPage({
           />
           <SidebarLink
             railMode={railMode}
+            hubSurfaceMode={hubSurfaceMode}
             icon={Shield}
             label="Anti-Virus"
             accentHex={accentHex}
@@ -846,6 +874,7 @@ export default function TechnicianWorkbenchPage({
           />
           <SidebarLink
             railMode={railMode}
+            hubSurfaceMode={hubSurfaceMode}
             icon={Eye}
             label="L-Sight"
             accentHex={accentHex}
@@ -853,6 +882,7 @@ export default function TechnicianWorkbenchPage({
           />
           <SidebarLink
             railMode={railMode}
+            hubSurfaceMode={hubSurfaceMode}
             icon={Monitor}
             label="Dispositivi aziendali"
             accentHex={accentHex}
@@ -862,6 +892,7 @@ export default function TechnicianWorkbenchPage({
           {canSpeedTest && (
             <SidebarLink
               railMode={railMode}
+              hubSurfaceMode={hubSurfaceMode}
               icon={Gauge}
               label="Speed Test"
               accentHex={accentHex}
@@ -872,6 +903,7 @@ export default function TechnicianWorkbenchPage({
           {canNetworkMonitoring && (
             <SidebarLink
               railMode={railMode}
+              hubSurfaceMode={hubSurfaceMode}
               icon={Wifi}
               label="Monitoraggio rete"
               accentHex={accentHex}
@@ -881,6 +913,7 @@ export default function TechnicianWorkbenchPage({
           )}
           <SidebarLink
             railMode={railMode}
+            hubSurfaceMode={hubSurfaceMode}
             icon={MapPin}
             label="Mappatura"
             accentHex={accentHex}
@@ -891,6 +924,7 @@ export default function TechnicianWorkbenchPage({
             <NavGroup railMode={railMode} title="Comunicazioni" open={navToolsOpen} onToggle={() => setNavToolsOpen((o) => !o)}>
               <SidebarLink
                 railMode={railMode}
+                hubSurfaceMode={hubSurfaceMode}
                 nested
                 icon={Monitor}
                 label="Agent comunicazioni"
@@ -900,6 +934,7 @@ export default function TechnicianWorkbenchPage({
               />
               <SidebarLink
                 railMode={railMode}
+                hubSurfaceMode={hubSurfaceMode}
                 nested
                 icon={Bell}
                 label="Invia comunicazione"
@@ -914,6 +949,7 @@ export default function TechnicianWorkbenchPage({
             <NavGroup railMode={railMode} title="Altri progetti" open={navProjectsOpen} onToggle={() => setNavProjectsOpen((o) => !o)}>
               <SidebarLink
                 railMode={railMode}
+                hubSurfaceMode={hubSurfaceMode}
                 nested
                 icon={Calendar}
                 label="Orari e Turni"
@@ -922,6 +958,7 @@ export default function TechnicianWorkbenchPage({
               />
               <SidebarLink
                 railMode={railMode}
+                hubSurfaceMode={hubSurfaceMode}
                 nested
                 icon={Volume2}
                 label="Vivaldi"
@@ -930,6 +967,7 @@ export default function TechnicianWorkbenchPage({
               />
               <SidebarLink
                 railMode={railMode}
+                hubSurfaceMode={hubSurfaceMode}
                 nested
                 icon={Monitor}
                 label="PackVision"
@@ -938,6 +976,7 @@ export default function TechnicianWorkbenchPage({
               />
               <SidebarLink
                 railMode={railMode}
+                hubSurfaceMode={hubSurfaceMode}
                 nested
                 icon={Layers}
                 label="VPN"
@@ -1106,7 +1145,9 @@ export default function TechnicianWorkbenchPage({
                   onClick={() => setHubLayoutEditMode((v) => !v)}
                   className={`p-2.5 ${hubHoverIconBtn} ${
                     hubLayoutEditMode
-                      ? 'bg-[color:var(--hub-chrome-muted-fill)] text-[color:var(--hub-accent)] [border-width:1px] [border-style:solid] [border-color:var(--hub-accent-border)]'
+                      ? hubSurfaceMode === 'light'
+                        ? 'bg-[color:color-mix(in_srgb,var(--hub-accent)_14%,var(--hub-chrome-input-bg))] text-[color:var(--hub-accent)] [border-width:1px] [border-style:solid] [border-color:var(--hub-accent-border)] shadow-sm'
+                        : 'bg-[color:var(--hub-chrome-muted-fill)] text-[color:var(--hub-accent)] [border-width:1px] [border-style:solid] [border-color:var(--hub-accent-border)]'
                       : ''
                   }`}
                   title={hubLayoutEditMode ? 'Termina modifica layout' : 'Modifica layout panoramica'}
