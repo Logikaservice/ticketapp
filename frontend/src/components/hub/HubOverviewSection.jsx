@@ -34,6 +34,7 @@ import {
   getDefaultHubLayout,
   restoreSingleCardDefaults,
   snapDropToCell,
+  inferDropRowFromAnchor,
   sanitizeLayoutItems,
   saveHubLayout,
   swapGridPositions,
@@ -388,7 +389,12 @@ export default function HubOverviewSection({
       setHubLayout((prev) => sanitizeLayoutItems(swapGridPositions(prev, dragId, droppedOnId)));
     } else {
       setHubLayout((prev) => {
-        const { col, row } = snapDropToCell(e.clientX, e.clientY, gridRef.current, prev);
+        const grid = gridRef.current;
+        const { col, row: rowFromSnap } = snapDropToCell(e.clientX, e.clientY, grid, prev);
+        const anchored = inferDropRowFromAnchor(e.clientY, grid, prev, dragId, col);
+        const sensibleMaxRow = Math.max(maxRowUsed(prev) + 6, 12);
+        const rawRow = anchored.row != null ? anchored.row : rowFromSnap;
+        const row = Math.min(sensibleMaxRow, Math.max(1, rawRow));
         const next = applyPlacement(prev, dragId, col, row);
         return sanitizeLayoutItems(next);
       });

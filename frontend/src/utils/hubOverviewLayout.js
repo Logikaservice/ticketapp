@@ -501,6 +501,49 @@ const GRID_GAP_PX_APPROX = 12;
 const ROW_MIN_TRACK_PX = 112;
 
 /**
+ * Deduce una riga logica **subito sotto la card il cui fondo sta visivamente sopra il puntatore**,
+ * preferendo card che si sovrappongono alla colonna del mouse (`preferCol`).
+ * Risolve drop che finiscono in fondo alla viewport solo perché il contenitore è alto ma vuoto.
+ * @returns `{ row }` dove `row` è `null` se non c’è un ancoraggio sensato (meglio usare la mappa proporzionale).
+ */
+export function inferDropRowFromAnchor(clientY, gridEl, layout, dragId, preferCol) {
+  if (!gridEl || !layout?.length) return { row: null };
+  const pc = clampInt(parseInt(preferCol, 10) || 1, 1, HUB_GRID_COLS);
+  /** Tolleranza: puntatore sulla linea tra due card conta come “sotto” la sopra */
+  const yCut = clientY + 16;
+  const slots = gridEl.querySelectorAll('[data-hub-slot]');
+
+  /** @type {{ bottom: number, overlapsCol: boolean, id: string }[]} */
+  const candidates = [];
+  slots.forEach((el) => {
+    const sid = el.getAttribute('data-hub-slot')?.trim?.();
+    if (!sid || sid === dragId) return;
+    const item = layout.find((x) => x.id === sid);
+    if (!item || item.hidden) return;
+    const r = el.getBoundingClientRect();
+    if (!(r.bottom <= yCut)) return;
+    const overlapsCol = item.col <= pc && pc < item.col + item.w;
+    candidates.push({ bottom: r.bottom, overlapsCol, id: sid });
+  });
+
+  const withOverlap = candidates.filter((c) => c.overlapsCol);
+  const pool = withOverlap.length > 0 ? withOverlap : candidates;
+  let pickBottom = -Infinity;
+  let pickId = null;
+  pool.forEach((c) => {
+    if (c.bottom > pickBottom) {
+      pickBottom = c.bottom;
+      pickId = c.id;
+    }
+  });
+
+  if (!pickId) return { row: null };
+  const anchor = layout.find((x) => x.id === pickId);
+  if (!anchor) return { row: null };
+  return { row: anchor.row + anchor.h };
+}
+
+/**
  * Ancora colonne sulla griglia fissa da 7; le righe seguono il mouse rispetto all’altezza reale
  * del contenitore così è possibile “andare più in basso” oltre le card lunghe (es. sotto slot).
  */
