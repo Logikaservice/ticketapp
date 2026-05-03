@@ -386,11 +386,11 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
             }}
             className={
               H
-                ? 'flex w-full items-center justify-center gap-2 border-t border-amber-500/35 bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-500/25'
+                ? 'flex w-full items-center justify-center gap-2 border-t border-[color:var(--hub-accent-border)] bg-[color:var(--hub-accent)]/18 px-4 py-3 text-sm font-semibold text-white/92 transition hover:bg-[color:var(--hub-accent)]/28'
                 : 'flex w-full items-center justify-center gap-2 border-t border-yellow-200 bg-gradient-to-r from-yellow-100 via-yellow-50 to-yellow-100 px-4 py-3 text-sm font-semibold text-yellow-800 transition duration-200 hover:bg-gradient-to-r hover:from-yellow-200 hover:via-yellow-100 hover:to-yellow-200 hover:shadow-md'
             }
           >
-            <Eye size={18} />
+            <Eye size={18} className={H ? 'text-[color:var(--hub-accent)]' : undefined} />
             Visualizza Registro Intervento
           </button>
         )}
