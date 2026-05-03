@@ -8,7 +8,7 @@ export const HUB_MAX_ROW_SPAN = 4;
 export const STORAGE_HUB_LAYOUT = 'techHubOverviewLayout';
 
 /** Incrementare quando si aggiungono moduli da fondere nei layout salvati (vedi `loadHubLayout`). */
-export const HUB_LAYOUT_STORAGE_VERSION = 2;
+export const HUB_LAYOUT_STORAGE_VERSION = 3;
 
 export const HUB_MODULE_META = {
   'new-ticket': { label: 'Nuovo ticket', category: 'Azioni', defaultPlacement: { col: 1, row: 1, w: 3, h: 1 } },
@@ -59,6 +59,11 @@ export const HUB_MODULE_META = {
     label: 'Speed test',
     category: 'Moduli',
     defaultPlacement: { col: 1, row: 8, w: 2, h: 1 }
+  },
+  'launch-forniture-resoconto': {
+    label: 'Forniture temporanee',
+    category: 'Moduli',
+    defaultPlacement: { col: 3, row: 8, w: 2, h: 1 }
   },
   contracts: {
     label: 'Contratti attivi',
@@ -220,6 +225,9 @@ export function loadHubLayout(userId) {
     if (fileVer < HUB_LAYOUT_STORAGE_VERSION) {
       if (!items.some((x) => x.id === 'agent-events')) {
         items = sanitizeLayoutItems(insertModuleWithDefaultPlacement(items, 'agent-events'));
+      }
+      if (fileVer < 3 && !items.some((x) => x.id === 'launch-forniture-resoconto')) {
+        items = sanitizeLayoutItems(insertModuleWithDefaultPlacement(items, 'launch-forniture-resoconto'));
       }
     }
     return items;

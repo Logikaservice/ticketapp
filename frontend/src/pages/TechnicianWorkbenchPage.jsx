@@ -50,6 +50,7 @@ import {
   getStoredTechHubSurfaceMode
 } from '../utils/techHubAccent';
 import HubOverviewSection from '../components/hub/HubOverviewSection';
+import TemporarySuppliesSummaryHubModal from '../components/hub/TemporarySuppliesSummaryHubModal';
 import HubLogikubeMark from '../components/hub/HubLogikubeMark';
 import TicketsHubEmbedded from '../components/hub/TicketsHubEmbedded';
 import HubTimeCard from '../components/hub/HubTimeCard';
@@ -478,6 +479,7 @@ export default function TechnicianWorkbenchPage({
   const [hubCenterView, setHubCenterView] = useState(
     /** @type {'overview' | 'comunicazioni' | 'comm-agent-manager' | 'email' | 'office' | 'antivirus' | 'dispositivi' | 'network-monitoring' | 'speedtest' | 'contratti' | 'avvisi' | 'tickets'} */ ('overview')
   );
+  const [fornitureResocontoOpen, setFornitureResocontoOpen] = useState(false);
   const isTechnician = currentUser?.ruolo === 'tecnico';
   const canSpeedTest = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
   const canNetworkMonitoring = useMemo(
@@ -1418,6 +1420,7 @@ export default function TechnicianWorkbenchPage({
                 getAuthHeader={getAuthHeader}
                 socket={socket}
                 currentUser={currentUser}
+                onOpenFornitureResoconto={() => setFornitureResocontoOpen(true)}
               />
             )}
           </div>
@@ -1493,6 +1496,25 @@ export default function TechnicianWorkbenchPage({
           )}
         </aside>
       </div>
+      <TemporarySuppliesSummaryHubModal
+        open={fornitureResocontoOpen}
+        onClose={() => setFornitureResocontoOpen(false)}
+        getAuthHeader={getAuthHeader}
+        currentUser={currentUser}
+        accentHex={accentHex}
+        tickets={tickets}
+        onOpenTicketFromSupply={
+          ticketHubListProps?.handlers?.handleSelectTicket
+            ? (ticketId) => {
+                const t = tickets.find((x) => x.id == ticketId);
+                if (!t) return;
+                setHubCenterView('tickets');
+                ticketHubListProps.handlers.handleSelectTicket(t);
+                setFornitureResocontoOpen(false);
+              }
+            : undefined
+        }
+      />
     </div>
   );
 }

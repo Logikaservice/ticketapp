@@ -16,7 +16,8 @@ import {
   Building2,
   Monitor,
   Gauge,
-  Lock
+  Lock,
+  Package
 } from 'lucide-react';
 import { hexToRgba } from '../../utils/techHubAccent';
 import HubContractsActiveCard from './HubContractsActiveCard';
@@ -67,6 +68,7 @@ const HUB_LIBRARY_GROUP_SPECS = [
       'launch-antivirus',
       'launch-dispositivi',
       'launch-speedtest',
+      'launch-forniture-resoconto',
       'launch-office',
       'launch-mappatura'
     ]
@@ -339,7 +341,8 @@ export default function HubOverviewSection({
   nav,
   getAuthHeader,
   socket = null,
-  currentUser
+  currentUser,
+  onOpenFornitureResoconto = null
 }) {
   const hubLight = hubSurfaceMode === 'light';
   const gridRef = useRef(null);
@@ -650,6 +653,19 @@ export default function HubOverviewSection({
             onClick={hubCanSpeedTest ? () => setHubCenterView?.('speedtest') : undefined}
             subdued={veil || !hubCanSpeedTest}
             suppressInteraction={suppressInteraction || !hubCanSpeedTest}
+            iconOnly={io}
+          />
+        );
+      case 'launch-forniture-resoconto':
+        return (
+          <ModuleLaunchCard
+            icon={Package}
+            label={txt(item, 'Forniture temporanee')}
+            subtitle={sub(item, 'Resoconto dai ticket')}
+            accent={accentHex}
+            onClick={() => onOpenFornitureResoconto?.()}
+            subdued={veil}
+            suppressInteraction={suppressInteraction || !onOpenFornitureResoconto}
             iconOnly={io}
           />
         );
