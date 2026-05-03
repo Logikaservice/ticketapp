@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { FileText, PlayCircle, CheckCircle, Send, FileCheck2, Archive, ChevronDown, ChevronRight, Crown, Building, Mail } from 'lucide-react';
 import TicketItem from './TicketItem';
+import { HUB_MODAL_FIELD_CLS } from '../utils/techHubAccent';
 
 // ====================================================================
 // COMPONENTE PRINCIPALE
@@ -17,7 +18,8 @@ const TicketListContainer = ({
   getUnreadCount,
   showFilters = true,
   externalViewState,
-  hubEmbed = false
+  hubEmbed = false,
+  hubSurfaceMode = 'dark'
 }) => {
   const [viewState, setViewState] = useState(externalViewState || 'aperto');
   useEffect(() => {
@@ -311,9 +313,11 @@ const TicketListContainer = ({
             block: 'center'
           });
           if (embed) {
-            ticketElement.classList.add('ring-2', 'ring-[color:var(--hub-accent)]', 'bg-white/[0.12]');
+            const flashBg =
+              hubSurfaceMode === 'light' ? 'bg-[color:var(--hub-chrome-row-nested-bg)]' : 'bg-white/[0.12]';
+            ticketElement.classList.add('ring-2', 'ring-[color:var(--hub-accent)]', flashBg);
             setTimeout(() => {
-              ticketElement.classList.remove('ring-2', 'ring-[color:var(--hub-accent)]', 'bg-white/[0.12]');
+              ticketElement.classList.remove('ring-2', 'ring-[color:var(--hub-accent)]', flashBg);
             }, 2000);
           } else {
             ticketElement.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50');
@@ -324,7 +328,7 @@ const TicketListContainer = ({
         }
       }, 100);
     }
-  }, [selectedTicket, hubEmbed]);
+  }, [selectedTicket, hubEmbed, hubSurfaceMode]);
 
   const markAsViewed = (status) => {
     const newLastSeen = {
@@ -336,99 +340,155 @@ const TicketListContainer = ({
     setChangedStates(prev => prev.filter(s => s !== status));
   };
 
-  const lc = hubEmbed
-    ? {
-        shell: 'rounded-xl border border-white/[0.06] bg-black/20',
-        hdrSep: 'p-4 border-b border-white/[0.08]',
-        h2: 'text-xl font-semibold mb-3 text-white',
-        statDis: 'opacity-50 cursor-not-allowed border border-white/[0.06] bg-black/30',
-        statOn:
-          'border border-[color:var(--hub-accent-border)] bg-white/[0.08] shadow-[0_0_0_1px_var(--hub-accent-glow)]',
-        statOff: 'border border-white/[0.1] bg-black/25 hover:bg-white/[0.06]',
-        statLbl: 'text-sm text-white/55 mb-1 capitalize flex items-center justify-center gap-2',
-        statNum: 'text-3xl font-extrabold text-white tabular-nums',
-        btnNeutral: 'flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-white/[0.12] hover:bg-white/[0.18] whitespace-nowrap',
-        btnIndigo: 'flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-indigo-500/85 hover:bg-indigo-600 whitespace-nowrap',
-        lbl: 'block text-sm font-medium mb-2 text-white/75',
-        sel: 'w-full px-2 py-2 rounded-lg text-sm border border-white/[0.12] bg-black/[0.28] text-white outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]',
-        ddBtn:
-          'w-full px-3 py-2 rounded-lg border border-white/[0.12] bg-black/[0.28] text-left flex items-center justify-between focus:ring-2 focus:ring-[color:var(--hub-accent)] hover:border-[color:var(--hub-accent-border)] transition min-w-0',
-        ddCaret: 'text-white/45',
-        ddMuted: 'text-white/50',
-        ddTxt: 'text-white',
-        ddPanel: 'absolute z-20 w-full mt-1 rounded-xl border border-white/[0.12] bg-[#252525] shadow-2xl max-h-96 overflow-y-auto',
-        ddRowAllOff: 'border-transparent',
-        ddRowAllOn: 'bg-white/[0.08] border-[color:var(--hub-accent)]',
-        ddRowHover: 'hover:bg-white/[0.06]',
-        ddAllTitleOn: 'text-[color:var(--hub-accent)]',
-        ddAllTitleOff: 'text-white',
-        coWrap: 'border-b border-white/[0.06] last:border-b-0',
-        coBtn:
-          'flex-1 px-3 py-2 bg-black/30 hover:bg-white/[0.06] transition flex items-center justify-between text-left rounded-lg border border-transparent',
-        coBtnSel: 'ring-2 ring-[color:var(--hub-accent-border)]',
-        coIcon: 'w-6 h-6 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0 bg-[color:var(--hub-accent)] bg-opacity-40',
-        coTitle: 'text-sm font-bold text-white truncate',
-        coSub: 'text-xs text-white/55',
-        nest: 'bg-black/25',
-        rowSelOff: 'border-transparent',
-        rowSelOn: 'bg-white/[0.08] border-[color:var(--hub-accent)]',
-        rowNameOn: 'text-[color:var(--hub-accent)]',
-        rowNameOff: 'text-white',
-        rowMeta: 'text-xs text-white/50',
-        rowMailIcon: 'text-white/45',
-        rowMailTxt: 'text-xs text-white/55 truncate',
-        iconToggle: 'px-2 py-2 text-white/55 hover:text-white/90 transition',
-        nestChevron: 'text-white/50 shrink-0',
-        listSep: 'divide-y divide-white/[0.06]',
-        empty: 'p-8 text-center text-white/50',
-        badgeDot: 'bg-[color:var(--hub-accent)]'
-      }
-    : {
-        shell: 'bg-white rounded-xl shadow-lg',
-        hdrSep: 'p-4 border-b',
-        h2: 'text-xl font-semibold mb-3',
-        statDis: 'opacity-50 cursor-not-allowed border border-gray-200 bg-white',
-        statOn: 'border border-blue-300 bg-blue-50',
-        statOff: 'border border-gray-200 bg-white hover:bg-gray-50',
-        statLbl: 'text-sm text-gray-500 mb-1 capitalize flex items-center justify-center gap-2',
-        statNum: 'text-3xl font-extrabold gradient-text',
-        btnNeutral: 'flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-gray-600 hover:bg-gray-700 whitespace-nowrap',
-        btnIndigo: 'flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-indigo-600 hover:bg-indigo-700 whitespace-nowrap',
-        lbl: 'block text-sm font-medium mb-2',
-        sel: 'w-full px-2 py-2 border rounded-lg text-sm',
-        ddBtn:
-          'w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-400 transition min-w-0',
-        ddCaret: 'text-gray-400',
-        ddMuted: 'text-gray-500',
-        ddTxt: 'text-gray-900',
-        ddPanel: 'absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-96 overflow-y-auto',
-        ddRowAllOff: 'border-transparent',
-        ddRowAllOn: 'bg-blue-50 border-blue-500',
-        ddRowHover: 'hover:bg-blue-50',
-        ddAllTitleOn: 'text-blue-700',
-        ddAllTitleOff: 'text-gray-900',
-        coWrap: 'border-b border-gray-100 last:border-b-0',
-        coBtn:
-          'flex-1 px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-all flex items-center justify-between text-left',
-        coBtnSel: 'ring-2 ring-blue-500',
-        coIcon:
-          'w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0',
-        coTitle: 'text-sm font-bold text-gray-800 truncate',
-        coSub: 'text-xs text-gray-600',
-        nest: 'bg-gray-50',
-        rowSelOff: 'border-transparent',
-        rowSelOn: 'bg-blue-50 border-blue-500',
-        rowNameOn: 'text-blue-700',
-        rowNameOff: 'text-gray-900',
-        rowMeta: 'text-xs text-gray-500',
-        rowMailIcon: 'text-gray-400',
-        rowMailTxt: 'text-xs text-gray-600 truncate',
-        iconToggle: 'px-2 py-2 text-gray-500 hover:text-gray-700 transition',
-        nestChevron: 'text-gray-500 shrink-0',
-        listSep: 'divide-y',
-        empty: 'p-8 text-center text-gray-500',
-        badgeDot: 'bg-blue-500'
-      };
+  const lcHubDark = {
+    shell: 'rounded-xl border border-white/[0.06] bg-black/20',
+    hdrSep: 'p-4 border-b border-white/[0.08]',
+    h2: 'text-xl font-semibold mb-3 text-white',
+    statDis: 'opacity-50 cursor-not-allowed border border-white/[0.06] bg-black/30',
+    statOn:
+      'border border-[color:var(--hub-accent-border)] bg-white/[0.08] shadow-[0_0_0_1px_var(--hub-accent-glow)]',
+    statOff: 'border border-white/[0.1] bg-black/25 hover:bg-white/[0.06]',
+    statLbl: 'text-sm text-white/55 mb-1 capitalize flex items-center justify-center gap-2',
+    statNum: 'text-3xl font-extrabold text-white tabular-nums',
+    btnNeutral: 'flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-white/[0.12] hover:bg-white/[0.18] whitespace-nowrap',
+    btnIndigo: 'flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-indigo-500/85 hover:bg-indigo-600 whitespace-nowrap',
+    lbl: 'block text-sm font-medium mb-2 text-white/75',
+    sel: 'w-full px-2 py-2 rounded-lg text-sm border border-white/[0.12] bg-black/[0.28] text-white outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]',
+    ddBtn:
+      'w-full px-3 py-2 rounded-lg border border-white/[0.12] bg-black/[0.28] text-left flex items-center justify-between focus:ring-2 focus:ring-[color:var(--hub-accent)] hover:border-[color:var(--hub-accent-border)] transition min-w-0',
+    ddCaret: 'text-white/45',
+    ddMuted: 'text-white/50',
+    ddTxt: 'text-white',
+    ddPanel: 'absolute z-20 w-full mt-1 rounded-xl border border-white/[0.12] bg-[#252525] shadow-2xl max-h-96 overflow-y-auto',
+    ddRowAllOff: 'border-transparent',
+    ddRowAllOn: 'bg-white/[0.08] border-[color:var(--hub-accent)]',
+    ddRowHover: 'hover:bg-white/[0.06]',
+    ddAllTitleOn: 'text-[color:var(--hub-accent)]',
+    ddAllTitleOff: 'text-white',
+    coWrap: 'border-b border-white/[0.06] last:border-b-0',
+    coBtn:
+      'flex-1 px-3 py-2 bg-black/30 hover:bg-white/[0.06] transition flex items-center justify-between text-left rounded-lg border border-transparent',
+    coBtnSel: 'ring-2 ring-[color:var(--hub-accent-border)]',
+    coIcon: 'w-6 h-6 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0 bg-[color:var(--hub-accent)] bg-opacity-40',
+    coTitle: 'text-sm font-bold text-white truncate',
+    coSub: 'text-xs text-white/55',
+    nest: 'bg-black/25',
+    rowSelOff: 'border-transparent',
+    rowSelOn: 'bg-white/[0.08] border-[color:var(--hub-accent)]',
+    rowNameOn: 'text-[color:var(--hub-accent)]',
+    rowNameOff: 'text-white',
+    rowMeta: 'text-xs text-white/50',
+    rowMailIcon: 'text-white/45',
+    rowMailTxt: 'text-xs text-white/55 truncate',
+    iconToggle: 'px-2 py-2 text-white/55 hover:text-white/90 transition',
+    nestChevron: 'text-white/50 shrink-0',
+    listSep: 'divide-y divide-white/[0.06]',
+    empty: 'p-8 text-center text-white/50',
+    badgeDot: 'bg-[color:var(--hub-accent)]'
+  };
+
+  const lcHubLight = {
+    shell:
+      'rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] shadow-[var(--hub-chrome-card-shadow)]',
+    hdrSep: 'p-4 border-b border-[color:var(--hub-chrome-border-soft)]',
+    h2: 'text-xl font-semibold mb-3 text-[color:var(--hub-chrome-text)]',
+    statDis:
+      'opacity-50 cursor-not-allowed border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-muted-fill)]',
+    statOn:
+      'border-2 border-[color:var(--hub-accent-border)] bg-[color:var(--hub-chrome-row-nested-bg)] shadow-[0_0_0_1px_var(--hub-accent-glow)]',
+    statOff:
+      'border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-muted-fill)] hover:bg-[color:var(--hub-chrome-hover)]',
+    statLbl:
+      'text-sm text-[color:var(--hub-chrome-text-muted)] mb-1 capitalize flex items-center justify-center gap-2',
+    statNum: 'text-3xl font-extrabold text-[color:var(--hub-chrome-text)] tabular-nums',
+    btnNeutral: 'flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-gray-600 hover:bg-gray-700 whitespace-nowrap',
+    btnIndigo: 'flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-indigo-600 hover:bg-indigo-700 whitespace-nowrap',
+    lbl: 'mb-2 block text-sm font-medium text-[color:var(--hub-chrome-text-muted)]',
+    sel: `${HUB_MODAL_FIELD_CLS} py-2 appearance-none cursor-pointer`,
+    ddBtn: `w-full px-3 py-2 rounded-lg text-left flex items-center justify-between min-w-0 border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-input-well)] text-[color:var(--hub-chrome-text)] transition hover:border-[color:var(--hub-accent-border)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)]`,
+    ddCaret: 'text-[color:var(--hub-chrome-text-faint)]',
+    ddMuted: 'text-[color:var(--hub-chrome-text-muted)]',
+    ddTxt: 'text-[color:var(--hub-chrome-text)]',
+    ddPanel:
+      'absolute z-20 w-full mt-1 max-h-96 overflow-y-auto rounded-xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)] shadow-xl',
+    ddRowAllOff: 'border-transparent',
+    ddRowAllOn: 'border-[color:var(--hub-accent-border)] bg-[color:var(--hub-chrome-row-nested-bg)]',
+    ddRowHover: 'hover:bg-[color:var(--hub-chrome-hover)]',
+    ddAllTitleOn: 'text-[color:var(--hub-accent)]',
+    ddAllTitleOff: 'text-[color:var(--hub-chrome-text)]',
+    coWrap: 'border-b border-[color:var(--hub-chrome-border-soft)] last:border-b-0',
+    coBtn:
+      'flex-1 rounded-lg border border-transparent px-3 py-2 text-left transition flex items-center justify-between bg-[color:var(--hub-chrome-muted-fill)] hover:bg-[color:var(--hub-chrome-hover)]',
+    coBtnSel: 'ring-2 ring-[color:var(--hub-accent-border)]',
+    coIcon:
+      'flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[color:var(--hub-chrome-row-nested-bg)] text-xs font-bold text-[color:var(--hub-accent)]',
+    coTitle: 'truncate text-sm font-bold text-[color:var(--hub-chrome-text)]',
+    coSub: 'text-xs text-[color:var(--hub-chrome-text-muted)]',
+    nest: 'bg-[color:var(--hub-chrome-well)]',
+    rowSelOff: 'border-transparent',
+    rowSelOn: 'border-[color:var(--hub-accent-border)] bg-[color:var(--hub-chrome-row-nested-bg)]',
+    rowNameOn: 'text-[color:var(--hub-accent)]',
+    rowNameOff: 'text-[color:var(--hub-chrome-text)]',
+    rowMeta: 'text-xs text-[color:var(--hub-chrome-text-muted)]',
+    rowMailIcon: 'text-[color:var(--hub-chrome-text-faint)]',
+    rowMailTxt: 'truncate text-xs text-[color:var(--hub-chrome-text-muted)]',
+    iconToggle:
+      'px-2 py-2 text-[color:var(--hub-chrome-text-muted)] transition hover:text-[color:var(--hub-chrome-text)]',
+    nestChevron: 'shrink-0 text-[color:var(--hub-chrome-text-faint)]',
+    listSep: 'divide-y divide-[color:var(--hub-chrome-border-soft)]',
+    empty: 'p-8 text-center text-[color:var(--hub-chrome-text-muted)]',
+    badgeDot: 'bg-[color:var(--hub-accent)]'
+  };
+
+  const lcDashboard = {
+    shell: 'bg-white rounded-xl shadow-lg',
+    hdrSep: 'p-4 border-b',
+    h2: 'text-xl font-semibold mb-3',
+    statDis: 'opacity-50 cursor-not-allowed border border-gray-200 bg-white',
+    statOn: 'border border-blue-300 bg-blue-50',
+    statOff: 'border border-gray-200 bg-white hover:bg-gray-50',
+    statLbl: 'text-sm text-gray-500 mb-1 capitalize flex items-center justify-center gap-2',
+    statNum: 'text-3xl font-extrabold gradient-text',
+    btnNeutral: 'flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-gray-600 hover:bg-gray-700 whitespace-nowrap',
+    btnIndigo: 'flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-indigo-600 hover:bg-indigo-700 whitespace-nowrap',
+    lbl: 'block text-sm font-medium mb-2',
+    sel: 'w-full px-2 py-2 border rounded-lg text-sm',
+    ddBtn:
+      'w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-400 transition min-w-0',
+    ddCaret: 'text-gray-400',
+    ddMuted: 'text-gray-500',
+    ddTxt: 'text-gray-900',
+    ddPanel: 'absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-96 overflow-y-auto',
+    ddRowAllOff: 'border-transparent',
+    ddRowAllOn: 'bg-blue-50 border-blue-500',
+    ddRowHover: 'hover:bg-blue-50',
+    ddAllTitleOn: 'text-blue-700',
+    ddAllTitleOff: 'text-gray-900',
+    coWrap: 'border-b border-gray-100 last:border-b-0',
+    coBtn:
+      'flex-1 px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-all flex items-center justify-between text-left',
+    coBtnSel: 'ring-2 ring-blue-500',
+    coIcon:
+      'w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0',
+    coTitle: 'text-sm font-bold text-gray-800 truncate',
+    coSub: 'text-xs text-gray-600',
+    nest: 'bg-gray-50',
+    rowSelOff: 'border-transparent',
+    rowSelOn: 'bg-blue-50 border-blue-500',
+    rowNameOn: 'text-blue-700',
+    rowNameOff: 'text-gray-900',
+    rowMeta: 'text-xs text-gray-500',
+    rowMailIcon: 'text-gray-400',
+    rowMailTxt: 'text-xs text-gray-600 truncate',
+    iconToggle: 'px-2 py-2 text-gray-500 hover:text-gray-700 transition',
+    nestChevron: 'text-gray-500 shrink-0',
+    listSep: 'divide-y',
+    empty: 'p-8 text-center text-gray-500',
+    badgeDot: 'bg-blue-500'
+  };
+
+  const lc =
+    hubEmbed && hubSurfaceMode === 'light' ? lcHubLight : hubEmbed ? lcHubDark : lcDashboard;
 
   return (
     <>
@@ -1017,6 +1077,7 @@ const TicketListContainer = ({
                 <TicketItem
                   key={t.id}
                   hubEmbed={hubEmbed}
+                  hubEmbedLight={hubEmbed && hubSurfaceMode === 'light'}
                   ticket={t}
                   cliente={usersMap[t.clienteid]}
                   currentUser={currentUser}

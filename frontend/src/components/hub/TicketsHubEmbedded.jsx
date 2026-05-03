@@ -44,6 +44,7 @@ function useVisibleTicketsForHub({ currentUser, users, tickets, selectedCompany 
  */
 export default function TicketsHubEmbedded({
   accentHex,
+  hubSurfaceMode = 'dark',
   currentUser,
   tickets,
   users,
@@ -83,6 +84,7 @@ export default function TicketsHubEmbedded({
     >
       <div className="px-3 py-3 md:px-4 md:py-4">
         <TicketsHubTicketChrome
+          hubSurfaceMode={hubSurfaceMode}
           currentUser={currentUser}
           users={users}
           searchTerm={advancedSearchTerm}
@@ -102,6 +104,7 @@ export default function TicketsHubEmbedded({
         />
         <TicketListContainer
           hubEmbed
+          hubSurfaceMode={hubSurfaceMode}
           currentUser={currentUser}
           tickets={visibleTickets}
           users={users}

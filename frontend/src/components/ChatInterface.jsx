@@ -12,7 +12,9 @@ const ChatInterface = ({
   handleUpdateMessage,
   handleChangeStatus,
   users = [],
-  hubEmbed = false
+  hubEmbed = false,
+  /** Hub tema Chiaro: stessa UI chiara della dashboard per pannelli e messaggi. */
+  hubEmbedLight = false
 }) => {
   const [newMessage, setNewMessage] = useState('');
   const [editingMessageId, setEditingMessageId] = useState(null);
@@ -159,46 +161,59 @@ const ChatInterface = ({
     return 'delivered'; // Due spunte grigie
   };
 
-  const H = hubEmbed === true;
+  const hubEmbedDarkChrome = hubEmbed === true && !hubEmbedLight;
+  const hubAccentPrimaryBtnClass = hubEmbed
+    ? hubEmbedDarkChrome
+      ? 'bg-[color:var(--hub-accent)] text-white hover:brightness-110'
+      : 'bg-[color:var(--hub-accent)] text-[#121212] hover:brightness-110'
+    : 'bg-blue-600 hover:bg-blue-700 text-white';
 
   return (
     <div
       className={
-        H
+        hubEmbedDarkChrome
           ? 'rounded-b-xl border-x border-b border-white/[0.08] bg-[#171717]'
           : 'rounded-xl border-t bg-white shadow-lg'
       }
     >
       <div
         className={
-          H
+          hubEmbedDarkChrome
             ? 'flex items-center justify-between border-b border-white/[0.08] bg-black/35 px-4 py-3'
             : 'flex items-center justify-between rounded-t-xl border-b bg-blue-50 p-4'
         }
       >
-        <h3 className={`font-bold text-lg ${H ? 'text-white' : ''}`}>Conversazione Ticket {ticket.numero}</h3>
+        <h3 className={`font-bold text-lg ${hubEmbedDarkChrome ? 'text-white' : ''}`}>Conversazione Ticket {ticket.numero}</h3>
         <button
           onClick={(e) => {
             e.stopPropagation();
             setSelectedTicket(null);
           }}
           type="button"
-          className={H ? 'text-white/55 transition hover:text-white' : 'text-gray-500 hover:text-gray-700'}
+          className={
+            hubEmbedDarkChrome ? 'text-white/55 transition hover:text-white' : 'text-gray-500 hover:text-gray-700'
+          }
         >
           <X size={20} />
         </button>
       </div>
 
-      <div className={`space-y-3 overflow-y-auto p-4 ${H ? 'max-h-[50vh] bg-[#171717]' : 'max-h-[50vh] bg-white'}`}>
+      <div
+        className={`space-y-3 overflow-y-auto p-4 ${
+          hubEmbedDarkChrome ? 'max-h-[50vh] bg-[#171717]' : 'max-h-[50vh] bg-white'
+        }`}
+      >
         {ticket.timeLogs && ticket.timeLogs.length > 0 && (
           <div
             className={
-              H
+              hubEmbedDarkChrome
                 ? 'mt-4 space-y-3 rounded-lg border-l-4 border-sky-500/45 bg-sky-500/10 p-4'
                 : 'mt-4 space-y-3 rounded-lg border-l-4 border-blue-400 bg-blue-50 p-4'
             }
           >
-            <h4 className={`flex items-center gap-2 text-sm font-bold ${H ? 'text-sky-100' : 'text-blue-800'}`}>
+            <h4
+              className={`flex items-center gap-2 text-sm font-bold ${hubEmbedDarkChrome ? 'text-sky-100' : 'text-blue-800'}`}
+            >
               <Clock size={16} />
               Log Interventi
             </h4>
@@ -237,18 +252,18 @@ const ChatInterface = ({
                   <div
                     key={index}
                     className={
-                      H
+                      hubEmbedDarkChrome
                         ? 'rounded-lg border border-white/[0.1] bg-black/30 p-3'
                         : 'rounded-lg border bg-white p-3'
                     }
                   >
                     <div
                       className={`mb-2 flex items-center justify-between border-b pb-1 text-sm ${
-                        H ? 'border-white/[0.1]' : ''
+                        hubEmbedDarkChrome ? 'border-white/[0.1]' : ''
                       }`}
                     >
                       <span
-                        className={`flex items-center gap-1 font-bold ${H ? 'text-sky-300' : 'text-blue-600'}`}
+                        className={`flex items-center gap-1 font-bold ${hubEmbedDarkChrome ? 'text-sky-300' : 'text-blue-600'}`}
                       >
                         <Calendar size={14} />
                         {formatTimeLogDate(log.data)}
@@ -256,14 +271,14 @@ const ChatInterface = ({
                       <div className="flex items-center gap-2 flex-wrap">
                         <span
                           className={`rounded-full px-2 py-1 text-sm font-bold ${
-                            H ? 'bg-white/10 text-white/88' : 'bg-gray-100'
+                            hubEmbedDarkChrome ? 'bg-white/10 text-white/88' : 'bg-gray-100'
                           }`}
                         >
                           {timeIntervalsFormatted}
                         </span>
                         <span
                           className={`rounded-full px-2 py-1 text-sm font-bold ${
-                            H ? 'bg-white/10 text-white/88' : 'bg-gray-100'
+                            hubEmbedDarkChrome ? 'bg-white/10 text-white/88' : 'bg-gray-100'
                           }`}
                         >
                           Durata: {duration}
@@ -336,26 +351,26 @@ const ChatInterface = ({
               let alignmentClass = '';
               
               if (isReclamo) {
-                messageColorClass = H ? 'border-2 border-red-400 bg-red-500/25' : 'bg-red-50 border-2 border-red-500';
-                textColorClass = H ? 'text-red-100' : 'text-red-900';
+                messageColorClass = hubEmbedDarkChrome ? 'border-2 border-red-400 bg-red-500/25' : 'bg-red-50 border-2 border-red-500';
+                textColorClass = hubEmbedDarkChrome ? 'text-red-100' : 'text-red-900';
                 alignmentClass = 'text-left';
               } else if (isTecnico) {
-                messageColorClass = H ? 'border border-emerald-500/40 bg-emerald-600/85 text-white' : 'bg-green-600 text-white';
+                messageColorClass = hubEmbedDarkChrome ? 'border border-emerald-500/40 bg-emerald-600/85 text-white' : 'bg-green-600 text-white';
                 textColorClass = 'text-white';
                 alignmentClass = 'text-right';
               } else if (isRichiedenteOriginale) {
-                messageColorClass = H ? 'border border-white/[0.12] bg-white/[0.09]' : 'bg-gray-100';
-                textColorClass = H ? 'text-white/88' : 'text-gray-800';
+                messageColorClass = hubEmbedDarkChrome ? 'border border-white/[0.12] bg-white/[0.09]' : 'bg-gray-100';
+                textColorClass = hubEmbedDarkChrome ? 'text-white/88' : 'text-gray-800';
                 alignmentClass = 'text-left';
               } else if (isAmministratore) {
-                messageColorClass = H
+                messageColorClass = hubEmbedDarkChrome
                   ? 'border-2 border-sky-500/45 bg-sky-500/20'
                   : 'bg-blue-100 border-2 border-blue-300';
-                textColorClass = H ? 'text-sky-50' : 'text-blue-900';
+                textColorClass = hubEmbedDarkChrome ? 'text-sky-50' : 'text-blue-900';
                 alignmentClass = 'text-left';
               } else {
-                messageColorClass = H ? 'border border-white/[0.08] bg-white/[0.07]' : 'bg-gray-100';
-                textColorClass = H ? 'text-white/85' : 'text-gray-800';
+                messageColorClass = hubEmbedDarkChrome ? 'border border-white/[0.08] bg-white/[0.07]' : 'bg-gray-100';
+                textColorClass = hubEmbedDarkChrome ? 'text-white/85' : 'text-gray-800';
                 alignmentClass = 'text-left';
               }
               
@@ -384,17 +399,17 @@ const ChatInterface = ({
                         e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
                       }}
                       className={`w-full rounded-lg border-2 px-4 py-3 text-sm outline-none focus:ring-2 ${
-                        H ? 'focus:ring-[color:var(--hub-accent)]' : 'focus:ring-blue-500'
+                        hubEmbedDarkChrome ? 'focus:ring-[color:var(--hub-accent)]' : 'focus:ring-blue-500'
                       } resize-none overflow-hidden whitespace-pre-wrap ${
                         m.reclamo
-                          ? H
+                          ? hubEmbedDarkChrome
                             ? 'border-red-400 bg-red-500/20 text-red-100'
                             : 'border-red-500 bg-red-50 text-red-900'
                           : m.autore === ticket.nomerichiedente || m.autore === 'Cliente'
-                            ? H
+                            ? hubEmbedDarkChrome
                               ? 'border-white/20 bg-black/30 text-white/90'
                               : 'border-gray-300 bg-gray-100 text-gray-900'
-                            : H
+                            : hubEmbedDarkChrome
                               ? 'border-sky-500/40 bg-sky-500/15 text-white/90'
                               : 'border-blue-300 bg-blue-50 text-gray-900'
                       }`}
@@ -406,7 +421,7 @@ const ChatInterface = ({
                       <button
                         onClick={handleCancelEdit}
                         className={
-                          H
+                          hubEmbedDarkChrome
                             ? 'flex items-center gap-1 rounded bg-white/10 px-3 py-2 text-sm text-white/88 transition hover:bg-white/15'
                             : 'flex items-center gap-1 rounded bg-gray-200 px-3 py-2 text-sm transition-colors hover:bg-gray-300'
                         }
@@ -417,9 +432,7 @@ const ChatInterface = ({
                       <button
                         onClick={handleSaveEdit}
                         disabled={!editingContent.trim()}
-                        className={`flex items-center gap-1 rounded px-3 py-2 text-sm text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                          H ? 'bg-[color:var(--hub-accent)] text-white hover:brightness-110' : 'bg-blue-600 hover:bg-blue-700'
-                        }`}
+                        className={`flex items-center gap-1 rounded px-3 py-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${hubAccentPrimaryBtnClass}`}
                       >
                         <Save size={14} />
                         Salva
@@ -437,7 +450,7 @@ const ChatInterface = ({
                           handleStartEdit(m, container);
                         }}
                         className={`absolute right-2 top-2 rounded p-1 transition-colors ${
-                          H ? 'hover:bg-white/10' : 'hover:bg-blue-200'
+                          hubEmbedDarkChrome ? 'hover:bg-white/10' : 'hover:bg-blue-200'
                         }`}
                         title="Modifica messaggio"
                       >
@@ -453,7 +466,7 @@ const ChatInterface = ({
                         }}
                         className={`absolute p-1 transition-colors ${
                           canEditMessage(m) && handleUpdateMessage ? 'right-10 top-2' : 'right-2 top-2'
-                        } ${H ? 'rounded hover:bg-red-500/25' : 'rounded hover:bg-red-200'}`}
+                        } ${hubEmbedDarkChrome ? 'rounded hover:bg-red-500/25' : 'rounded hover:bg-red-200'}`}
                         title="Elimina messaggio"
                       >
                         <Trash2 size={14} className={m.autore === ticket.nomerichiedente || m.autore === 'Cliente' ? 'text-red-600' : 'text-white'} />
@@ -523,12 +536,12 @@ const ChatInterface = ({
       </div>
 
       {!['chiuso', 'fatturato', 'inviato'].includes(ticket.stato) && (
-        <div className={H ? 'border-t border-white/[0.08] p-4 bg-[#171717]' : 'border-t p-4'}>
+        <div className={hubEmbedDarkChrome ? 'border-t border-white/[0.08] p-4 bg-[#171717]' : 'border-t p-4'}>
           {currentUser.ruolo === 'cliente' && ticket.stato === 'risolto' ? (
             <div className="space-y-3">
               <div
                 className={
-                  H ? 'rounded-lg border border-amber-500/35 bg-amber-500/12 p-3 text-sm text-amber-50' : 'border bg-yellow-50 p-3 text-sm'
+                  hubEmbedDarkChrome ? 'rounded-lg border border-amber-500/35 bg-amber-500/12 p-3 text-sm text-amber-50' : 'border bg-yellow-50 p-3 text-sm'
                 }
               >
                 <p className="font-medium">Intervento risolto.</p>
@@ -550,14 +563,14 @@ const ChatInterface = ({
                   placeholder="Motivo del reclamo..."
                   rows={3}
                   className={
-                    H
+                    hubEmbedDarkChrome
                       ? 'w-full rounded-lg border-2 border-red-500 bg-red-500/15 px-3 py-2 text-white placeholder-red-300/70'
                       : 'w-full rounded-lg border-2 border-red-500 bg-red-50 px-3 py-2 placeholder-red-400'
                   }
                 />
                 <div
                   className={`absolute right-2 top-2 flex items-center gap-1 px-2 py-1 text-xs font-bold ${
-                    H ? 'rounded bg-red-500/35 text-red-100' : 'bg-red-100 text-red-700'
+                    hubEmbedDarkChrome ? 'rounded bg-red-500/35 text-red-100' : 'bg-red-100 text-red-700'
                   }`}
                 >
                   <AlertTriangle size={12} />
@@ -592,7 +605,7 @@ const ChatInterface = ({
                   placeholder="Scrivi messaggio... (Invio per inviare, Shift+Invio per nuova riga)"
                   rows={1}
                   className={`flex-1 rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 resize-none overflow-hidden whitespace-pre-wrap ${
-                    H
+                    hubEmbedDarkChrome
                       ? 'border-white/[0.15] bg-black/35 text-white placeholder:text-white/40 focus:ring-[color:var(--hub-accent)]'
                       : 'border-gray-300 focus:ring-blue-500'
                   }`}
@@ -601,9 +614,7 @@ const ChatInterface = ({
                 <button
                   onClick={() => onSendMessage(false)}
                   disabled={!newMessage.trim()}
-                  className={`rounded-lg px-4 py-2 text-white disabled:opacity-50 ${
-                    H ? 'bg-[color:var(--hub-accent)] text-white hover:brightness-110' : 'bg-blue-600 hover:bg-blue-700'
-                  }`}
+                  className={`rounded-lg px-4 py-2 disabled:opacity-50 ${hubAccentPrimaryBtnClass}`}
                 >
                   <MessageSquare size={18} />
                 </button>
@@ -627,7 +638,7 @@ const ChatInterface = ({
       {['chiuso', 'fatturato', 'inviato'].includes(ticket.stato) && (
         <div
           className={
-            H
+            hubEmbedDarkChrome
               ? 'rounded-b-xl border-t border-white/[0.08] bg-black/30 p-4 text-center text-sm font-medium text-white/55'
               : 'rounded-b-xl border-t bg-gray-50 p-4 text-center font-medium text-gray-600'
           }

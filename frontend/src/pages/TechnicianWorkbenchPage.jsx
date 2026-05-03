@@ -1157,6 +1157,7 @@ export default function TechnicianWorkbenchPage({
             ) : hubCenterView === 'tickets' && ticketHubListProps ? (
               <TicketsHubEmbedded
                 accentHex={accentHex}
+                hubSurfaceMode={hubSurfaceMode}
                 currentUser={currentUser}
                 tickets={tickets}
                 users={ticketHubListProps.users}
