@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Sun, Moon } from 'lucide-react';
 import { HUB_SURFACE, hubModalCssVars } from '../../utils/techHubAccent';
 
 const ROME_TZ = 'Europe/Rome';
@@ -29,20 +28,7 @@ function formatDateLineRome(date) {
   return `${cap}, ${rest}`;
 }
 
-/** Rileva ora legale italiana (CEST) vs solare (CET) via nome fuso in locale it-IT. */
-function getRomeDaylightInfo(date) {
-  const parts = new Intl.DateTimeFormat('it-IT', {
-    timeZone: ROME_TZ,
-    timeZoneName: 'long'
-  }).formatToParts(date);
-  const tzName = parts.find((p) => p.type === 'timeZoneName')?.value ?? '';
-  const isDST = /legale/i.test(tzName);
-  return { isDST, tzName };
-}
-
-/**
- * Card orario stile lock screen: ora grande, data sotto, indicazione ora legale / solare (Italia).
- */
+/** Card orario stile lock screen: ora grande, data sotto (Italia). */
 export default function HubTimeCard({ accentHex }) {
   const [now, setNow] = useState(() => new Date());
 
@@ -53,7 +39,6 @@ export default function HubTimeCard({ accentHex }) {
 
   const timeStr = useMemo(() => formatTimeRome(now), [now]);
   const dateLine = useMemo(() => formatDateLineRome(now), [now]);
-  const { isDST, tzName } = useMemo(() => getRomeDaylightInfo(now), [now]);
 
   const style = useMemo(() => ({ backgroundColor: HUB_SURFACE, ...hubModalCssVars(accentHex) }), [accentHex]);
 
@@ -66,24 +51,6 @@ export default function HubTimeCard({ accentHex }) {
         {timeStr}
       </div>
       <p className="mt-2.5 text-sm font-medium leading-snug text-white/55">{dateLine}</p>
-      <div
-        className={`mt-3 flex items-center justify-center gap-1.5 text-xs font-medium ${
-          isDST ? 'text-amber-200/95' : 'text-white/40'
-        }`}
-        title={tzName || undefined}
-      >
-        {isDST ? (
-          <>
-            <Sun size={15} className="shrink-0 text-amber-300" strokeWidth={2} aria-hidden />
-            <span>Ora legale attiva</span>
-          </>
-        ) : (
-          <>
-            <Moon size={14} className="shrink-0 text-white/45" strokeWidth={2} aria-hidden />
-            <span>Ora solare</span>
-          </>
-        )}
-      </div>
     </div>
   );
 }
