@@ -966,9 +966,8 @@ export default function HubOverviewSection({
           </div>
           <div className="space-y-2">
             <p className="text-[11px] leading-relaxed text-[color:var(--hub-chrome-text-fainter)]">
-              I quattro riquadri compatti in alto aprono sotto l’elenco testuale delle card. Clic di nuovo per chiudere. Con
-              una card selezionata in griglia, il gruppo corrispondente si apre da solo (passa il mouse per il titolo
-              completo se il testo è troncato).
+              I quattro quadrati in alto aprono sotto l’elenco delle card (chip con i nomi). Clic di nuovo per chiudere. Con
+              una card selezionata in griglia, il gruppo corrispondente si apre da solo.
             </p>
             {missing.length === 0 ? (
               <p className="text-xs text-[color:var(--hub-chrome-text-fainter)]">
@@ -990,7 +989,7 @@ export default function HubOverviewSection({
                           onClick={() => setExpandedLibraryTitle((t) => (t === group.title ? null : group.title))}
                           aria-expanded={expanded}
                           title={group.caption ? `${group.title}: ${group.caption}` : group.title}
-                          className={`flex h-9 w-9 shrink-0 flex-col items-center justify-center gap-0 rounded-md border p-0.5 text-center transition ${
+                          className={`flex h-[6.75rem] w-[6.75rem] shrink-0 flex-col items-center justify-center gap-1 rounded-xl border p-1.5 text-center transition sm:aspect-square ${
                             expanded
                               ? hubLight
                                 ? 'border-[color:var(--hub-accent)] bg-[color:color-mix(in_srgb,var(--hub-accent)_18%,var(--hub-chrome-well))] shadow-[0_1px_2px_rgba(15,23,42,0.06)]'
@@ -998,10 +997,10 @@ export default function HubOverviewSection({
                               : 'border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-well-mid)] hover:border-[color:var(--hub-accent-border)] hover:bg-[color:var(--hub-chrome-hover)]'
                           }`}
                         >
-                          <span className="max-w-full truncate text-[7px] font-bold uppercase leading-none text-[color:var(--hub-chrome-text)]">
+                          <span className="line-clamp-2 max-w-full text-[11px] font-bold uppercase leading-tight text-[color:var(--hub-chrome-text)]">
                             {group.title}
                           </span>
-                          <span className="text-[7px] font-semibold tabular-nums leading-none text-[color:var(--hub-chrome-text-faint)]">
+                          <span className="text-[11px] font-semibold tabular-nums leading-none text-[color:var(--hub-chrome-text-faint)]">
                             {inGroupCount}/{group.ids.length}
                           </span>
                         </button>
