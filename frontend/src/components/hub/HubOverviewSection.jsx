@@ -562,12 +562,15 @@ export default function HubOverviewSection({
     }
 
     let droppedOnId = '';
+    let droppedOnRect = null;
     try {
       const host =
         typeof e.target?.closest === 'function' ? e.target.closest('[data-hub-slot]') : null;
       droppedOnId = host?.getAttribute?.('data-hub-slot')?.trim?.() ?? '';
+      droppedOnRect = host && typeof host.getBoundingClientRect === 'function' ? host.getBoundingClientRect() : null;
     } catch (_) {
       droppedOnId = '';
+      droppedOnRect = null;
     }
 
     setHubLayout((prev) => {
@@ -581,19 +584,44 @@ export default function HubOverviewSection({
       // Se il DOM target è una card ma il punto "snappato" cade FUORI dalla sua area griglia,
       // preferisci il posizionamento libero (permette buchi/gap) invece dello swap.
       let swapTargetId = droppedOnId && droppedOnId !== dragId ? droppedOnId : '';
+      let edgePreferCol = null;
+      let edgePreferRow = null;
       if (swapTargetId) {
         const host = prev.find((x) => x.id === swapTargetId);
         if (host) {
           const inHostCols = col >= host.col && col < host.col + host.w;
           const inHostRows = row >= host.row && row < host.row + host.h;
           if (!inHostCols || !inHostRows) swapTargetId = '';
+
+          // UX: se rilasci vicino ai bordi della card, interpretalo come slot adiacente (meno precisione richiesta).
+          // Esempio: vicino al bordo destro → col = host.col + host.w (spazio a destra).
+          if (swapTargetId && droppedOnRect) {
+            const EDGE_PX = 26;
+            const nearLeft = e.clientX <= droppedOnRect.left + EDGE_PX;
+            const nearRight = e.clientX >= droppedOnRect.right - EDGE_PX;
+            const nearTop = e.clientY <= droppedOnRect.top + EDGE_PX;
+            const nearBottom = e.clientY >= droppedOnRect.bottom - EDGE_PX;
+
+            if (nearLeft && !nearRight) edgePreferCol = host.col - 1;
+            else if (nearRight && !nearLeft) edgePreferCol = host.col + host.w;
+
+            if (nearTop && !nearBottom) edgePreferRow = host.row - 1;
+            else if (nearBottom && !nearTop) edgePreferRow = host.row + host.h;
+
+            // Se c’è un'intenzione "adiacente", NON fare swap: posiziona nello slot vicino.
+            if (edgePreferCol != null || edgePreferRow != null) {
+              swapTargetId = '';
+            }
+          }
         }
       }
 
       if (swapTargetId) {
         return sanitizeLayoutItems(swapGridPositions(prev, dragId, swapTargetId));
       }
-      return sanitizeLayoutItems(applyPlacement(prev, dragId, col, row));
+      const finalCol = edgePreferCol != null ? edgePreferCol : col;
+      const finalRow = edgePreferRow != null ? edgePreferRow : row;
+      return sanitizeLayoutItems(applyPlacement(prev, dragId, finalCol, finalRow));
     });
     dragIdRef.current = null;
   };
