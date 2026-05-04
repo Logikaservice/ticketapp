@@ -2341,7 +2341,7 @@ const SpeedTestPage = ({
               }}
             >
               {staleSpeedtestRows.length === 0 ? (
-                <p style={{ margin: 0, fontSize: 13, color: '#94a3b8', lineHeight: 1.45 }}>
+                <p style={{ margin: 0, fontSize: 13, color: ect.mid, lineHeight: 1.45 }}>
                   Nessuna azienda in ritardo: con speedtest attivo tutte hanno inviato almeno un rilevamento nelle ultime 2 ore.
                 </p>
               ) : (
@@ -2357,8 +2357,8 @@ const SpeedTestPage = ({
                           fontSize: 13
                         }}
                       >
-                        <div style={{ fontWeight: 600, color: '#f1f5f9' }}>{row.azienda_name || '—'}</div>
-                        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4, lineHeight: 1.35 }}>
+                        <div style={{ fontWeight: 600, color: ect.hi }}>{row.azienda_name || '—'}</div>
+                        <div style={{ fontSize: 11, color: ect.lo, marginTop: 4, lineHeight: 1.35 }}>
                           {(row.agent_name && String(row.agent_name).trim()) ? `${row.agent_name} · ` : ''}
                           Ultimo rilevamento: {row.test_date ? formatDate(row.test_date) : 'nessuno'}
                         </div>
