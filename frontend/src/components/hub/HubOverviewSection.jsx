@@ -621,7 +621,14 @@ export default function HubOverviewSection({
       }
       const finalCol = edgePreferCol != null ? edgePreferCol : col;
       const finalRow = edgePreferRow != null ? edgePreferRow : row;
-      return sanitizeLayoutItems(applyPlacement(prev, dragId, finalCol, finalRow));
+
+      // UX: drop "magnetico" — anche nel vuoto aggancia lo slot libero più vicino,
+      // così non serve rilasciare con precisione millimetrica.
+      const dragged = prev.find((x) => x.id === dragId);
+      const fit = dragged
+        ? findNearestFit(prev, dragged.w, dragged.h, dragId, finalCol, finalRow, Math.max(maxRowUsed(prev) + 24, 32))
+        : { col: finalCol, row: finalRow };
+      return sanitizeLayoutItems(applyPlacement(prev, dragId, fit.col, fit.row));
     });
     dragIdRef.current = null;
   };
