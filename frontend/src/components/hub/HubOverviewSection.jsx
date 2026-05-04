@@ -1026,13 +1026,18 @@ export default function HubOverviewSection({
                             {group.caption}
                           </p>
                         ) : null}
-                        <div className="flex flex-wrap gap-2">
+                        <div className="grid grid-cols-2 justify-items-stretch gap-2 sm:grid-cols-4">
                           {group.ids.map((mid) => {
                             const mod = HUB_MODULE_META[mid];
                             if (!mod) return null;
                             const inGrid = hubLayout.some((x) => x.id === mid);
                             const canAdd = missing.includes(mid);
                             const label = mod.label;
+                            const titleHint = inGrid
+                              ? 'Seleziona questa card nella griglia'
+                              : canAdd
+                                ? `Aggiungi alla griglia: ${label}`
+                                : 'Non disponibile';
                             return (
                               <button
                                 key={mid}
@@ -1046,14 +1051,8 @@ export default function HubOverviewSection({
                                   }
                                 }}
                                 disabled={!inGrid && !canAdd}
-                                title={
-                                  inGrid
-                                    ? 'Seleziona questa card nella griglia'
-                                    : canAdd
-                                      ? 'Aggiungi alla griglia'
-                                      : 'Non disponibile'
-                                }
-                                className={`rounded-xl border px-3 py-2 text-left text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-35 ${
+                                title={titleHint}
+                                className={`flex min-h-[4.75rem] w-full flex-col items-center justify-center gap-1 rounded-xl border p-2 text-center text-[10px] font-semibold leading-tight transition sm:aspect-square sm:min-h-0 disabled:cursor-not-allowed disabled:opacity-35 ${
                                   inGrid
                                     ? selectedId === mid
                                       ? hubLight
@@ -1065,7 +1064,12 @@ export default function HubOverviewSection({
                                       : 'border-[color:var(--hub-chrome-border-soft)] text-[color:var(--hub-chrome-text-fainter)]'
                                 }`}
                               >
-                                {inGrid ? label : `Aggiungi · ${label}`}
+                                {!inGrid && canAdd ? (
+                                  <span className="text-[11px] font-bold text-[color:var(--hub-chrome-text-faint)]" aria-hidden>
+                                    +
+                                  </span>
+                                ) : null}
+                                <span className="line-clamp-4 break-words">{label}</span>
                               </button>
                             );
                           })}
