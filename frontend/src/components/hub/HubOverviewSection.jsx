@@ -570,20 +570,31 @@ export default function HubOverviewSection({
       droppedOnId = '';
     }
 
-    if (droppedOnId && droppedOnId !== dragId) {
-      setHubLayout((prev) => sanitizeLayoutItems(swapGridPositions(prev, dragId, droppedOnId)));
-    } else {
-      setHubLayout((prev) => {
-        const grid = gridRef.current;
-        const { col, row: rowFromSnap } = snapDropToCell(e.clientX, e.clientY, grid, prev);
-        const anchored = inferDropRowFromAnchor(e.clientY, grid, prev, dragId, col);
-        const sensibleMaxRow = Math.max(maxRowUsed(prev) + 6, 12);
-        const rawRow = anchored.row != null ? anchored.row : rowFromSnap;
-        const row = Math.min(sensibleMaxRow, Math.max(1, rawRow));
-        const next = applyPlacement(prev, dragId, col, row);
-        return sanitizeLayoutItems(next);
-      });
-    }
+    setHubLayout((prev) => {
+      const grid = gridRef.current;
+      const { col, row: rowFromSnap } = snapDropToCell(e.clientX, e.clientY, grid, prev);
+      const anchored = inferDropRowFromAnchor(e.clientY, grid, prev, dragId, col);
+      const sensibleMaxRow = Math.max(maxRowUsed(prev) + 6, 12);
+      const rawRow = anchored.row != null ? anchored.row : rowFromSnap;
+      const row = Math.min(sensibleMaxRow, Math.max(1, rawRow));
+
+      // Se il DOM target è una card ma il punto "snappato" cade FUORI dalla sua area griglia,
+      // preferisci il posizionamento libero (permette buchi/gap) invece dello swap.
+      let swapTargetId = droppedOnId && droppedOnId !== dragId ? droppedOnId : '';
+      if (swapTargetId) {
+        const host = prev.find((x) => x.id === swapTargetId);
+        if (host) {
+          const inHostCols = col >= host.col && col < host.col + host.w;
+          const inHostRows = row >= host.row && row < host.row + host.h;
+          if (!inHostCols || !inHostRows) swapTargetId = '';
+        }
+      }
+
+      if (swapTargetId) {
+        return sanitizeLayoutItems(swapGridPositions(prev, dragId, swapTargetId));
+      }
+      return sanitizeLayoutItems(applyPlacement(prev, dragId, col, row));
+    });
     dragIdRef.current = null;
   };
 
