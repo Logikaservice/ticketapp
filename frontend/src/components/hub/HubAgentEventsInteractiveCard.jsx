@@ -212,7 +212,7 @@ export default function HubAgentEventsInteractiveCard({
   const unreadCountHex = hubLight ? '#dc2626' : '#f87171';
   const countBlock = (
     <span
-      className={`shrink-0 self-center tabular-nums text-[2.65rem] font-bold leading-none tracking-tight sm:text-[2.85rem] ${
+      className={`shrink-0 tabular-nums text-[1.85rem] font-bold leading-none tracking-tight sm:text-[2.1rem] ${
         hasUnread ? '' : 'text-[color:var(--hub-chrome-text-fainter)]'
       }`}
       style={hasUnread ? { color: unreadCountHex } : undefined}
@@ -260,13 +260,13 @@ export default function HubAgentEventsInteractiveCard({
             type="button"
             onClick={toggleExpanded}
             disabled={blocked}
-            className={`flex h-full max-h-full min-h-0 w-full min-w-0 shrink-0 flex-col justify-center gap-0 p-4 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] disabled:pointer-events-none ${hubLight ? 'hover:bg-[color:var(--hub-chrome-hover)]' : 'hover:bg-white/[0.04]'}`}
+            className={`flex h-full max-h-full min-h-0 w-full min-w-0 shrink-0 flex-col justify-start gap-2 p-4 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] disabled:pointer-events-none ${hubLight ? 'hover:bg-[color:var(--hub-chrome-hover)]' : 'hover:bg-white/[0.04]'}`}
             aria-expanded={expanded}
             aria-haspopup="dialog"
           >
-            <div className="flex min-h-0 w-full min-w-0 shrink-0 items-center gap-3">
+            <div className="flex w-full min-w-0 flex-col items-center gap-2">
               <div
-                className={`inline-flex shrink-0 self-center rounded-xl p-2.5 ${hasUnread ? '' : 'bg-[color:var(--hub-chrome-muted-fill)]'}`}
+                className={`inline-flex shrink-0 rounded-xl p-2.5 ${hasUnread ? '' : 'bg-[color:var(--hub-chrome-muted-fill)]'}`}
                 style={iconWellStyle}
               >
                 <AlertTriangle
@@ -276,19 +276,21 @@ export default function HubAgentEventsInteractiveCard({
                   aria-hidden
                 />
               </div>
-              <div className="min-w-0 flex-1 self-center leading-tight">
-                <div
-                  className={`break-words text-base font-semibold ${hubLight ? 'text-[color:var(--hub-chrome-text)]' : 'text-white/90'}`}
-                >
-                  {title}
+              <div className="flex w-full min-w-0 items-center gap-2">
+                <div className="min-w-0 flex-1 leading-tight">
+                  <div
+                    className={`break-words text-base font-semibold ${hubLight ? 'text-[color:var(--hub-chrome-text)]' : 'text-white/90'}`}
+                  >
+                    {title}
+                  </div>
+                  <p
+                    className={`mt-1 break-words text-xs leading-snug ${hubLight ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-white/45'}`}
+                  >
+                    {expanded ? 'Lista in overlay: clic fuori o Esc per chiudere' : `${subtitle} · clic per aprire`}
+                  </p>
                 </div>
-                <p
-                  className={`mt-1 break-words text-xs leading-snug ${hubLight ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-white/45'}`}
-                >
-                  {expanded ? 'Lista in overlay: clic fuori o Esc per chiudere' : `${subtitle} · clic per aprire`}
-                </p>
+                {countBlock}
               </div>
-              {countBlock}
             </div>
           </button>
         )}

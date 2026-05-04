@@ -778,7 +778,7 @@ export default function HubOverviewSection({
             subdued={veil}
             suppressInteraction={suppressInteraction || !onOpenFornitureResoconto}
             iconOnly={io}
-            count={hubTemporarySuppliesCount}
+            count={hubTemporarySuppliesCount ?? 0}
           />
         );
       case 'launch-office':
