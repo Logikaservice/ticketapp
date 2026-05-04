@@ -173,16 +173,16 @@ function ModuleLaunchCard({
       type="button"
       onClick={onClick}
       aria-label={hasCount ? `${label}: ${n}` : label}
-      className={`flex h-full min-h-[6rem] w-full min-w-0 items-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-left transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${countActive ? HUB_CARD_INNER_GLOW_CLASS : ''} ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
+      className={`flex h-full min-h-[6rem] w-full min-w-0 flex-col justify-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-center transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${countActive ? HUB_CARD_INNER_GLOW_CLASS : ''} ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
       style={{
         backgroundColor: 'var(--hub-chrome-surface)',
         ...hubOverviewCardLift,
         ...innerGlowStyle
       }}
     >
-      <div className="flex w-full min-w-0 items-center gap-3">
+      <div className="flex w-full min-w-0 flex-col items-center gap-2">
         <div
-          className={`inline-flex shrink-0 self-center rounded-xl p-2.5 ${hasCount && !countActive ? 'bg-[color:var(--hub-chrome-muted-fill)]' : ''}`}
+          className={`inline-flex shrink-0 rounded-xl p-2.5 ${hasCount && !countActive ? 'bg-[color:var(--hub-chrome-muted-fill)]' : ''}`}
           style={
             hasCount && countActive
               ? { backgroundColor: hexToRgba(g, 0.12) }
@@ -204,7 +204,7 @@ function ModuleLaunchCard({
             aria-hidden
           />
         </div>
-        <div className="min-w-0 flex-1 self-center leading-tight">
+        <div className="w-full min-w-0 leading-tight">
           <div className="break-words text-base font-semibold text-[color:var(--hub-chrome-text)]">{label}</div>
           {subtitle ? (
             <div className="mt-1 break-words text-xs leading-snug text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div>
@@ -212,7 +212,7 @@ function ModuleLaunchCard({
         </div>
         {hasCount ? (
           <span
-            className={`shrink-0 tabular-nums text-[2.65rem] font-bold leading-none tracking-tight sm:text-[2.85rem] ${
+            className={`tabular-nums text-[2.15rem] font-bold leading-none tracking-tight sm:text-[2.4rem] ${
               countActive ? '' : 'text-[color:var(--hub-chrome-text-fainter)]'
             }`}
             style={countActive ? { color: g } : undefined}
@@ -227,7 +227,7 @@ function ModuleLaunchCard({
 }
 
 /**
- * KPI ticket: icona sinistra · titolo/sottotitolo subito a destra (come ModuleLaunchCard) · numero a destra.
+ * KPI ticket: icona centrata in alto · titolo/sottotitolo centrati sotto (più spazio per testi lunghi) · numero sotto.
  * Zero → grigio; &gt;0 → colore derivato dall’accento Hub ({@link hubKpiActiveForegroundHex}).
  */
 function TicketHubStatCard({
@@ -269,9 +269,9 @@ function TicketHubStatCard({
       </span>
     </div>
   ) : (
-    <div className="flex w-full min-w-0 items-center gap-3">
+    <div className="flex w-full min-w-0 flex-col items-center gap-2">
       <div
-        className={`inline-flex shrink-0 self-center rounded-xl p-2.5 transition ${active ? '' : 'bg-[color:var(--hub-chrome-muted-fill)]'}`}
+        className={`inline-flex shrink-0 rounded-xl p-2.5 transition ${active ? '' : 'bg-[color:var(--hub-chrome-muted-fill)]'}`}
         style={active ? { backgroundColor: hexToRgba(g, 0.12) } : undefined}
       >
         <Icon
@@ -280,14 +280,14 @@ function TicketHubStatCard({
           style={active ? { color: g } : { color: 'var(--hub-chrome-text-fainter)' }}
         />
       </div>
-      <div className="min-w-0 flex-1 self-center text-left leading-tight">
+      <div className="w-full min-w-0 leading-tight">
         <div className="break-words text-base font-semibold text-[color:var(--hub-chrome-text)]">{title}</div>
         {subtitle ? (
           <div className="mt-1 break-words text-xs font-normal leading-snug text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div>
         ) : null}
       </div>
       <span
-        className={`shrink-0 tabular-nums text-[2.65rem] font-bold leading-none tracking-tight sm:text-[2.85rem] ${
+        className={`tabular-nums text-[2.15rem] font-bold leading-none tracking-tight sm:text-[2.4rem] ${
           active ? '' : 'text-[color:var(--hub-chrome-text-fainter)]'
         }`}
         style={active ? { color: g } : undefined}
@@ -302,7 +302,7 @@ function TicketHubStatCard({
   const veil = subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : '';
   const noPtr = suppressInteraction ? 'pointer-events-none' : '';
   const fullRow =
-    'flex h-full min-h-[6rem] w-full min-w-0 items-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-left';
+    'flex h-full min-h-[6rem] w-full min-w-0 flex-col justify-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-center';
 
   if (!active) {
     return (
@@ -374,7 +374,7 @@ function HubNewTicketCard({
       type="button"
       disabled={Boolean(subdued)}
       onClick={() => !subdued && onOpenNewTicket?.()}
-      className={`flex h-full min-h-[6rem] w-full min-w-0 items-center gap-3 rounded-2xl border p-4 text-left transition hover:brightness-110 active:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
+      className={`flex h-full min-h-[6rem] w-full min-w-0 flex-col items-center justify-center gap-2 rounded-2xl border p-4 text-center transition hover:brightness-110 active:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
       style={{
         backgroundColor: hexToRgba(accentHex, 0.24),
         borderColor: hexToRgba(accentHex, 0.55),
@@ -383,12 +383,12 @@ function HubNewTicketCard({
       aria-label={aria}
     >
       <div
-        className="inline-flex shrink-0 self-center rounded-xl p-2.5"
+        className="inline-flex shrink-0 rounded-xl p-2.5"
         style={{ backgroundColor: hexToRgba(accentHex, 0.35), color: '#121212' }}
       >
         <Plus size={24} strokeWidth={2.4} aria-hidden />
       </div>
-      <div className="min-w-0 flex-1 self-center leading-tight">
+      <div className="w-full min-w-0 leading-tight">
         <div className="break-words text-base font-semibold text-[color:var(--hub-chrome-text)]">{title}</div>
         {subtitle ? (
           <div className="mt-1 break-words text-xs font-normal leading-snug text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div>
@@ -815,15 +815,15 @@ export default function HubOverviewSection({
         }
         return (
           <div
-            className={`flex h-full min-h-[6rem] w-full min-w-0 items-center gap-3 rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 ${
+            className={`flex h-full min-h-[6rem] w-full min-w-0 flex-col items-center justify-center gap-2 rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-center ${
               veil ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''
             } ${suppressInteraction ? 'pointer-events-none' : ''}`}
             style={{ backgroundColor: 'var(--hub-chrome-surface)', ...hubOverviewCardLift }}
           >
-            <div className="inline-flex shrink-0 self-center rounded-xl bg-[color:var(--hub-chrome-muted-fill)] p-2.5">
+            <div className="inline-flex shrink-0 rounded-xl bg-[color:var(--hub-chrome-muted-fill)] p-2.5">
               <Layers size={22} className="shrink-0 text-[color:var(--hub-chrome-text-muted)]" aria-hidden />
             </div>
-            <div className="min-w-0 flex-1 leading-tight">
+            <div className="w-full min-w-0 leading-tight">
               <h3 className="break-words text-base font-semibold text-[color:var(--hub-chrome-text)]">{txt(item, 'Riepilogo rapido')}</h3>
               <p className="mt-1 break-words text-xs leading-relaxed text-[color:var(--hub-chrome-text-faint)]">
                 {sub(item, 'Qui potrai inserire KPI o testo che riassume ticket, agent o avvisi.')}
