@@ -440,6 +440,8 @@ export default function HubOverviewSection({
   );
   const gridRef = useRef(null);
   const dragIdRef = useRef(null);
+  const hubLayoutRef = useRef(hubLayout);
+  const [dragPreview, setDragPreview] = useState(null); // { id, col, row, w, h }
   const [selectedId, setSelectedId] = useState(null);
   /** Gruppo libreria espanso (`null` = tutti chiusi, meno spazio verticale). */
   const [expandedLibraryTitle, setExpandedLibraryTitle] = useState(null);
@@ -461,6 +463,7 @@ export default function HubOverviewSection({
   const missing = useMemo(() => missingModuleIds(hubLayout), [hubLayout]);
 
   useEffect(() => {
+    hubLayoutRef.current = hubLayout;
     saveHubLayout(layoutUserKey, hubLayout);
   }, [hubLayout, layoutUserKey]);
 
@@ -536,6 +539,28 @@ export default function HubOverviewSection({
     } catch (_) {
       /* ignore */
     }
+
+    // Preview "magnetico": mostra dove andrà a finire la card se rilasci ora.
+    const grid = gridRef.current;
+    const layout = hubLayoutRef.current;
+    const dragId = dragIdRef.current;
+    if (!grid || !Array.isArray(layout) || !dragId) return;
+    const item = layout.find((x) => x.id === dragId);
+    if (!item) return;
+
+    const { col, row: rowFromSnap } = snapDropToCell(e.clientX, e.clientY, grid, layout);
+    const anchored = inferDropRowFromAnchor(e.clientY, grid, layout, dragId, col);
+    const sensibleMaxRow = Math.max(maxRowUsed(layout) + 6, 12);
+    const rawRow = anchored.row != null ? anchored.row : rowFromSnap;
+    const row = Math.min(sensibleMaxRow, Math.max(1, rawRow));
+    const fit = findNearestFit(layout, item.w, item.h, dragId, col, row, Math.max(maxRowUsed(layout) + 24, 32));
+
+    setDragPreview((prev) => {
+      if (prev && prev.id === dragId && prev.col === fit.col && prev.row === fit.row && prev.w === item.w && prev.h === item.h) {
+        return prev;
+      }
+      return { id: dragId, col: fit.col, row: fit.row, w: item.w, h: item.h };
+    });
   };
 
   /** Necessario: senza preventDefault sulla tile sottostante il browser non innesca mai il drop */
@@ -625,12 +650,16 @@ export default function HubOverviewSection({
       // UX: drop "magnetico" — anche nel vuoto aggancia lo slot libero più vicino,
       // così non serve rilasciare con precisione millimetrica.
       const dragged = prev.find((x) => x.id === dragId);
-      const fit = dragged
+      const preview = dragPreview && dragPreview.id === dragId ? dragPreview : null;
+      const fit = preview
+        ? { col: preview.col, row: preview.row }
+        : dragged
         ? findNearestFit(prev, dragged.w, dragged.h, dragId, finalCol, finalRow, Math.max(maxRowUsed(prev) + 24, 32))
         : { col: finalCol, row: finalRow };
       return sanitizeLayoutItems(applyPlacement(prev, dragId, fit.col, fit.row));
     });
     dragIdRef.current = null;
+    setDragPreview(null);
   };
 
   const restoreFullHubLayout = () => {
@@ -938,6 +967,19 @@ export default function HubOverviewSection({
           onDragOver={handleDragOverZone}
           onDrop={handleUnifiedDrop}
         >
+          {hubLayoutEditMode && isTechnician && dragPreview ? (
+            <div
+              aria-hidden
+              className="pointer-events-none relative z-[12] rounded-2xl border-2 border-dashed"
+              style={{
+                gridColumn: `${dragPreview.col} / span ${dragPreview.w}`,
+                gridRow: `${dragPreview.row} / span ${dragPreview.h}`,
+                borderColor: 'var(--hub-accent)',
+                background: hubLight ? 'rgba(96,165,250,0.10)' : 'rgba(124,58,237,0.14)',
+                boxShadow: hubLight ? '0 0 0 1px rgba(15,23,42,0.04) inset' : '0 0 0 1px rgba(0,0,0,0.18) inset'
+              }}
+            />
+          ) : null}
           {sorted.map((item) => (
             <div
               key={item.id}
