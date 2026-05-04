@@ -4219,8 +4219,70 @@ module.exports = (pool, io) => {
       `;
       params.push(limit);
 
-      // Esegui query
-      const result = await pool.query(unifiedQuery, params);
+      const countParams = params.slice(0, -1);
+      const routeT0 = Date.now();
+
+      // Conteggio "oggi" (CURRENT_DATE, stessa semantica di prima) senza ripetere la UNION con EXISTS per riga:
+      // la vecchia query duplicava il costo della SELECT eventi ed era la principale causa di timeout/502.
+      const fastCount24hPromise = count24h
+        ? (async () => {
+            try {
+              const deviceCountSql = `
+        SELECT COUNT(*)::int AS c
+        FROM network_changes nc
+        LEFT JOIN network_devices nd ON nc.device_id = nd.id
+        INNER JOIN network_agents na ON nc.agent_id = na.id
+        LEFT JOIN users u ON na.azienda_id = u.id
+        WHERE 1=1 ${deviceFilters} AND nc.detected_at >= CURRENT_DATE`;
+              const archiveCountSql = `
+        SELECT COUNT(*)::int AS c
+        FROM network_changes_archive nca
+        INNER JOIN network_agents na ON nca.agent_id = na.id
+        LEFT JOIN users u ON na.azienda_id = u.id
+        WHERE na.deleted_at IS NULL ${deviceArchivedFilters} AND nca.detected_at >= CURRENT_DATE`;
+              const agentCountSqlFast = `
+        SELECT COUNT(*)::int AS c
+        FROM network_agent_events nae
+        INNER JOIN network_agents na ON nae.agent_id = na.id
+        LEFT JOIN users u ON na.azienda_id = u.id
+        WHERE na.deleted_at IS NULL ${agentFilters} AND nae.detected_at >= CURRENT_DATE`;
+
+              if (eventType === 'device') {
+                const [d, a] = await Promise.all([
+                  pool.query(deviceCountSql, countParams),
+                  pool.query(archiveCountSql, countParams)
+                ]);
+                return (parseInt(d.rows[0].c, 10) || 0) + (parseInt(a.rows[0].c, 10) || 0);
+              }
+              if (eventType === 'agent') {
+                const ag = await pool.query(agentCountSqlFast, countParams);
+                return parseInt(ag.rows[0].c, 10) || 0;
+              }
+              const [d, a, ag] = await Promise.all([
+                pool.query(deviceCountSql, countParams),
+                pool.query(archiveCountSql, countParams),
+                pool.query(agentCountSqlFast, countParams)
+              ]);
+              return (parseInt(d.rows[0].c, 10) || 0) + (parseInt(a.rows[0].c, 10) || 0) + (parseInt(ag.rows[0].c, 10) || 0);
+            } catch (e) {
+              console.warn('⚠️ Errore conteggio 24h (fast path) eventi unificati:', e.message);
+              return null;
+            }
+          })()
+        : null;
+
+      // Esegui query principale (in parallelo al conteggio quando richiesto)
+      const [result, count24hResult] = await Promise.all([
+        pool.query(unifiedQuery, params),
+        fastCount24hPromise || Promise.resolve(null)
+      ]);
+
+      const elapsedMs = Date.now() - routeT0;
+      if (elapsedMs > 10000) {
+        console.warn(
+          `[NM] GET /all/events lento: ${elapsedMs}ms limit=${limit} azienda=${aziendaId ?? 'all'} eventType=${eventType || 'all'} count24h=${count24h}`
+        );
+      }
 
       // Arricchisci gli eventi DISPOSITIVO con KeePass (cache 5 min per evitare 504)
       const keepassPassword = process.env.KEEPASS_PASSWORD;
@@ -4249,40 +4311,6 @@ module.exports = (pool, io) => {
           } catch (e) {
             // ignora errore per singolo evento
           }
-        }
-      }
-
-      // Conta eventi ultime 24h se richiesto
-      let count24hResult = null;
-      if (count24h) {
-        try {
-          let count24hInner = '';
-          if (eventType === 'device') {
-            count24hInner = `
-              (${deviceEventsQuery}${deviceFilters} AND nc.detected_at >= CURRENT_DATE)
-              UNION ALL
-              (${deviceArchivedEventsQuery}${deviceArchivedFilters} AND nca.detected_at >= CURRENT_DATE)
-            `;
-          } else if (eventType === 'agent') {
-            count24hInner = `
-              (${agentEventsQuery}${agentFilters} AND nae.detected_at >= CURRENT_DATE)
-            `;
-          } else {
-            count24hInner = `
-              (${deviceEventsQuery}${deviceFilters} AND nc.detected_at >= CURRENT_DATE)
-              UNION ALL
-              (${deviceArchivedEventsQuery}${deviceArchivedFilters} AND nca.detected_at >= CURRENT_DATE)
-              UNION ALL
-              (${agentEventsQuery}${agentFilters} AND nae.detected_at >= CURRENT_DATE)
-            `;
-          }
-          const count24hQuery = `
-            SELECT COUNT(*) as count FROM (${count24hInner}) as recent_events
-          `;
-          const countResult = await pool.query(count24hQuery, params.slice(0, -1)); // Rimuovi limit
-          count24hResult = parseInt(countResult.rows[0].count, 10);
-        } catch (countErr) {
-          console.warn('⚠️ Errore conteggio 24h eventi unificati:', countErr.message);
         }
       }
 

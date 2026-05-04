@@ -91,6 +91,9 @@ const NetworkMonitoringDashboard = ({
   const [recentChangesCount, setRecentChangesCount] = useState(0); // Conteggio cambiamenti ultime 24h dal backend
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  /** Errore dedicato a GET /all/events: non sovrascrive errori su dispositivi/agent e mostra hint + riprova. */
+  const [eventsError, setEventsError] = useState(null);
+  const [eventsErrorDetail, setEventsErrorDetail] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // all, online, offline
   const [sortBy, setSortBy] = useState('last_seen'); // last_seen, ip_address, hostname
@@ -622,21 +625,67 @@ const NetworkMonitoringDashboard = ({
   const loadChanges = useCallback(async (silent = false) => {
     try {
       if (!silent) {
-        setError(null);
+        setEventsError(null);
+        setEventsErrorDetail(null);
       }
       const searchParam = changesSearchTerm ? `&search=${encodeURIComponent(changesSearchTerm)}` : '';
       const aziendaParam = changesCompanyFilter ? `&azienda_id=${changesCompanyFilter}` : '';
       const networkParam = changesNetworkFilter ? `&network=${encodeURIComponent(changesNetworkFilter)}` : '';
       const eventTypeParam = eventTypeFilter !== 'all' ? `&event_type=${eventTypeFilter}` : '';
 
-      // Usa il nuovo endpoint unificato
-      const response = await fetch(
-        buildApiUrl(`/api/network-monitoring/all/events?limit=500&count24h=true${searchParam}${aziendaParam}${networkParam}${eventTypeParam}`),
-        { headers: getAuthHeader() }
+      const url = buildApiUrl(
+        `/api/network-monitoring/all/events?limit=500&count24h=true${searchParam}${aziendaParam}${networkParam}${eventTypeParam}`
       );
 
-      if (!response.ok) {
-        throw new Error('Errore caricamento eventi');
+      const retryStatuses = new Set([502, 503, 504]);
+      const maxAttempts = 3;
+      let response = null;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        if (attempt > 0) {
+          await new Promise((r) => setTimeout(r, 450 * 2 ** (attempt - 1)));
+        }
+        response = await fetch(url, { headers: getAuthHeader() });
+        if (response && (response.ok || !retryStatuses.has(response.status))) {
+          break;
+        }
+        if (response) {
+          console.warn(`[Monitoraggio rete] /all/events tentativo ${attempt + 1}/${maxAttempts} — HTTP ${response.status}`);
+        }
+      }
+
+      if (!response || !response.ok) {
+        if (!response) {
+          const err = new Error('NESSUNA_RISPOSTA');
+          err.nmEventsHint = 'Nessuna risposta dal server (rete o CORS). Controlla la connessione.';
+          err.nmEventsCode = 0;
+          throw err;
+        }
+        const code = response.status;
+        let serverHint = '';
+        try {
+          const j = await response.clone().json();
+          serverHint = (j.details && String(j.details)) || (j.error && String(j.error)) || '';
+        } catch {
+          try {
+            const t = await response.text();
+            if (t) serverHint = t.slice(0, 240);
+          } catch { /* ignore */ }
+        }
+        let hint = '';
+        if (code === 502 || code === 503 || code === 504) {
+          hint =
+            'Di solito il proxy (es. Nginx) non riceve risposta dal backend in tempo: verifica sulla VPS che il processo Node sia attivo (pm2/systemd), i log di Nginx (upstream timed out) e, se serve, aumenta proxy_read_timeout.';
+        } else if (code === 401) {
+          hint = 'Sessione scaduta: effettua di nuovo l’accesso.';
+        } else if (code >= 500) {
+          hint = serverHint ? `Dettaglio: ${serverHint}` : 'Controlla i log del backend sulla VPS.';
+        } else {
+          hint = serverHint || `Risposta HTTP ${code}.`;
+        }
+        const err = new Error(`HTTP_${code}`);
+        err.nmEventsHint = hint;
+        err.nmEventsCode = code;
+        throw err;
       }
 
       const data = await response.json();
@@ -650,9 +699,23 @@ const NetworkMonitoringDashboard = ({
           setRecentChangesCount(data.count24h);
         }
       }
+      setEventsError(null);
+      setEventsErrorDetail(null);
     } catch (err) {
       console.error('Errore caricamento eventi:', err);
-      if (!silent) setError('Errore caricamento eventi di rete');
+      if (!silent) {
+        if (err && err.nmEventsHint != null) {
+          setEventsError(
+            err.nmEventsCode
+              ? `Caricamento eventi di rete non riuscito (HTTP ${err.nmEventsCode}).`
+              : 'Caricamento eventi di rete non riuscito.'
+          );
+          setEventsErrorDetail(err.nmEventsHint);
+        } else {
+          setEventsError('Caricamento eventi di rete: errore di rete o risposta non valida.');
+          setEventsErrorDetail(err?.message ? String(err.message) : 'Verifica la connessione e riprova.');
+        }
+      }
     }
   }, [getAuthHeader, changesSearchTerm, changesCompanyFilter, changesNetworkFilter, eventTypeFilter]);
 
@@ -970,6 +1033,8 @@ const NetworkMonitoringDashboard = ({
     try {
       setLoading(true);
       setError(null);
+      setEventsError(null);
+      setEventsErrorDetail(null);
 
       // Prima aggiorna i dati da Keepass
       console.log('🔄 Aggiornamento dati da Keepass...');
@@ -2202,12 +2267,45 @@ const NetworkMonitoringDashboard = ({
             </div>
           )}
 
-        {error && (
+        {(error || eventsError) && (
           <div
             className={`mb-4 rounded-lg border p-4 ${embedded ? 'border-[color:var(--hub-chrome-msg-error-border)] bg-[color:var(--hub-chrome-msg-error-bg)] text-[color:var(--hub-chrome-msg-error-text)]' : 'border-red-200 bg-red-50 text-red-800'}`}
           >
-            <AlertCircle className="mr-2 inline h-5 w-5 shrink-0" />
-            {error}
+            <div className="flex flex-wrap items-start gap-2">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
+              <div className="min-w-0 flex-1 space-y-2">
+                {error ? <p className="m-0 font-medium leading-snug">{error}</p> : null}
+                {eventsError ? (
+                  <div
+                    className={
+                      error
+                        ? embedded
+                          ? 'border-t border-[color:var(--hub-chrome-msg-error-border)] pt-2'
+                          : 'border-t border-red-200 pt-2'
+                        : ''
+                    }
+                  >
+                    <p className="m-0 font-medium leading-snug">{eventsError}</p>
+                    {eventsErrorDetail ? (
+                      <p className={`mt-1.5 text-sm leading-relaxed ${embedded ? 'opacity-95' : 'text-red-900/90'}`}>
+                        {eventsErrorDetail}
+                      </p>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => loadChanges(false)}
+                      className={
+                        embedded
+                          ? 'mt-2 rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] px-3 py-1.5 text-sm font-semibold text-[color:var(--hub-chrome-text)] hover:bg-[color:var(--hub-chrome-hover)]'
+                          : 'mt-2 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-semibold text-red-900 hover:bg-red-50'
+                      }
+                    >
+                      Riprova caricamento eventi
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </div>
         )}
 
