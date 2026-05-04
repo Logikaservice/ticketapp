@@ -17,9 +17,7 @@ import {
   Monitor,
   Gauge,
   Lock,
-  Package,
-  ChevronRight,
-  ChevronDown
+  Package
 } from 'lucide-react';
 import {
   hexToRgba,
@@ -968,8 +966,8 @@ export default function HubOverviewSection({
           </div>
           <div className="space-y-2">
             <p className="text-[11px] leading-relaxed text-[color:var(--hub-chrome-text-fainter)]">
-              Apri un gruppo con il pulsante a sinistra per vedere le card. Con una card selezionata in griglia, il gruppo
-              corrispondente si apre da solo.
+              Tocca un quadrato per aprire sotto l’elenco delle card del gruppo. Clic di nuovo sullo stesso quadrato per
+              chiudere. Con una card selezionata in griglia, il gruppo corrispondente si apre da solo.
             </p>
             {missing.length === 0 ? (
               <p className="text-xs text-[color:var(--hub-chrome-text-fainter)]">
@@ -977,91 +975,107 @@ export default function HubOverviewSection({
                 «Rimuovi dalla griglia» sulla card selezionata.
               </p>
             ) : null}
-            {HUB_LIBRARY_GROUPS.map((group) => {
-              const expanded = expandedLibraryTitle === group.title;
-              const inGroupCount = group.ids.filter((id) => hubLayout.some((x) => x.id === id)).length;
+            {(() => {
+              const n = HUB_LIBRARY_GROUPS.length;
+              const gridClass =
+                n <= 2
+                  ? 'grid-cols-2'
+                  : n === 3
+                    ? 'grid-cols-3'
+                    : n === 4
+                      ? 'grid-cols-2 sm:grid-cols-4'
+                      : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5';
               return (
-                <div
-                  key={group.title}
-                  className="overflow-hidden rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-well)]"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setExpandedLibraryTitle((t) => (t === group.title ? null : group.title))}
-                    aria-expanded={expanded}
-                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition hover:bg-[color:var(--hub-chrome-hover)]"
-                  >
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-well-mid)] text-[color:var(--hub-chrome-text-muted)]">
-                      {expanded ? <ChevronDown size={16} aria-hidden /> : <ChevronRight size={16} aria-hidden />}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-xs font-bold uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]">
-                        {group.title}
-                      </span>
-                      {group.caption ? (
-                        <span className="mt-0.5 line-clamp-1 block text-[10px] leading-snug text-[color:var(--hub-chrome-text-fainter)]">
-                          {group.caption}
-                        </span>
-                      ) : null}
-                    </span>
-                    <span className="shrink-0 rounded-md bg-[color:var(--hub-chrome-well-mid)] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[color:var(--hub-chrome-text-faint)]">
-                      {inGroupCount}/{group.ids.length}
-                    </span>
-                  </button>
-                  {expanded ? (
-                    <div className="border-t border-[color:var(--hub-chrome-border-soft)] px-3 pb-3 pt-2">
-                      {group.caption ? (
-                        <p className="mb-2 text-[11px] leading-relaxed text-[color:var(--hub-chrome-text-fainter)]">{group.caption}</p>
-                      ) : null}
-                      <div className="flex flex-wrap gap-2">
-                        {group.ids.map((mid) => {
-                          const mod = HUB_MODULE_META[mid];
-                          if (!mod) return null;
-                          const inGrid = hubLayout.some((x) => x.id === mid);
-                          const canAdd = missing.includes(mid);
-                          const label = mod.label;
-                          return (
-                            <button
-                              key={mid}
-                              type="button"
-                              onClick={() => {
-                                if (inGrid) setSelectedId((s) => (s === mid ? null : mid));
-                                else if (canAdd) {
-                                  setHubLayout((prev) =>
-                                    sanitizeLayoutItems(restoreDefaultModule(prev, mid))
-                                  );
+                <>
+                  <div className={`grid gap-2 ${gridClass}`}>
+                    {HUB_LIBRARY_GROUPS.map((group) => {
+                      const expanded = expandedLibraryTitle === group.title;
+                      const inGroupCount = group.ids.filter((id) => hubLayout.some((x) => x.id === id)).length;
+                      return (
+                        <button
+                          key={group.title}
+                          type="button"
+                          onClick={() => setExpandedLibraryTitle((t) => (t === group.title ? null : group.title))}
+                          aria-expanded={expanded}
+                          title={group.caption || group.title}
+                          className={`flex min-h-[4.75rem] flex-col items-center justify-center gap-1 rounded-xl border p-2 text-center transition sm:aspect-square sm:min-h-0 ${
+                            expanded
+                              ? hubLight
+                                ? 'border-[color:var(--hub-accent)] bg-[color:color-mix(in_srgb,var(--hub-accent)_18%,var(--hub-chrome-well))] shadow-[0_1px_3px_rgba(15,23,42,0.06)]'
+                                : 'border-[color:var(--hub-accent)] bg-[color:color-mix(in_srgb,var(--hub-accent)_14%,transparent)]'
+                              : 'border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-well-mid)] hover:border-[color:var(--hub-accent-border)] hover:bg-[color:var(--hub-chrome-hover)]'
+                          }`}
+                        >
+                          <span className="line-clamp-2 text-[10px] font-bold uppercase leading-tight text-[color:var(--hub-chrome-text)]">
+                            {group.title}
+                          </span>
+                          <span className="text-[10px] font-semibold tabular-nums text-[color:var(--hub-chrome-text-faint)]">
+                            {inGroupCount}/{group.ids.length}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {(() => {
+                    const group = HUB_LIBRARY_GROUPS.find((g) => g.title === expandedLibraryTitle);
+                    if (!group) return null;
+                    return (
+                      <div className="rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-well)] px-3 pb-3 pt-2">
+                        {group.caption ? (
+                          <p className="mb-2 text-[11px] leading-relaxed text-[color:var(--hub-chrome-text-fainter)]">
+                            {group.caption}
+                          </p>
+                        ) : null}
+                        <div className="flex flex-wrap gap-2">
+                          {group.ids.map((mid) => {
+                            const mod = HUB_MODULE_META[mid];
+                            if (!mod) return null;
+                            const inGrid = hubLayout.some((x) => x.id === mid);
+                            const canAdd = missing.includes(mid);
+                            const label = mod.label;
+                            return (
+                              <button
+                                key={mid}
+                                type="button"
+                                onClick={() => {
+                                  if (inGrid) setSelectedId((s) => (s === mid ? null : mid));
+                                  else if (canAdd) {
+                                    setHubLayout((prev) =>
+                                      sanitizeLayoutItems(restoreDefaultModule(prev, mid))
+                                    );
+                                  }
+                                }}
+                                disabled={!inGrid && !canAdd}
+                                title={
+                                  inGrid
+                                    ? 'Seleziona questa card nella griglia'
+                                    : canAdd
+                                      ? 'Aggiungi alla griglia'
+                                      : 'Non disponibile'
                                 }
-                              }}
-                              disabled={!inGrid && !canAdd}
-                              title={
-                                inGrid
-                                  ? 'Seleziona questa card nella griglia'
-                                  : canAdd
-                                    ? 'Aggiungi alla griglia'
-                                    : 'Non disponibile'
-                              }
-                              className={`rounded-xl border px-3 py-2 text-left text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-35 ${
-                                inGrid
-                                  ? selectedId === mid
-                                    ? hubLight
-                                      ? 'border-[color:var(--hub-accent)] bg-[color:color-mix(in_srgb,var(--hub-accent)_20%,var(--hub-chrome-well))] text-[color:var(--hub-chrome-text)] shadow-[0_1px_3px_rgba(15,23,42,0.06)]'
-                                      : 'border-[color:var(--hub-accent)] bg-[color:color-mix(in_srgb,var(--hub-accent)_16%,transparent)] text-[color:var(--hub-chrome-text)]'
-                                    : 'border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well-mid)] text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)]'
-                                  : canAdd
-                                    ? 'border-dashed border-[color:var(--hub-chrome-border)] text-[color:var(--hub-chrome-text-muted)] hover:border-[color:var(--hub-accent-border)] hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-chrome-text-secondary)]'
-                                    : 'border-[color:var(--hub-chrome-border-soft)] text-[color:var(--hub-chrome-text-fainter)]'
-                              }`}
-                            >
-                              {inGrid ? label : `Aggiungi · ${label}`}
-                            </button>
-                          );
-                        })}
+                                className={`rounded-xl border px-3 py-2 text-left text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-35 ${
+                                  inGrid
+                                    ? selectedId === mid
+                                      ? hubLight
+                                        ? 'border-[color:var(--hub-accent)] bg-[color:color-mix(in_srgb,var(--hub-accent)_20%,var(--hub-chrome-well))] text-[color:var(--hub-chrome-text)] shadow-[0_1px_3px_rgba(15,23,42,0.06)]'
+                                        : 'border-[color:var(--hub-accent)] bg-[color:color-mix(in_srgb,var(--hub-accent)_16%,transparent)] text-[color:var(--hub-chrome-text)]'
+                                      : 'border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well-mid)] text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)]'
+                                    : canAdd
+                                      ? 'border-dashed border-[color:var(--hub-chrome-border)] text-[color:var(--hub-chrome-text-muted)] hover:border-[color:var(--hub-accent-border)] hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-chrome-text-secondary)]'
+                                      : 'border-[color:var(--hub-chrome-border-soft)] text-[color:var(--hub-chrome-text-fainter)]'
+                                }`}
+                              >
+                                {inGrid ? label : `Aggiungi · ${label}`}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ) : null}
-                </div>
+                    );
+                  })()}
+                </>
               );
-            })}
+            })()}
           </div>
 
           {selectedItem && meta && (() => {
