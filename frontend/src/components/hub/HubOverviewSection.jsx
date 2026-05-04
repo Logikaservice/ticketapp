@@ -966,8 +966,9 @@ export default function HubOverviewSection({
           </div>
           <div className="space-y-2">
             <p className="text-[11px] leading-relaxed text-[color:var(--hub-chrome-text-fainter)]">
-              Tocca un quadrato per aprire sotto l’elenco delle card del gruppo. Clic di nuovo sullo stesso quadrato per
-              chiudere. Con una card selezionata in griglia, il gruppo corrispondente si apre da solo.
+              I quattro riquadri compatti in alto aprono sotto l’elenco testuale delle card. Clic di nuovo per chiudere. Con
+              una card selezionata in griglia, il gruppo corrispondente si apre da solo (passa il mouse per il titolo
+              completo se il testo è troncato).
             </p>
             {missing.length === 0 ? (
               <p className="text-xs text-[color:var(--hub-chrome-text-fainter)]">
@@ -976,18 +977,9 @@ export default function HubOverviewSection({
               </p>
             ) : null}
             {(() => {
-              const n = HUB_LIBRARY_GROUPS.length;
-              const gridClass =
-                n <= 2
-                  ? 'grid-cols-2'
-                  : n === 3
-                    ? 'grid-cols-3'
-                    : n === 4
-                      ? 'grid-cols-2 sm:grid-cols-4'
-                      : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5';
               return (
                 <>
-                  <div className={`grid gap-2 ${gridClass}`}>
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {HUB_LIBRARY_GROUPS.map((group) => {
                       const expanded = expandedLibraryTitle === group.title;
                       const inGroupCount = group.ids.filter((id) => hubLayout.some((x) => x.id === id)).length;
@@ -997,19 +989,19 @@ export default function HubOverviewSection({
                           type="button"
                           onClick={() => setExpandedLibraryTitle((t) => (t === group.title ? null : group.title))}
                           aria-expanded={expanded}
-                          title={group.caption || group.title}
-                          className={`flex min-h-[4.75rem] flex-col items-center justify-center gap-1 rounded-xl border p-2 text-center transition sm:aspect-square sm:min-h-0 ${
+                          title={group.caption ? `${group.title}: ${group.caption}` : group.title}
+                          className={`flex h-9 w-9 shrink-0 flex-col items-center justify-center gap-0 rounded-md border p-0.5 text-center transition ${
                             expanded
                               ? hubLight
-                                ? 'border-[color:var(--hub-accent)] bg-[color:color-mix(in_srgb,var(--hub-accent)_18%,var(--hub-chrome-well))] shadow-[0_1px_3px_rgba(15,23,42,0.06)]'
+                                ? 'border-[color:var(--hub-accent)] bg-[color:color-mix(in_srgb,var(--hub-accent)_18%,var(--hub-chrome-well))] shadow-[0_1px_2px_rgba(15,23,42,0.06)]'
                                 : 'border-[color:var(--hub-accent)] bg-[color:color-mix(in_srgb,var(--hub-accent)_14%,transparent)]'
                               : 'border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-well-mid)] hover:border-[color:var(--hub-accent-border)] hover:bg-[color:var(--hub-chrome-hover)]'
                           }`}
                         >
-                          <span className="line-clamp-2 text-[10px] font-bold uppercase leading-tight text-[color:var(--hub-chrome-text)]">
+                          <span className="max-w-full truncate text-[7px] font-bold uppercase leading-none text-[color:var(--hub-chrome-text)]">
                             {group.title}
                           </span>
-                          <span className="text-[10px] font-semibold tabular-nums text-[color:var(--hub-chrome-text-faint)]">
+                          <span className="text-[7px] font-semibold tabular-nums leading-none text-[color:var(--hub-chrome-text-faint)]">
                             {inGroupCount}/{group.ids.length}
                           </span>
                         </button>
@@ -1026,18 +1018,13 @@ export default function HubOverviewSection({
                             {group.caption}
                           </p>
                         ) : null}
-                        <div className="grid grid-cols-2 justify-items-stretch gap-2 sm:grid-cols-4">
+                        <div className="flex flex-wrap gap-2">
                           {group.ids.map((mid) => {
                             const mod = HUB_MODULE_META[mid];
                             if (!mod) return null;
                             const inGrid = hubLayout.some((x) => x.id === mid);
                             const canAdd = missing.includes(mid);
                             const label = mod.label;
-                            const titleHint = inGrid
-                              ? 'Seleziona questa card nella griglia'
-                              : canAdd
-                                ? `Aggiungi alla griglia: ${label}`
-                                : 'Non disponibile';
                             return (
                               <button
                                 key={mid}
@@ -1051,8 +1038,14 @@ export default function HubOverviewSection({
                                   }
                                 }}
                                 disabled={!inGrid && !canAdd}
-                                title={titleHint}
-                                className={`flex min-h-[4.75rem] w-full flex-col items-center justify-center gap-1 rounded-xl border p-2 text-center text-[10px] font-semibold leading-tight transition sm:aspect-square sm:min-h-0 disabled:cursor-not-allowed disabled:opacity-35 ${
+                                title={
+                                  inGrid
+                                    ? 'Seleziona questa card nella griglia'
+                                    : canAdd
+                                      ? 'Aggiungi alla griglia'
+                                      : 'Non disponibile'
+                                }
+                                className={`rounded-xl border px-3 py-2 text-left text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-35 ${
                                   inGrid
                                     ? selectedId === mid
                                       ? hubLight
@@ -1064,12 +1057,7 @@ export default function HubOverviewSection({
                                       : 'border-[color:var(--hub-chrome-border-soft)] text-[color:var(--hub-chrome-text-fainter)]'
                                 }`}
                               >
-                                {!inGrid && canAdd ? (
-                                  <span className="text-[11px] font-bold text-[color:var(--hub-chrome-text-faint)]" aria-hidden>
-                                    +
-                                  </span>
-                                ) : null}
-                                <span className="line-clamp-4 break-words">{label}</span>
+                                {inGrid ? label : `Aggiungi · ${label}`}
                               </button>
                             );
                           })}
