@@ -173,7 +173,9 @@ function ModuleLaunchCard({
       type="button"
       onClick={onClick}
       aria-label={hasCount ? `${label}: ${n}` : label}
-      className={`flex h-full min-h-[6rem] w-full min-w-0 flex-col justify-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-center transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${countActive ? HUB_CARD_INNER_GLOW_CLASS : ''} ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
+      className={`flex h-full min-h-[6rem] w-full min-w-0 flex-col rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${countActive ? HUB_CARD_INNER_GLOW_CLASS : ''} ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''} ${
+        hasCount ? 'justify-start text-left' : 'justify-center text-center'
+      }`}
       style={{
         backgroundColor: 'var(--hub-chrome-surface)',
         ...hubOverviewCardLift,
@@ -204,30 +206,39 @@ function ModuleLaunchCard({
             aria-hidden
           />
         </div>
-        <div className="w-full min-w-0 leading-tight">
-          <div className="break-words text-base font-semibold text-[color:var(--hub-chrome-text)]">{label}</div>
-          {subtitle ? (
-            <div className="mt-1 break-words text-xs leading-snug text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div>
-          ) : null}
-        </div>
         {hasCount ? (
-          <span
-            className={`tabular-nums text-[2.15rem] font-bold leading-none tracking-tight sm:text-[2.4rem] ${
-              countActive ? '' : 'text-[color:var(--hub-chrome-text-fainter)]'
-            }`}
-            style={countActive ? { color: g } : undefined}
-            aria-hidden
-          >
-            {n}
-          </span>
-        ) : null}
+          <div className="flex w-full min-w-0 items-center gap-2">
+            <div className="min-w-0 flex-1 leading-tight">
+              <div className="break-words text-base font-semibold text-[color:var(--hub-chrome-text)]">{label}</div>
+              {subtitle ? (
+                <div className="mt-1 break-words text-xs leading-snug text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div>
+              ) : null}
+            </div>
+            <span
+              className={`shrink-0 tabular-nums text-[1.85rem] font-bold leading-none tracking-tight sm:text-[2.1rem] ${
+                countActive ? '' : 'text-[color:var(--hub-chrome-text-fainter)]'
+              }`}
+              style={countActive ? { color: g } : undefined}
+              aria-hidden
+            >
+              {n}
+            </span>
+          </div>
+        ) : (
+          <div className="w-full min-w-0 leading-tight">
+            <div className="break-words text-base font-semibold text-[color:var(--hub-chrome-text)]">{label}</div>
+            {subtitle ? (
+              <div className="mt-1 break-words text-xs leading-snug text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div>
+            ) : null}
+          </div>
+        )}
       </div>
     </button>
   );
 }
 
 /**
- * KPI ticket: icona centrata in alto · titolo/sottotitolo centrati sotto (più spazio per testi lunghi) · numero sotto.
+ * KPI ticket: icona centrata in alto · titolo/sottotitolo a sinistra e numero a destra sulla stessa riga (meno altezza).
  * Zero → grigio; &gt;0 → colore derivato dall’accento Hub ({@link hubKpiActiveForegroundHex}).
  */
 function TicketHubStatCard({
@@ -269,7 +280,7 @@ function TicketHubStatCard({
       </span>
     </div>
   ) : (
-    <div className="flex w-full min-w-0 flex-col items-center gap-2">
+    <div className="flex w-full min-w-0 flex-col items-center gap-2 text-left">
       <div
         className={`inline-flex shrink-0 rounded-xl p-2.5 transition ${active ? '' : 'bg-[color:var(--hub-chrome-muted-fill)]'}`}
         style={active ? { backgroundColor: hexToRgba(g, 0.12) } : undefined}
@@ -280,21 +291,23 @@ function TicketHubStatCard({
           style={active ? { color: g } : { color: 'var(--hub-chrome-text-fainter)' }}
         />
       </div>
-      <div className="w-full min-w-0 leading-tight">
-        <div className="break-words text-base font-semibold text-[color:var(--hub-chrome-text)]">{title}</div>
-        {subtitle ? (
-          <div className="mt-1 break-words text-xs font-normal leading-snug text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div>
-        ) : null}
+      <div className="flex w-full min-w-0 items-center gap-2">
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="break-words text-base font-semibold text-[color:var(--hub-chrome-text)]">{title}</div>
+          {subtitle ? (
+            <div className="mt-1 break-words text-xs font-normal leading-snug text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div>
+          ) : null}
+        </div>
+        <span
+          className={`shrink-0 tabular-nums text-[1.85rem] font-bold leading-none tracking-tight sm:text-[2.1rem] ${
+            active ? '' : 'text-[color:var(--hub-chrome-text-fainter)]'
+          }`}
+          style={active ? { color: g } : undefined}
+          aria-hidden
+        >
+          {count}
+        </span>
       </div>
-      <span
-        className={`tabular-nums text-[2.15rem] font-bold leading-none tracking-tight sm:text-[2.4rem] ${
-          active ? '' : 'text-[color:var(--hub-chrome-text-fainter)]'
-        }`}
-        style={active ? { color: g } : undefined}
-        aria-hidden
-      >
-        {count}
-      </span>
     </div>
   );
 
@@ -302,7 +315,7 @@ function TicketHubStatCard({
   const veil = subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : '';
   const noPtr = suppressInteraction ? 'pointer-events-none' : '';
   const fullRow =
-    'flex h-full min-h-[6rem] w-full min-w-0 flex-col justify-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-center';
+    'flex h-full min-h-[6rem] w-full min-w-0 flex-col justify-start rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-left';
 
   if (!active) {
     return (
