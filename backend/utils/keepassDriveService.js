@@ -21,6 +21,13 @@ class KeepassDriveService {
     this._emailStructureCache = new Map(); // key = aziendaNameLower, value = { fetchedAt, items }
   }
 
+  invalidateDerivedCaches() {
+    this.macToTitleMap = null;
+    this.lastCacheUpdate = null;
+    this._officeExpiriesCache = null;
+    this._emailStructureCache = new Map();
+  }
+
   normalizeCompanyName(name) {
     return (name || '').toString().trim().toLowerCase();
   }
@@ -171,6 +178,27 @@ class KeepassDriveService {
 
     this.kdbxFileFetchPromise = (async () => {
       try {
+        // metadata-first: se abbiamo già un buffer in cache ma è scaduto, controlla prima modifiedTime
+        // e scarica il KDBX solo se è cambiato.
+        if (this.kdbxFileCache && this.kdbxFileCache.buffer) {
+          const currentModifiedTime = await this.checkFileModified(password);
+          if (currentModifiedTime) {
+            const cachedModified = this.kdbxFileCache.modifiedTime || this.lastFileModifiedTime || null;
+            if (cachedModified && currentModifiedTime === cachedModified) {
+              // il file non è cambiato: rinnova solo la scadenza cache
+              this.kdbxFileCache.fetchedAt = Date.now();
+              this.lastFileModifiedTime = currentModifiedTime;
+              return { buffer: this.kdbxFileCache.buffer, modifiedTime: currentModifiedTime };
+            }
+            if (cachedModified && currentModifiedTime !== cachedModified) {
+              // file cambiato: invalida cache derivate prima del nuovo download
+              this.invalidateDerivedCaches();
+              this.kdbxFileCache = null;
+              this.lastFileModifiedTime = null;
+            }
+          }
+        }
+
         const fd = await this.downloadKeepassFile(password);
         this.kdbxFileCache = {
           buffer: fd.buffer,
