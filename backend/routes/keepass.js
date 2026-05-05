@@ -2659,6 +2659,179 @@ module.exports = function createKeepassRouter(pool) {
     }
   });
 
+  // POST /api/keepass/office-section-clone - Clona contenuto sezione Office tra aziende (solo tecnico/admin)
+  router.post('/office-section-clone', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const { section, source_azienda_name, target_azienda_names } = req.body || {};
+      const src = String(source_azienda_name || '').split(':')[0].trim();
+      const targetsRaw = Array.isArray(target_azienda_names) ? target_azienda_names : [];
+      const targets = Array.from(
+        new Set(
+          targetsRaw.map((x) => String(x || '').split(':')[0].trim()).filter(Boolean)
+        )
+      ).filter((t) => t.toLowerCase() !== src.toLowerCase());
+
+      const allowed = new Set(['downloads', 'activations', 'useful-guidelines']);
+      if (!allowed.has(String(section || ''))) {
+        return res.status(400).json({ error: 'section non valida' });
+      }
+      if (!src) return res.status(400).json({ error: 'source_azienda_name obbligatorio' });
+      if (targets.length === 0) return res.status(400).json({ error: 'Seleziona almeno un’azienda target' });
+
+      await ensureOfficeDownloadLinksTable();
+      await ensureOfficeActivationGuidesTables();
+      await ensureOfficeUsefulGuidelinesTables();
+
+      await client.query('BEGIN');
+
+      if (section === 'downloads') {
+        const srcGroups = await client.query(
+          `SELECT id, title, description, sort_order
+           FROM office_download_groups
+           WHERE azienda_name = $1
+           ORDER BY sort_order ASC, id ASC`,
+          [src]
+        );
+        const srcIds = srcGroups.rows.map((r) => r.id);
+        const srcLinks = srcIds.length
+          ? await client.query(
+              `SELECT group_id, label, url, sort_order
+               FROM office_download_group_links
+               WHERE group_id = ANY($1::int[])
+               ORDER BY sort_order ASC, id ASC`,
+              [srcIds]
+            )
+          : { rows: [] };
+        const byGroup = srcLinks.rows.reduce((acc, r) => {
+          if (!acc[r.group_id]) acc[r.group_id] = [];
+          acc[r.group_id].push(r);
+          return acc;
+        }, {});
+
+        for (const tgt of targets) {
+          // wipe
+          await client.query('DELETE FROM office_download_groups WHERE azienda_name = $1', [tgt]);
+          // copy
+          for (const g of srcGroups.rows) {
+            const ins = await client.query(
+              `INSERT INTO office_download_groups (azienda_name, title, description, sort_order, updated_by, updated_at)
+               VALUES ($1, $2, $3, $4, $5, NOW())
+               RETURNING id`,
+              [tgt, g.title, g.description || '', g.sort_order || 0, req.user?.id || null]
+            );
+            const newGroupId = ins.rows[0].id;
+            const links = byGroup[g.id] || [];
+            for (const l of links) {
+              await client.query(
+                `INSERT INTO office_download_group_links (group_id, label, url, sort_order, updated_at)
+                 VALUES ($1, $2, $3, $4, NOW())`,
+                [newGroupId, l.label, l.url, l.sort_order || 0]
+              );
+            }
+          }
+        }
+      } else if (section === 'activations') {
+        const srcGuides = await client.query(
+          `SELECT id, title, description, sort_order
+           FROM office_activation_guides
+           WHERE azienda_name = $1
+           ORDER BY sort_order ASC, id ASC`,
+          [src]
+        );
+        const srcIds = srcGuides.rows.map((r) => r.id);
+        const srcLinks = srcIds.length
+          ? await client.query(
+              `SELECT guide_id, label, url, sort_order
+               FROM office_activation_guide_links
+               WHERE guide_id = ANY($1::int[])
+               ORDER BY sort_order ASC, id ASC`,
+              [srcIds]
+            )
+          : { rows: [] };
+        const byGuide = srcLinks.rows.reduce((acc, r) => {
+          if (!acc[r.guide_id]) acc[r.guide_id] = [];
+          acc[r.guide_id].push(r);
+          return acc;
+        }, {});
+
+        for (const tgt of targets) {
+          await client.query('DELETE FROM office_activation_guides WHERE azienda_name = $1', [tgt]);
+          for (const g of srcGuides.rows) {
+            const ins = await client.query(
+              `INSERT INTO office_activation_guides (azienda_name, title, description, sort_order, updated_by, updated_at)
+               VALUES ($1, $2, $3, $4, $5, NOW())
+               RETURNING id`,
+              [tgt, g.title, g.description || '', g.sort_order || 0, req.user?.id || null]
+            );
+            const newId = ins.rows[0].id;
+            const links = byGuide[g.id] || [];
+            for (const l of links) {
+              await client.query(
+                `INSERT INTO office_activation_guide_links (guide_id, label, url, sort_order, updated_at)
+                 VALUES ($1, $2, $3, $4, NOW())`,
+                [newId, l.label, l.url, l.sort_order || 0]
+              );
+            }
+          }
+        }
+      } else if (section === 'useful-guidelines') {
+        const srcGuides = await client.query(
+          `SELECT id, title, description, sort_order
+           FROM office_useful_guidelines
+           WHERE azienda_name = $1
+           ORDER BY sort_order ASC, id ASC`,
+          [src]
+        );
+        const srcIds = srcGuides.rows.map((r) => r.id);
+        const srcLinks = srcIds.length
+          ? await client.query(
+              `SELECT guideline_id, label, url, sort_order
+               FROM office_useful_guideline_links
+               WHERE guideline_id = ANY($1::int[])
+               ORDER BY sort_order ASC, id ASC`,
+              [srcIds]
+            )
+          : { rows: [] };
+        const byGuide = srcLinks.rows.reduce((acc, r) => {
+          if (!acc[r.guideline_id]) acc[r.guideline_id] = [];
+          acc[r.guideline_id].push(r);
+          return acc;
+        }, {});
+
+        for (const tgt of targets) {
+          await client.query('DELETE FROM office_useful_guidelines WHERE azienda_name = $1', [tgt]);
+          for (const g of srcGuides.rows) {
+            const ins = await client.query(
+              `INSERT INTO office_useful_guidelines (azienda_name, title, description, sort_order, updated_by, updated_at)
+               VALUES ($1, $2, $3, $4, $5, NOW())
+               RETURNING id`,
+              [tgt, g.title, g.description || '', g.sort_order || 0, req.user?.id || null]
+            );
+            const newId = ins.rows[0].id;
+            const links = byGuide[g.id] || [];
+            for (const l of links) {
+              await client.query(
+                `INSERT INTO office_useful_guideline_links (guideline_id, label, url, sort_order, updated_at)
+                 VALUES ($1, $2, $3, $4, NOW())`,
+                [newId, l.label, l.url, l.sort_order || 0]
+              );
+            }
+          }
+        }
+      }
+
+      await client.query('COMMIT');
+      res.json({ success: true, section, source: src, copied_to: targets, copied_count: targets.length });
+    } catch (err) {
+      try { await client.query('ROLLBACK'); } catch (rollbackErr) {}
+      console.error('❌ Errore office-section-clone:', err);
+      res.status(500).json({ error: 'Errore interno' });
+    } finally {
+      client.release();
+    }
+  });
+
   // Migrazione tabella email_expiry_info (scadenza editabile come Anti-Virus)
   const ensureEmailExpiryTable = async () => {
     await pool.query(`

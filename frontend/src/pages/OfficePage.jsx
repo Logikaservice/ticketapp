@@ -1,7 +1,7 @@
 // frontend/src/pages/OfficePage.jsx
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Loader, Calendar, X, Eye, EyeOff, RefreshCw, ArrowLeft, Plus, Trash2, GripVertical } from 'lucide-react';
+import { Loader, Calendar, X, Eye, EyeOff, RefreshCw, ArrowLeft, Plus, Trash2, GripVertical, Copy, Search } from 'lucide-react';
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
 import OfficeIntroCard from '../components/OfficeIntroCard';
@@ -77,6 +77,68 @@ const OfficePage = ({
   const [editingUsefulGuideline, setEditingUsefulGuideline] = useState({ title: '', description: '', links: [{ label: '', url: '' }] });
   const [draggingUsefulGuidelineId, setDraggingUsefulGuidelineId] = useState(null);
   const [dragOverUsefulGuidelineId, setDragOverUsefulGuidelineId] = useState(null);
+  const [cloneOpen, setCloneOpen] = useState(false);
+  const [cloneSection, setCloneSection] = useState(null); // 'downloads' | 'activations' | 'useful-guidelines'
+  const [cloneTargets, setCloneTargets] = useState([]);
+  const [cloneBusy, setCloneBusy] = useState(false);
+  const [cloneError, setCloneError] = useState(null);
+  const [cloneQuery, setCloneQuery] = useState('');
+
+  const companiesForClone = useMemo(() => {
+    const q = String(cloneQuery || '').trim().toLowerCase();
+    const list = (companies || []).filter((c) => c && c.id != null);
+    if (!q) return list;
+    return list.filter((c) => String(c.azienda || '').toLowerCase().includes(q));
+  }, [companies, cloneQuery]);
+
+  const openCloneModal = (section) => {
+    if (!isTecnico) return;
+    setCloneSection(section);
+    setCloneTargets([]);
+    setCloneError(null);
+    setCloneQuery('');
+    setCloneOpen(true);
+  };
+
+  const toggleCloneTarget = (aziendaName) => {
+    const key = String(aziendaName || '');
+    if (!key) return;
+    setCloneTargets((prev) => (prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key]));
+  };
+
+  const submitClone = async () => {
+    if (!isTecnico || !cloneSection || !companyKey || cloneBusy) return;
+    if (!Array.isArray(cloneTargets) || cloneTargets.length === 0) {
+      setCloneError('Seleziona almeno un’azienda');
+      return;
+    }
+    setCloneBusy(true);
+    setCloneError(null);
+    try {
+      const res = await fetch(buildApiUrl('/api/keepass/office-section-clone'), {
+        method: 'POST',
+        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          section: cloneSection,
+          source_azienda_name: companyKey,
+          target_azienda_names: cloneTargets
+        })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || 'Errore copia');
+      }
+      setCloneOpen(false);
+      // Ricarica la sezione corrente per sicurezza
+      if (cloneSection === 'downloads') await loadDownloadLinks(companyKey);
+      if (cloneSection === 'activations') await loadActivationGuides(companyKey);
+      if (cloneSection === 'useful-guidelines') await loadUsefulGuidelines(companyKey);
+    } catch (e) {
+      setCloneError(e.message || 'Errore copia');
+    } finally {
+      setCloneBusy(false);
+    }
+  };
 
   // Sincronizza lo stato locale con initialCompanyId se cambia esternamente
   useEffect(() => {
@@ -1110,33 +1172,72 @@ const OfficePage = ({
           <div className="max-w-7xl mx-auto">
             <div className={ox.rowBanner}>
               <p className={ox.textSingle}>Download Office</p>
-              <button
-                type="button"
-                onClick={() => setActiveView('downloads')}
-                className="shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
-              >
-                Apri download
-              </button>
+              <div className="flex items-center gap-2">
+                {isTecnico && (
+                  <button
+                    type="button"
+                    onClick={() => openCloneModal('downloads')}
+                    className={ox.btnGhostSm}
+                    title="Copia personalizzazione Download su altre aziende"
+                  >
+                    <Copy size={13} />
+                    Copia su…
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setActiveView('downloads')}
+                  className="shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
+                >
+                  Apri download
+                </button>
+              </div>
             </div>
             <div className={ox.rowBanner}>
               <p className={ox.textSingle}>Attivazione licenza Office</p>
-              <button
-                type="button"
-                onClick={() => setActiveView('activations')}
-                className="shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
-              >
-                Apri attivazioni
-              </button>
+              <div className="flex items-center gap-2">
+                {isTecnico && (
+                  <button
+                    type="button"
+                    onClick={() => openCloneModal('activations')}
+                    className={ox.btnGhostSm}
+                    title="Copia personalizzazione Attivazioni su altre aziende"
+                  >
+                    <Copy size={13} />
+                    Copia su…
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setActiveView('activations')}
+                  className="shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
+                >
+                  Apri attivazioni
+                </button>
+              </div>
             </div>
             <div className={ox.rowBanner}>
               <p className={ox.textSingle}>Linee guida utili Office</p>
-              <button
-                type="button"
-                onClick={() => setActiveView('useful-guidelines')}
-                className="shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
-              >
-                Apri linee guida
-              </button>
+              <div className="flex items-center gap-2">
+                {isTecnico && (
+                  <button
+                    type="button"
+                    onClick={() => openCloneModal('useful-guidelines')}
+                    className={ox.btnGhostSm}
+                    title="Copia personalizzazione Linee guida su altre aziende"
+                  >
+                    <Copy size={13} />
+                    Copia su…
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setActiveView('useful-guidelines')}
+                  className="shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
+                >
+                  Apri linee guida
+                </button>
+              </div>
             </div>
             {/* Lista di tutti i file trovati */}
             {officeData.files && officeData.files.length > 0 ? (
@@ -1321,6 +1422,100 @@ const OfficePage = ({
                 <p className={ox.inlineEmptyMsg}>Nessun file trovato nel gruppo Office</p>
               </div>
             )}
+          </div>
+        )}
+
+        {cloneOpen && isTecnico && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-4 shadow-xl">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-gray-900">
+                    Copia personalizzazione ·{' '}
+                    {cloneSection === 'downloads'
+                      ? 'Download'
+                      : cloneSection === 'activations'
+                        ? 'Attivazioni'
+                        : 'Linee guida'}
+                  </div>
+                  <div className="mt-0.5 text-xs text-gray-500 truncate">
+                    Sorgente: {companyName || companyKey || '—'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (cloneBusy) return;
+                    setCloneOpen(false);
+                  }}
+                  className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                >
+                  Chiudi
+                </button>
+              </div>
+
+              <div className="mb-3 flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+                <Search size={14} className="text-gray-500" />
+                <input
+                  value={cloneQuery}
+                  onChange={(e) => setCloneQuery(e.target.value)}
+                  placeholder="Cerca azienda…"
+                  className="w-full bg-transparent text-sm outline-none"
+                />
+              </div>
+
+              <div className="max-h-[42vh] overflow-y-auto rounded-xl border border-gray-200">
+                {(companiesForClone || []).map((c) => {
+                  const raw = String(c.azienda || '');
+                  const clean = raw.split(':')[0].trim();
+                  const disabled = clean.toLowerCase() === String(companyKey || companyName || '').split(':')[0].trim().toLowerCase();
+                  const checked = cloneTargets.includes(clean);
+                  return (
+                    <label
+                      key={String(c.id)}
+                      className={`flex cursor-pointer items-center gap-3 border-b border-gray-100 px-3 py-2 text-sm ${
+                        disabled ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        disabled={disabled || cloneBusy}
+                        checked={checked}
+                        onChange={() => toggleCloneTarget(clean)}
+                      />
+                      <span className="min-w-0 flex-1 truncate text-gray-800">{clean || raw || `ID ${c.id}`}</span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {cloneError && <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-2 text-sm text-red-700">{cloneError}</div>}
+
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                <div className="text-xs text-gray-500">Selezionate: {cloneTargets.length}</div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCloneTargets([])}
+                    disabled={cloneBusy}
+                    className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                  >
+                    Svuota
+                  </button>
+                  <button
+                    type="button"
+                    onClick={submitClone}
+                    disabled={cloneBusy}
+                    className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {cloneBusy ? 'Copia in corso…' : 'Copia su aziende'}
+                  </button>
+                </div>
+              </div>
+              <div className="mt-2 text-[11px] text-gray-500">
+                Nota: per le aziende selezionate verrà <strong>sovrascritta</strong> solo questa sezione (download/attivazioni/linee guida), non il resto della pagina.
+              </div>
+            </div>
           </div>
         )}
 
