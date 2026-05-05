@@ -3935,6 +3935,13 @@ export default function TicketApp() {
             onOpenCreateContract={() => setShowContractModal(true)}
             onLogout={handleLogout}
             onOpenSettings={openSettings}
+            onOpenInactivityTimer={openInactivityTimer}
+            onOpenAlertsHistory={openAlertsHistory}
+            onOpenNetworkMonitoringTelegram={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('telegram'); }}
+            onOpenAnalytics={openAnalytics}
+            onOpenAccessLogs={openAccessLogs}
+            onOpenNewClient={openNewClientModal}
+            onOpenManageClients={openManageClientsModal}
             notify={notify}
             selectedCompanyId={globallySelectedCompanyId}
             onGloballyCompanyChange={setShowGloballySelectedCompanyId}
@@ -3965,6 +3972,8 @@ export default function TicketApp() {
               onOpenDispositivi: handleOpenDispositiviAziendali,
               onOpenSpeedTest: handleOpenSpeedTest,
               onOpenNetwork: handleOpenNetworkMonitoring,
+              onOpenNetworkAgents: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('agents'); },
+              onOpenNetworkCreateAgent: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('create'); },
               onOpenMappatura: handleOpenMappatura,
               onOpenCommAgent: handleOpenCommAgent,
               onOpenCommAgentManager: handleOpenCommAgentManager,

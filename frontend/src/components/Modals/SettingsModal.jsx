@@ -62,7 +62,7 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
 
       <HubModalBody className="space-y-4">
         <div>
-          <label className={`${HUB_MODAL_LABEL_CLS} font-bold text-white`}>Azienda</label>
+          <label className={`${HUB_MODAL_LABEL_CLS} font-bold text-[color:var(--hub-chrome-text)]`}>Azienda</label>
           <input
             type="text"
             value={settingsData.azienda}
@@ -103,8 +103,8 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
           />
         </div>
 
-        <div className="border-t border-white/[0.08] pt-4">
-          <h3 className="mb-3 text-sm font-bold text-white">Password</h3>
+        <div className="border-t border-[color:var(--hub-chrome-border-soft)] pt-4">
+          <h3 className="mb-3 text-sm font-bold text-[color:var(--hub-chrome-text)]">Password</h3>
           <div className="space-y-3">
             <div>
               <label className={HUB_MODAL_LABEL_CLS}>Password Attuale</label>
@@ -112,10 +112,10 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
                 type="text"
                 value={settingsData.passwordAttuale}
                 readOnly
-                className={`${HUB_MODAL_FIELD_CLS} bg-white/[0.06] text-white/55`}
+                className={`${HUB_MODAL_FIELD_CLS} bg-[color:var(--hub-chrome-muted-fill)] text-[color:var(--hub-chrome-text-muted)]`}
                 placeholder="Password attuale"
               />
-              <p className="mt-1 text-xs text-white/45">Password attualmente in uso</p>
+              <p className="mt-1 text-xs text-[color:var(--hub-chrome-text-faint)]">Password attualmente in uso</p>
             </div>
             {currentUser?.ruolo !== 'cliente' && (
               <div>
@@ -127,14 +127,14 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
                   className={HUB_MODAL_FIELD_CLS}
                   placeholder="Lascia vuoto per non modificare"
                 />
-                <p className="mt-1 text-xs text-white/45">Lascia vuoto se non vuoi cambiare la password</p>
+                <p className="mt-1 text-xs text-[color:var(--hub-chrome-text-faint)]">Lascia vuoto se non vuoi cambiare la password</p>
               </div>
             )}
           </div>
         </div>
 
-        <div className="border-t border-white/[0.08] pt-4">
-          <h3 className="mb-3 text-sm font-bold text-white">Dati Aggiuntivi</h3>
+        <div className="border-t border-[color:var(--hub-chrome-border-soft)] pt-4">
+          <h3 className="mb-3 text-sm font-bold text-[color:var(--hub-chrome-text)]">Dati Aggiuntivi</h3>
           <div>
             <label className={HUB_MODAL_LABEL_CLS}>Telefono</label>
             <input
@@ -147,12 +147,12 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
           </div>
         </div>
 
-        <div className="border-t border-white/[0.08] pt-4">
-          <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-white">
+        <div className="border-t border-[color:var(--hub-chrome-border-soft)] pt-4">
+          <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-[color:var(--hub-chrome-text)]">
             <Palette size={16} className="text-[color:var(--hub-accent)]" aria-hidden />
             Colore tema ticket
           </h3>
-          <p className="mb-3 text-xs text-white/48">
+          <p className="mb-3 text-xs text-[color:var(--hub-chrome-text-faint)]">
             All'inizio vale il predefinito; se scegli un colore resta salvato su questo browser (uguale per tecnico e cliente).
           </p>
           <div className="grid grid-cols-6 gap-2 sm:grid-cols-8">
@@ -175,15 +175,15 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
         </div>
 
         {currentUser?.ruolo === 'tecnico' && (
-          <div className="border-t border-white/[0.08] pt-4">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-white">
+          <div className="border-t border-[color:var(--hub-chrome-border-soft)] pt-4">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-[color:var(--hub-chrome-text)]">
               <Shield size={16} className="text-red-400" aria-hidden />
               Sicurezza Accesso
             </h3>
             <div className="rounded-xl border border-red-500/35 bg-red-500/12 p-4">
-              <p className="mb-3 text-sm text-white/75">
-                Inserisci il tuo <strong className="text-white">IP statico</strong>. Se accedi da un IP diverso, riceverai una{' '}
-                <strong className="text-white">notifica Telegram</strong>.
+              <p className="mb-3 text-sm text-[color:var(--hub-chrome-text-secondary)]">
+                Inserisci il tuo <strong className="text-[color:var(--hub-chrome-text)]">IP statico</strong>. Se accedi da un IP diverso, riceverai una{' '}
+                <strong className="text-[color:var(--hub-chrome-text)]">notifica Telegram</strong>.
               </p>
               <div>
                 <label className={HUB_MODAL_LABEL_CLS}>IP Statico autorizzato</label>
@@ -194,8 +194,8 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
                   className={`${HUB_MODAL_FIELD_CLS} border-red-500/25 font-mono text-sm`}
                   placeholder="es. 151.34.22.10"
                 />
-                <p className="mt-1 text-xs text-white/45">
-                  Lascia vuoto per disabilitare. Puoi trovare il tuo IP su <strong className="text-white">whatismyip.com</strong>
+                <p className="mt-1 text-xs text-[color:var(--hub-chrome-text-faint)]">
+                  Lascia vuoto per disabilitare. Puoi trovare il tuo IP su <strong className="text-[color:var(--hub-chrome-text)]">whatismyip.com</strong>
                 </p>
               </div>
             </div>
@@ -203,13 +203,13 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
         )}
 
         {currentUser?.ruolo === 'cliente' && (
-          <div className="border-t border-white/[0.08] pt-4">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-white">
+          <div className="border-t border-[color:var(--hub-chrome-border-soft)] pt-4">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-[color:var(--hub-chrome-text)]">
               <Bell size={16} className="text-violet-400" aria-hidden />
               Communication Agent
             </h3>
             <div className="rounded-xl border border-violet-500/35 bg-violet-500/10 p-4">
-              <p className="mb-3 text-sm text-white/75">
+              <p className="mb-3 text-sm text-[color:var(--hub-chrome-text-secondary)]">
                 Installa il Communication Agent sul tuo PC per ricevere le notifiche dal team Logika Service in tempo reale.
               </p>
               <div className="flex flex-wrap items-center gap-3">
@@ -227,7 +227,7 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
                   <Download size={16} aria-hidden />
                   Scarica Agent
                 </button>
-                <span className="text-xs text-white/45">Pacchetto ZIP con installer automatico</span>
+                <span className="text-xs text-[color:var(--hub-chrome-text-faint)]">Pacchetto ZIP con installer automatico</span>
               </div>
             </div>
           </div>

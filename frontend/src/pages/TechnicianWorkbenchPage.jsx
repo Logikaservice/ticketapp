@@ -27,7 +27,17 @@ import {
   ChevronsRight,
   ChevronLeft,
   LayoutTemplate,
-  Package
+  Package,
+  Users,
+  UserPlus,
+  List,
+  Server as ServerIcon,
+  Plus,
+  Sparkles,
+  AlertCircle,
+  BarChart3,
+  Activity,
+  Clock
 } from 'lucide-react';
 import { fetchImportantAlertsForHub } from '../utils/importantAlertsFeed';
 import ImportantAlertsHubEmbedded, { hubAlertLevelChrome } from '../components/hub/ImportantAlertsHubEmbedded';
@@ -432,6 +442,13 @@ export default function TechnicianWorkbenchPage({
   onNavigateHome,
   onLogout,
   onOpenSettings,
+  onOpenInactivityTimer,
+  onOpenAlertsHistory,
+  onOpenNetworkMonitoringTelegram,
+  onOpenAnalytics,
+  onOpenAccessLogs,
+  onOpenNewClient,
+  onOpenManageClients,
   nav,
   getAuthHeader,
   alertsRefreshTrigger = 0,
@@ -484,6 +501,10 @@ export default function TechnicianWorkbenchPage({
   const [accentPickerOpen, setAccentPickerOpen] = useState(false);
   const [navToolsOpen, setNavToolsOpen] = useState(true);
   const [navProjectsOpen, setNavProjectsOpen] = useState(true);
+  const [navManagementOpen, setNavManagementOpen] = useState(true);
+  const [navManagementClientsOpen, setNavManagementClientsOpen] = useState(true);
+  const [navManagementAgentsOpen, setNavManagementAgentsOpen] = useState(true);
+  const [navManagementCommsOpen, setNavManagementCommsOpen] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   /** Centro Hub: panoramica a griglia oppure modulo integrato (Comunicazioni, Email, Anti-Virus…). */
   const [hubCenterView, setHubCenterView] = useState(
@@ -952,6 +973,80 @@ export default function TechnicianWorkbenchPage({
                 />
                 Impostazioni account
               </button>
+              {isTechnician && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      onOpenInactivityTimer?.();
+                    }}
+                    className="group flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-[color:var(--hub-chrome-text-secondary)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)]"
+                  >
+                    <Clock
+                      size={18}
+                      className="text-[color:var(--hub-chrome-text-muted)] transition group-hover:text-[color:var(--hub-accent)]"
+                    />
+                    Timer inattività
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      onOpenAlertsHistory?.();
+                    }}
+                    className="group flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-[color:var(--hub-chrome-text-secondary)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)]"
+                  >
+                    <Sparkles
+                      size={18}
+                      className="text-[color:var(--hub-chrome-text-muted)] transition group-hover:text-[color:var(--hub-accent)]"
+                    />
+                    Nuove funzionalità
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      onOpenNetworkMonitoringTelegram?.();
+                    }}
+                    className="group flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-[color:var(--hub-chrome-text-secondary)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)]"
+                  >
+                    <AlertCircle
+                      size={18}
+                      className="text-[color:var(--hub-chrome-text-muted)] transition group-hover:text-[color:var(--hub-accent)]"
+                    />
+                    Notifiche Telegram
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      onOpenAnalytics?.();
+                    }}
+                    className="group flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-[color:var(--hub-chrome-text-secondary)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)]"
+                  >
+                    <BarChart3
+                      size={18}
+                      className="text-[color:var(--hub-chrome-text-muted)] transition group-hover:text-[color:var(--hub-accent)]"
+                    />
+                    Analytics
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      onOpenAccessLogs?.();
+                    }}
+                    className="group flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-[color:var(--hub-chrome-text-secondary)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)]"
+                  >
+                    <Activity
+                      size={18}
+                      className="text-[color:var(--hub-chrome-text-muted)] transition group-hover:text-[color:var(--hub-accent)]"
+                    />
+                    Log accessi
+                  </button>
+                </>
+              )}
               <button
                 type="button"
                 disabled
@@ -1078,6 +1173,17 @@ export default function TechnicianWorkbenchPage({
             active={hubCenterView === 'dispositivi'}
             onClick={() => setHubCenterView('dispositivi')}
           />
+          {isTechnician && (
+            <SidebarLink
+              railMode={railMode}
+              hubSurfaceMode={hubSurfaceMode}
+              nested
+              icon={Bell}
+              label="Invia comunicazione"
+              accentHex={accentHexEffective}
+              onClick={() => nav?.onOpenCommAgent?.()}
+            />
+          )}
           {canSpeedTest && (
             <SidebarLink
               railMode={railMode}
@@ -1108,31 +1214,6 @@ export default function TechnicianWorkbenchPage({
             accentHex={accentHexEffective}
             onClick={() => nav?.onOpenMappatura?.()}
           />
-
-          <div className={railMode ? 'w-full pt-2' : 'pt-2'}>
-            <NavGroup railMode={railMode} title="Comunicazioni" open={navToolsOpen} onToggle={() => setNavToolsOpen((o) => !o)}>
-              <SidebarLink
-                railMode={railMode}
-                hubSurfaceMode={hubSurfaceMode}
-                nested
-                icon={Monitor}
-                label="Agent comunicazioni"
-              accentHex={accentHexEffective}
-                active={hubCenterView === 'comm-agent-manager'}
-                onClick={() => setHubCenterView('comm-agent-manager')}
-              />
-              <SidebarLink
-                railMode={railMode}
-                hubSurfaceMode={hubSurfaceMode}
-                nested
-                icon={Bell}
-                label="Invia comunicazione"
-              accentHex={accentHexEffective}
-                active={hubCenterView === 'comunicazioni'}
-                onClick={() => setHubCenterView('comunicazioni')}
-              />
-            </NavGroup>
-          </div>
 
           <div className={railMode ? 'w-full pt-2' : 'pt-2'}>
             <NavGroup railMode={railMode} title="Altri progetti" open={navProjectsOpen} onToggle={() => setNavProjectsOpen((o) => !o)}>
@@ -1179,6 +1260,80 @@ export default function TechnicianWorkbenchPage({
         <div
           className={`mt-auto flex w-full flex-col border-t border-[color:var(--hub-chrome-border-soft)] pt-3 ${railMode ? 'items-center gap-3' : 'items-start gap-3'}`}
         >
+          {isTechnician && (
+            <div className={railMode ? 'w-full' : 'w-full'}>
+              <NavGroup railMode={railMode} title="Gestione" open={navManagementOpen} onToggle={() => setNavManagementOpen((o) => !o)}>
+                <NavGroup
+                  railMode={railMode}
+                  title="Clienti"
+                  open={navManagementClientsOpen}
+                  onToggle={() => setNavManagementClientsOpen((o) => !o)}
+                >
+                  <SidebarLink
+                    railMode={railMode}
+                    hubSurfaceMode={hubSurfaceMode}
+                    nested
+                    icon={UserPlus}
+                    label="Nuovo cliente"
+                    accentHex={accentHexEffective}
+                    onClick={() => onOpenNewClient?.()}
+                  />
+                  <SidebarLink
+                    railMode={railMode}
+                    hubSurfaceMode={hubSurfaceMode}
+                    nested
+                    icon={List}
+                    label="Gestisci clienti"
+                    accentHex={accentHexEffective}
+                    onClick={() => onOpenManageClients?.()}
+                  />
+                </NavGroup>
+
+                <NavGroup
+                  railMode={railMode}
+                  title="Agent Monitor"
+                  open={navManagementAgentsOpen}
+                  onToggle={() => setNavManagementAgentsOpen((o) => !o)}
+                >
+                  <SidebarLink
+                    railMode={railMode}
+                    hubSurfaceMode={hubSurfaceMode}
+                    nested
+                    icon={ServerIcon}
+                    label="Agent esistenti"
+                    accentHex={accentHexEffective}
+                    onClick={() => nav?.onOpenNetworkAgents?.()}
+                  />
+                  <SidebarLink
+                    railMode={railMode}
+                    hubSurfaceMode={hubSurfaceMode}
+                    nested
+                    icon={Plus}
+                    label="Crea Agent"
+                    accentHex={accentHexEffective}
+                    onClick={() => nav?.onOpenNetworkCreateAgent?.()}
+                  />
+                </NavGroup>
+
+                <NavGroup
+                  railMode={railMode}
+                  title="Agent Comunicazioni"
+                  open={navManagementCommsOpen}
+                  onToggle={() => setNavManagementCommsOpen((o) => !o)}
+                >
+                  <SidebarLink
+                    railMode={railMode}
+                    hubSurfaceMode={hubSurfaceMode}
+                    nested
+                    icon={Monitor}
+                    label="Crea / Visualizza Agent"
+                    accentHex={accentHexEffective}
+                    onClick={() => nav?.onOpenCommAgentManager?.()}
+                  />
+                </NavGroup>
+              </NavGroup>
+            </div>
+          )}
           {minMd && (
             <button
               type="button"
