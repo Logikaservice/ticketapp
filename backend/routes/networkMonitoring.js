@@ -44,9 +44,10 @@ async function getCachedKeepassMap(password) {
 const ALL_EVENTS_CACHE_TTL_MS = 4000; // 4s: abbastanza per assorbire burst, non "stale" lato UI
 const _allEventsCache = new Map(); // key -> { at, payload }
 
-// ─── Cache breve risposta Anti-Virus devices (anti-latency KeePass) ───
-// L'endpoint può arricchire da KeePass (Drive): meglio non bloccare UI e assorbire burst.
-const ANTIVIRUS_DEVICES_CACHE_TTL_MS = 4000;
+// ─── Cache risposta Anti-Virus devices (anti-latency KeePass) ───
+// L'endpoint può arricchire da KeePass (Drive): meglio non bloccare UI.
+// Manteniamo anche un "last good" per evitare che i campi (utente/hostname/path) spariscano quando KeePass è lento.
+const ANTIVIRUS_DEVICES_CACHE_TTL_MS = 30000; // 30s: riduce chiamate ripetute + stabilizza UI
 const _antivirusDevicesCache = new Map(); // key -> { at, payload }
 
 function _antivirusDevicesCacheKey(req, aziendaId) {
@@ -8349,9 +8350,11 @@ pause
       }
 
       // Cache breve per assorbire refresh ravvicinati e evitare blocchi KeePass
+      let cachedEntry = null;
       try {
         const ck = _antivirusDevicesCacheKey(req, parsedAziendaId);
-        const hit = _antivirusDevicesCache.get(ck);
+        const hit = _antivirusDevicesCache.get(ck) || null;
+        cachedEntry = hit;
         if (hit && (Date.now() - hit.at) < ANTIVIRUS_DEVICES_CACHE_TTL_MS) {
           return res.json(hit.payload);
         }
@@ -8442,17 +8445,13 @@ pause
             keepassMap = null;
           }
           if (!keepassMap) {
-            // nessun arricchimento, ritorniamo i dati base
-            const payload = sortedDevices;
-            try {
-              const ck = _antivirusDevicesCacheKey(req, parsedAziendaId);
-              _antivirusDevicesCache.set(ck, { at: Date.now(), payload });
-              if (_antivirusDevicesCache.size > 500) {
-                const keys = Array.from(_antivirusDevicesCache.keys()).slice(0, 200);
-                keys.forEach((k) => _antivirusDevicesCache.delete(k));
-              }
-            } catch (_) {}
-            return res.json(payload);
+            // KeePass lento/non disponibile: meglio restituire l'ultima versione "buona" (anche se un po' vecchia)
+            // per evitare che i campi arricchiti spariscano dopo refresh.
+            if (cachedEntry && Array.isArray(cachedEntry.payload)) {
+              return res.json(cachedEntry.payload);
+            }
+            // fallback: nessun arricchimento, ritorniamo i dati base (mai bloccare la UI)
+            return res.json(sortedDevices);
           }
           for (const row of sortedDevices) {
             const rawMac = (row.mac_address || '').trim();
