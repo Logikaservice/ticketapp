@@ -1516,9 +1516,14 @@ const SpeedTestPage = ({
         `Ping ${fmtPing(p)} ms`
       ];
       ctx.font = '12px Inter, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
       const textW = Math.max(...lines.map((ln) => ctx.measureText(ln).width));
-      const boxW = Math.ceil(textW) + 18;
-      const boxH = 18 + lines.length * 16;
+      const padX = 10;
+      const padY = 10;
+      const lineH = 16;
+      const boxW = Math.ceil(textW) + padX * 2;
+      const boxH = padY * 2 + lines.length * lineH;
       const boxX = Math.min(Math.max(x + 12, 8), W - boxW - 8);
       const boxY = Math.max(padT + 6, 8);
       ctx.fillStyle = ui.chartTooltipBg;
@@ -1531,8 +1536,8 @@ const SpeedTestPage = ({
 
       ctx.fillStyle = ui.chartTooltipText;
       lines.forEach((ln, idx) => {
-        const yy = boxY + 15 + idx * 16;
-        ctx.fillText(ln, boxX + 9, yy);
+        const yy = boxY + padY + idx * lineH;
+        ctx.fillText(ln, boxX + padX, yy);
       });
       ctx.restore();
     }
