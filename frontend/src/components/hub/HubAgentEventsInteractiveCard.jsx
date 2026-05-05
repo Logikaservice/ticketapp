@@ -286,7 +286,10 @@ export default function HubAgentEventsInteractiveCard({
                   <p
                     className={`mt-1 break-words text-xs leading-snug ${hubLight ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-white/45'}`}
                   >
-                    {expanded ? 'Lista in overlay: clic fuori o Esc per chiudere' : `${subtitle} · clic per aprire`}
+                    <span className="block">{subtitle}</span>
+                    <span className={`mt-0.5 block text-[11px] ${hubLight ? 'text-[color:var(--hub-chrome-text-fainter)]' : 'text-white/35'}`}>
+                      {expanded ? 'Lista in overlay: clic fuori o Esc per chiudere' : 'Clic per aprire'}
+                    </span>
                   </p>
                 </div>
                 {countBlock}
