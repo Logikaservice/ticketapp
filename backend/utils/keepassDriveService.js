@@ -17,6 +17,8 @@ class KeepassDriveService {
     this._kdbxOpenChain = Promise.resolve();
     /** Cache scadenze Office per evitare scansioni ripetute. */
     this._officeExpiriesCache = null; // { limitMs, fetchedAt, items }
+    /** Cache struttura Email per azienda (evita ricalcolo ad ogni refresh). */
+    this._emailStructureCache = new Map(); // key = aziendaNameLower, value = { fetchedAt, items }
   }
 
   normalizeCompanyName(name) {
@@ -624,6 +626,14 @@ class KeepassDriveService {
    */
   async getEmailStructureByAzienda(password, aziendaName) {
     try {
+      const key = (aziendaName || '').toString().trim().toLowerCase();
+      if (key) {
+        const hit = this._emailStructureCache.get(key);
+        if (hit && Array.isArray(hit.items) && (Date.now() - (hit.fetchedAt || 0)) < this.cacheTimeout) {
+          return hit.items;
+        }
+      }
+
       return await this.withLoadedKdbx(password, async (db) => {
       const result = [];
 
@@ -740,6 +750,7 @@ class KeepassDriveService {
         visitGroup(sub, 0);
       }
 
+      if (key) this._emailStructureCache.set(key, { fetchedAt: Date.now(), items: result });
       return result;
       });
     } catch (error) {

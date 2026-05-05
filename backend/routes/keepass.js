@@ -2934,6 +2934,10 @@ module.exports = function createKeepassRouter(pool) {
   // GET /api/keepass/email/:aziendaName - Recupera struttura Email da Keepass (cartella Email, righe divisorie @)
   router.get('/email/:aziendaName', authenticateToken, async (req, res) => {
     try {
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+
       const userRole = req.user?.ruolo;
       const adminCompanies = req.user?.admin_companies || [];
       if (userRole !== 'tecnico' && userRole !== 'admin') {
@@ -2954,12 +2958,30 @@ module.exports = function createKeepassRouter(pool) {
         return res.status(400).json({ error: 'Nome azienda richiesto' });
       }
 
-      const structure = await keepassDriveService.getEmailStructureByAzienda(keepassPassword, aziendaName);
+      const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+      const maxAttempts = 3;
+      let structure = null;
+      let lastError = null;
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          structure = await keepassDriveService.getEmailStructureByAzienda(keepassPassword, aziendaName);
+          lastError = null;
+          break;
+        } catch (e) {
+          lastError = e;
+          console.warn(`⚠️ Tentativo ${attempt}/${maxAttempts} fallito su /api/keepass/email/${aziendaName}: ${e.message}`);
+          if (attempt < maxAttempts) await sleep(250 * attempt);
+        }
+      }
+      if (lastError) throw lastError;
       // Scadenza ora letta da KeePass (entry.times.expiryTime); non più da email_expiry_info
       res.json({ items: structure });
     } catch (err) {
       console.error('❌ Errore recupero Email:', err);
-      res.status(500).json({ error: 'Errore durante il recupero dei dati Email' });
+      res.status(500).json({
+        error: 'Errore durante il recupero dei dati Email',
+        details: err?.message || String(err)
+      });
     }
   });
 
