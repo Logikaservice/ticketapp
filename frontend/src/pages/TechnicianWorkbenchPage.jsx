@@ -1407,6 +1407,7 @@ export default function TechnicianWorkbenchPage({
               <AntiVirusPage
                 embedded
                 accentHex={accentHex}
+                hubSurfaceMode={hubSurfaceMode}
                 closeEmbedded={() => setHubCenterView('overview')}
                 getAuthHeader={getAuthHeader}
                 selectedCompanyId={selectedCompanyId}

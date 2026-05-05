@@ -45,7 +45,8 @@ const AntiVirusPage = ({
   onNavigateLSight,
   embedded = false,
   closeEmbedded,
-  accentHex: accentHexProp
+  accentHex: accentHexProp,
+  hubSurfaceMode: hubSurfaceModeProp = 'dark'
 }) => {
     const showAssistenzaButton = readOnly && typeof onOpenTicket === 'function';
     const accent = useMemo(() => normalizeHex(accentHexProp) || getStoredTechHubAccent(), [accentHexProp]);
@@ -589,6 +590,7 @@ const AntiVirusPage = ({
                             <AntiVirusIntroCard
                                 embedded={embedded}
                                 accentHex={accent}
+                                hubSurfaceMode={hubSurfaceModeProp}
                                 companies={companies}
                                 value={selectedCompanyId}
                                 onChange={(id) => {
