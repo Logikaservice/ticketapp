@@ -2156,7 +2156,11 @@ const OfficePage = ({
                       ) : (
                         <div className="flex flex-col gap-1">
                           <p className={ox.titleLink}>{g.title}</p>
-                          {g.description ? <p className={ox.descLink}>{g.description}</p> : null}
+                          {g.description ? (
+                            <p className={ox.descLink} style={{ whiteSpace: 'pre-wrap' }}>
+                              {g.description}
+                            </p>
+                          ) : null}
                           <div className="mt-1 space-y-1">
                             {(g.links || []).map((item, idx) => (
                               <div key={`${g.id}-useful-item-${idx}`} className="flex items-center justify-between gap-3">
