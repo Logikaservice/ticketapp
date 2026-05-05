@@ -51,6 +51,7 @@ import {
   getStoredTechHubSurfaceMode,
   hubKpiActiveForegroundHex,
   hubModalCssVars,
+  darkenHex,
   hubCardInnerGlowCssVars,
   HUB_CARD_INNER_GLOW_CLASS
 } from '../utils/techHubAccent';
@@ -864,6 +865,14 @@ export default function TechnicianWorkbenchPage({
     [accentHex, hubSurfaceMode]
   );
 
+  // In tema chiaro usiamo un accento "effettivo" più scuro per garantire contrasto anche
+  // nei componenti che usano accentHex direttamente (inline styles / grafici), senza cambiare
+  // il colore scelto dall'utente (accentHex resta quello salvato).
+  const accentHexEffective = useMemo(
+    () => (hubSurfaceMode === 'light' ? darkenHex(accentHex, 0.34) : accentHex),
+    [accentHex, hubSurfaceMode]
+  );
+
   const hubHoverIconBtn =
     'rounded-xl border border-transparent text-[color:var(--hub-chrome-text-muted)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)] hover:[border-color:var(--hub-accent-border)]';
 
@@ -1012,7 +1021,7 @@ export default function TechnicianWorkbenchPage({
             hubSurfaceMode={hubSurfaceMode}
             icon={LayoutGrid}
             label="Hub tecnico"
-            accentHex={accentHex}
+            accentHex={accentHexEffective}
             active={hubCenterView === 'overview'}
             onClick={() => setHubCenterView('overview')}
           />
@@ -1021,7 +1030,7 @@ export default function TechnicianWorkbenchPage({
             hubSurfaceMode={hubSurfaceMode}
             icon={TicketHomeIcon}
             label="Ticket"
-            accentHex={accentHex}
+            accentHex={accentHexEffective}
             active={hubCenterView === 'tickets'}
             onClick={() => setHubCenterView('tickets')}
           />
@@ -1030,7 +1039,7 @@ export default function TechnicianWorkbenchPage({
             hubSurfaceMode={hubSurfaceMode}
             icon={Building2}
             label="Office"
-            accentHex={accentHex}
+            accentHex={accentHexEffective}
             active={hubCenterView === 'office'}
             onClick={() => setHubCenterView('office')}
           />
@@ -1039,7 +1048,7 @@ export default function TechnicianWorkbenchPage({
             hubSurfaceMode={hubSurfaceMode}
             icon={Mail}
             label="Email"
-            accentHex={accentHex}
+            accentHex={accentHexEffective}
             active={hubCenterView === 'email'}
             onClick={() => setHubCenterView('email')}
           />
@@ -1048,7 +1057,7 @@ export default function TechnicianWorkbenchPage({
             hubSurfaceMode={hubSurfaceMode}
             icon={Shield}
             label="Anti-Virus"
-            accentHex={accentHex}
+            accentHex={accentHexEffective}
             active={hubCenterView === 'antivirus'}
             onClick={() => setHubCenterView('antivirus')}
           />
@@ -1057,7 +1066,7 @@ export default function TechnicianWorkbenchPage({
             hubSurfaceMode={hubSurfaceMode}
             icon={Eye}
             label="L-Sight"
-            accentHex={accentHex}
+            accentHex={accentHexEffective}
             onClick={() => nav?.onOpenLSight?.()}
           />
           <SidebarLink
@@ -1065,7 +1074,7 @@ export default function TechnicianWorkbenchPage({
             hubSurfaceMode={hubSurfaceMode}
             icon={Monitor}
             label="Dispositivi aziendali"
-            accentHex={accentHex}
+            accentHex={accentHexEffective}
             active={hubCenterView === 'dispositivi'}
             onClick={() => setHubCenterView('dispositivi')}
           />
@@ -1096,7 +1105,7 @@ export default function TechnicianWorkbenchPage({
             hubSurfaceMode={hubSurfaceMode}
             icon={MapPin}
             label="Mappatura"
-            accentHex={accentHex}
+            accentHex={accentHexEffective}
             onClick={() => nav?.onOpenMappatura?.()}
           />
 
@@ -1108,7 +1117,7 @@ export default function TechnicianWorkbenchPage({
                 nested
                 icon={Monitor}
                 label="Agent comunicazioni"
-                accentHex={accentHex}
+              accentHex={accentHexEffective}
                 active={hubCenterView === 'comm-agent-manager'}
                 onClick={() => setHubCenterView('comm-agent-manager')}
               />
@@ -1118,7 +1127,7 @@ export default function TechnicianWorkbenchPage({
                 nested
                 icon={Bell}
                 label="Invia comunicazione"
-                accentHex={accentHex}
+              accentHex={accentHexEffective}
                 active={hubCenterView === 'comunicazioni'}
                 onClick={() => setHubCenterView('comunicazioni')}
               />
@@ -1133,7 +1142,7 @@ export default function TechnicianWorkbenchPage({
                 nested
                 icon={Calendar}
                 label="Orari e Turni"
-                accentHex={accentHex}
+              accentHex={accentHexEffective}
                 onClick={() => nav?.onOpenOrari?.()}
               />
               <SidebarLink
@@ -1368,7 +1377,7 @@ export default function TechnicianWorkbenchPage({
           >
             {hubCenterView === 'avvisi' ? (
               <ImportantAlertsHubEmbedded
-                accentHex={accentHex}
+                accentHex={accentHexEffective}
                 alerts={hubImportantAlerts}
                 loading={hubImportantAlertsLoading}
                 currentUser={currentUser}
@@ -1388,7 +1397,7 @@ export default function TechnicianWorkbenchPage({
               />
             ) : hubCenterView === 'tickets' && ticketHubListProps ? (
               <TicketsHubEmbedded
-                accentHex={accentHex}
+                accentHex={accentHexEffective}
                 hubSurfaceMode={hubSurfaceMode}
                 currentUser={currentUser}
                 tickets={tickets}
@@ -1407,7 +1416,7 @@ export default function TechnicianWorkbenchPage({
             ) : hubCenterView === 'email' ? (
               <EmailPage
                 embedded
-                accentHex={accentHex}
+                accentHex={accentHexEffective}
                 closeEmbedded={() => setHubCenterView('overview')}
                 getAuthHeader={getAuthHeader}
                 selectedCompanyId={selectedCompanyId}
@@ -1427,7 +1436,7 @@ export default function TechnicianWorkbenchPage({
             ) : hubCenterView === 'office' ? (
               <OfficePage
                 embedded
-                accentHex={accentHex}
+                accentHex={accentHexEffective}
                 hubSurfaceMode={hubSurfaceMode}
                 closeEmbedded={() => setHubCenterView('overview')}
                 getAuthHeader={getAuthHeader}
@@ -1448,7 +1457,7 @@ export default function TechnicianWorkbenchPage({
             ) : hubCenterView === 'antivirus' ? (
               <AntiVirusPage
                 embedded
-                accentHex={accentHex}
+                accentHex={accentHexEffective}
                 hubSurfaceMode={hubSurfaceMode}
                 closeEmbedded={() => setHubCenterView('overview')}
                 getAuthHeader={getAuthHeader}
@@ -1473,7 +1482,7 @@ export default function TechnicianWorkbenchPage({
             ) : hubCenterView === 'dispositivi' ? (
               <DispositiviAziendaliPage
                 embedded
-                accentHex={accentHex}
+                accentHex={accentHexEffective}
                 closeEmbedded={() => setHubCenterView('overview')}
                 getAuthHeader={getAuthHeader}
                 selectedCompanyId={selectedCompanyId}
@@ -1499,7 +1508,7 @@ export default function TechnicianWorkbenchPage({
             ) : hubCenterView === 'speedtest' && canSpeedTest ? (
               <SpeedTestPage
                 embedded
-                accentHex={accentHex}
+                accentHex={accentHexEffective}
                 closeEmbedded={() => setHubCenterView('overview')}
                 currentUser={currentUser}
                 getAuthHeader={getAuthHeader}
@@ -1517,7 +1526,7 @@ export default function TechnicianWorkbenchPage({
             ) : hubCenterView === 'network-monitoring' && canNetworkMonitoring ? (
               <NetworkMonitoringDashboard
                 embedded
-                accentHex={accentHex}
+                accentHex={accentHexEffective}
                 closeEmbedded={() => setHubCenterView('overview')}
                 getAuthHeader={getAuthHeader}
                 socket={socket}
@@ -1587,7 +1596,7 @@ export default function TechnicianWorkbenchPage({
               />
             ) : (
               <HubOverviewSection
-                accentHex={accentHex}
+                accentHex={accentHexEffective}
                 hubSurfaceMode={hubSurfaceMode}
                 hubTicketCounts={hubTicketCounts}
                 hubLayout={hubLayout}
@@ -1620,7 +1629,7 @@ export default function TechnicianWorkbenchPage({
           }`}
           style={{ backgroundColor: 'var(--hub-chrome-page)' }}
         >
-          <HubTimeCard accentHex={accentHex} />
+          <HubTimeCard accentHex={accentHexEffective} />
           {hubCenterView === 'tickets' && ticketHubListProps ? (
             <RightPanel
               showTitle={false}
@@ -1714,15 +1723,15 @@ export default function TechnicianWorkbenchPage({
                 <ImportantAlertsCarousel
                   alerts={hubImportantAlerts}
                   loading={hubImportantAlertsLoading}
-                  accentHex={accentHex}
+                  accentHex={accentHexEffective}
                   rotationPaused={avvisiPanelHovered}
                 />
               </RightPanel>
 
               <RightPanel title="Ultimi eventi di rete">
-                <DummyRow accent={accentHex} title={'SNMP: uptime switch core > 99.9%'} meta="Dummy · timeline eventi agent" />
-                <DummyRow accent={accentHex} title="Ping medio ufficio: 14 ms" meta="Dummy · ultimo campionamento" />
-                <DummyRow accent={accentHex} title="Nuovo device rilevato in VLAN 20" meta="Dummy · log monitoraggio" />
+                <DummyRow accent={accentHexEffective} title={'SNMP: uptime switch core > 99.9%'} meta="Dummy · timeline eventi agent" />
+                <DummyRow accent={accentHexEffective} title="Ping medio ufficio: 14 ms" meta="Dummy · ultimo campionamento" />
+                <DummyRow accent={accentHexEffective} title="Nuovo device rilevato in VLAN 20" meta="Dummy · log monitoraggio" />
               </RightPanel>
             </>
           )}
@@ -1733,7 +1742,7 @@ export default function TechnicianWorkbenchPage({
         onClose={() => setFornitureResocontoOpen(false)}
         getAuthHeader={getAuthHeader}
         currentUser={currentUser}
-        accentHex={accentHex}
+        accentHex={accentHexEffective}
         tickets={tickets}
         onTemporarySuppliesMutated={onRefreshHubTemporarySupplies ?? undefined}
         onOpenTicketFromSupply={
@@ -1754,7 +1763,7 @@ export default function TechnicianWorkbenchPage({
         onClose={() => setOfficeExpiriesOpen(false)}
         getAuthHeader={getAuthHeader}
         currentUser={currentUser}
-        accentHex={accentHex}
+        accentHex={accentHexEffective}
         days={officeExpiryDays}
         prefetchedItems={officeExpiryItems}
         onRefresh={loadOfficeExpiries}
@@ -1769,7 +1778,7 @@ export default function TechnicianWorkbenchPage({
         onClose={() => setEmailExpiriesOpen(false)}
         getAuthHeader={getAuthHeader}
         currentUser={currentUser}
-        accentHex={accentHex}
+        accentHex={accentHexEffective}
         days={emailExpiryDays}
         prefetchedItems={emailExpiryItems}
         onRefresh={loadEmailExpiries}
