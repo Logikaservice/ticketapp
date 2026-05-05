@@ -44,6 +44,7 @@ const OfficeIntroCard = ({ embedded = false, companies = [], value = '', onChang
   const showSelector = Array.isArray(companies) && companies.length > 0 && typeof onChange === 'function';
   const selectValue = value != null ? String(value) : '';
   const hubLight = hubSurfaceMode === 'light';
+  const showCenterSelect = showSelector && !embedded;
 
   const embeddedStyle = useMemo(() => {
     if (!embedded) return undefined;
@@ -72,7 +73,7 @@ const OfficeIntroCard = ({ embedded = false, companies = [], value = '', onChang
         <p className={`mb-3 ${embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}>
           Seleziona la tua azienda nel menu per vedere la distribuzione delle licenze Office.
         </p>
-        {showSelector && (
+        {showCenterSelect && (
           <div className="relative w-full max-w-sm">
             <select
               value={selectValue}

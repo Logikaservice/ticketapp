@@ -44,6 +44,7 @@ const AntiVirusIntroCard = ({
   const selectValue = value != null ? String(value) : '';
   const accent = normalizeHex(accentHexProp) || getStoredTechHubAccent();
   const hubLight = hubSurfaceMode === 'light';
+  const showCenterSelect = showSelector && !embedded;
 
   const embeddedStyle = useMemo(() => {
     if (!embedded) return undefined;
@@ -75,7 +76,7 @@ const AntiVirusIntroCard = ({
         <p className={embedded ? 'mb-3 text-sm text-[color:var(--hub-chrome-text-muted)]' : 'mb-3 text-gray-600'}>
           Seleziona la tua azienda nel menu per consultare lo stato di protezione Anti-Virus dei dispositivi.
         </p>
-        {showSelector && (
+        {showCenterSelect && (
           <div className="relative w-full max-w-sm">
             <select
               value={selectValue}
