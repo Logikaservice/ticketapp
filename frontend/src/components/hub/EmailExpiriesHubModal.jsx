@@ -37,7 +37,8 @@ export default function EmailExpiriesHubModal({
       });
       if (!res.ok) throw new Error('fetch');
       const data = await res.json();
-      setItems(Array.isArray(data?.items) ? data.items : []);
+      const list = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+      setItems(list);
     } catch (_) {
       // Non azzerare: se il fetch fallisce, mantieni l'ultima lista nota.
     } finally {

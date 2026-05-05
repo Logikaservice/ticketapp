@@ -623,7 +623,7 @@ export default function TechnicianWorkbenchPage({
       });
       if (!res.ok) throw new Error('fetch');
       const data = await res.json();
-      const list = Array.isArray(data?.items) ? data.items : [];
+      const list = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
       setEmailExpiryItems(list);
     } catch (_) {
       // Non azzerare: la "notifica" deve restare finché KeePass non cambia davvero.

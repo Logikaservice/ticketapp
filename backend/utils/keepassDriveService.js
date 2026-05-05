@@ -888,6 +888,12 @@ class KeepassDriveService {
 
     return this.withLoadedKdbx(password, async (db) => {
     const results = [];
+    const dayMs = 24 * 60 * 60 * 1000;
+    const daysLeftFrom = (expDate) => {
+      const diff = (expDate.getTime() - now.getTime()) / dayMs;
+      // Per scadenze passate vogliamo -1, -2, ... (ceil(-0.1)=0 sarebbe sbagliato)
+      return diff >= 0 ? Math.ceil(diff) : Math.floor(diff);
+    };
 
     const extractEntry = (entry, divider = '') => {
       const titleF = entry.fields && entry.fields['Title'];
@@ -978,9 +984,8 @@ class KeepassDriveService {
       if (!item.expires) continue;
       const exp = new Date(item.expires);
       if (isNaN(exp.getTime())) continue;
-      if (exp < now) continue;
       if (exp > limit) continue;
-      const daysLeft = Math.ceil((exp - now) / (24 * 60 * 60 * 1000));
+      const daysLeft = daysLeftFrom(exp);
       results.push({
         aziendaName: item.aziendaName,
         title: item.title || '',
