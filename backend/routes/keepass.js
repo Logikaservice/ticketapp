@@ -1834,7 +1834,10 @@ module.exports = function createKeepassRouter(pool) {
       return res.json({ days, items: rows || [] });
     } catch (err) {
       console.error('❌ Errore office-expiries:', err);
-      return res.status(500).json({ error: 'Errore durante il recupero scadenze Office' });
+      return res.status(500).json({
+        error: 'Errore durante il recupero scadenze Office',
+        details: err?.message || String(err)
+      });
     }
   });
 

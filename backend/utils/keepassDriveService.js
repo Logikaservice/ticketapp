@@ -15,6 +15,8 @@ class KeepassDriveService {
     this.kdbxFileFetchPromise = null;
     /** Coda globale sul parse KDBX: più load paralleli sul DB grande possono esaurire la RAM e far cadere il processo (502 su tutta l'API). */
     this._kdbxOpenChain = Promise.resolve();
+    /** Cache scadenze Office per evitare scansioni ripetute. */
+    this._officeExpiriesCache = null; // { limitMs, fetchedAt, items }
   }
 
   normalizeCompanyName(name) {
@@ -1177,7 +1179,16 @@ class KeepassDriveService {
         ? new Set(allowedCompanies.map((a) => (a || '').trim().toLowerCase()).filter(Boolean))
         : null;
 
-    return this.withLoadedKdbx(password, async (db) => {
+    const limitMs = limit instanceof Date ? limit.getTime() : new Date(limit).getTime();
+    const cacheOk =
+      this._officeExpiriesCache &&
+      Number.isFinite(this._officeExpiriesCache.limitMs) &&
+      this._officeExpiriesCache.limitMs === limitMs &&
+      (Date.now() - (this._officeExpiriesCache.fetchedAt || 0)) < this.cacheTimeout &&
+      Array.isArray(this._officeExpiriesCache.items);
+
+    const computeAll = async () =>
+      this.withLoadedKdbx(password, async (db) => {
       const results = [];
 
       const getChildGroups = (g) => {
@@ -1244,32 +1255,58 @@ class KeepassDriveService {
         return null;
       };
 
-      const visit = (group, pathSegments = []) => {
-        const name = (group.name || '').toString();
-        const segments = [...pathSegments, name].map((s) => String(s || '').trim()).filter(Boolean);
-        const gestioneIdx = segments.findIndex((s) => s.toLowerCase() === 'gestione');
-
-        // Al livello Azienda (figlio diretto di Gestione)
-        if (gestioneIdx >= 0 && segments.length === gestioneIdx + 2) {
-          const aziendaName = segments[gestioneIdx + 1].trim();
-          const aziendaKey = aziendaName.toLowerCase();
-          if (allowedSet && !allowedSet.has(aziendaKey)) return [];
-
-          const officeGroup = findOfficeGroupUnder(group);
-          if (!officeGroup) return [];
-          return extractOfficeEntries(officeGroup, aziendaName);
-        }
-
-        let collected = [];
+      const findGestioneGroup = (group) => {
+        if (!group) return null;
+        const name = (group.name || '').toString().trim().toLowerCase();
+        if (name === 'gestione') return group;
         for (const sub of getChildGroups(group)) {
-          collected = collected.concat(visit(sub, segments));
+          const found = findGestioneGroup(sub);
+          if (found) return found;
         }
-        return collected;
+        return null;
       };
 
-      let allEntries = [];
+      let gestione = null;
       for (const root of db.groups || []) {
-        allEntries = allEntries.concat(visit(root, []));
+        gestione = findGestioneGroup(root);
+        if (gestione) break;
+      }
+
+      let allEntries = [];
+      if (gestione) {
+        // I figli diretti di Gestione sono le aziende: scansioniamo solo quello, non tutto il DB.
+        for (const companyGroup of getChildGroups(gestione)) {
+          const aziendaName = (companyGroup?.name || '').toString().trim();
+          if (!aziendaName) continue;
+          const key = aziendaName.toLowerCase();
+          if (allowedSet && !allowedSet.has(key)) continue;
+          const officeGroup = findOfficeGroupUnder(companyGroup);
+          if (!officeGroup) continue;
+          allEntries = allEntries.concat(extractOfficeEntries(officeGroup, aziendaName));
+        }
+      } else {
+        // Fallback: se non troviamo Gestione, torniamo a scansionare tutto (più lento).
+        const visitSlow = (group, pathSegments = []) => {
+          const name = (group.name || '').toString();
+          const segments = [...pathSegments, name].map((s) => String(s || '').trim()).filter(Boolean);
+          const gestioneIdx = segments.findIndex((s) => s.toLowerCase() === 'gestione');
+          if (gestioneIdx >= 0 && segments.length === gestioneIdx + 2) {
+            const aziendaName = segments[gestioneIdx + 1].trim();
+            const aziendaKey = aziendaName.toLowerCase();
+            if (allowedSet && !allowedSet.has(aziendaKey)) return [];
+            const officeGroup = findOfficeGroupUnder(group);
+            if (!officeGroup) return [];
+            return extractOfficeEntries(officeGroup, aziendaName);
+          }
+          let collected = [];
+          for (const sub of getChildGroups(group)) {
+            collected = collected.concat(visitSlow(sub, segments));
+          }
+          return collected;
+        };
+        for (const root of db.groups || []) {
+          allEntries = allEntries.concat(visitSlow(root, []));
+        }
       }
 
       for (const item of allEntries) {
@@ -1294,6 +1331,20 @@ class KeepassDriveService {
 
       return results;
     });
+
+    const allResults = cacheOk
+      ? this._officeExpiriesCache.items
+      : await (async () => {
+          const rows = await computeAll();
+          this._officeExpiriesCache = { limitMs, fetchedAt: Date.now(), items: rows };
+          return rows;
+        })();
+
+    // Filter per allowedCompanies se necessario (cache è globale).
+    if (allowedSet) {
+      return allResults.filter((r) => allowedSet.has(String(r.aziendaName || '').trim().toLowerCase()));
+    }
+    return allResults;
   }
 
   /**
