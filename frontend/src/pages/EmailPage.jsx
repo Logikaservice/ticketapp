@@ -77,11 +77,11 @@ const EmailPage = ({
   useEffect(() => {
     if (!initialCompanyName) return;
     if (!companies || companies.length === 0) return;
-    if (selectedCompanyId) return;
     const target = String(initialCompanyName || '').trim().toLowerCase();
     if (!target) return;
     const match = companies.find((c) => String(c?.name || '').trim().toLowerCase() === target);
     if (!match) return;
+    if (String(match.id) === String(selectedCompanyId || '')) return;
     setSelectedCompanyId(match.id);
     onCompanyChange?.(match.id);
   }, [initialCompanyName, companies, selectedCompanyId, onCompanyChange]);
