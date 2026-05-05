@@ -2517,13 +2517,12 @@ module.exports = function createKeepassRouter(pool) {
     const client = await pool.connect();
     try {
       const { azienda_name, title, description, links, sort_order } = req.body;
-      if (!azienda_name || !title || !Array.isArray(links) || links.length === 0) {
-        return res.status(400).json({ error: 'azienda_name, title e almeno un link sono obbligatori' });
+      if (!azienda_name || !title) {
+        return res.status(400).json({ error: 'azienda_name e title sono obbligatori' });
       }
-      const cleanLinks = links
+      const cleanLinks = (Array.isArray(links) ? links : [])
         .map((l) => ({ label: String(l?.label || '').trim(), url: String(l?.url || '').trim() }))
         .filter((l) => l.label && l.url);
-      if (cleanLinks.length === 0) return res.status(400).json({ error: 'Inserisci almeno un link valido' });
 
       await ensureOfficeUsefulGuidelinesTables();
       const parsedOrder = Number.isFinite(Number(sort_order)) ? Number(sort_order) : 0;
@@ -2566,13 +2565,12 @@ module.exports = function createKeepassRouter(pool) {
       const id = parseInt(req.params.id, 10);
       if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
       const { title, description, links, sort_order } = req.body;
-      if (!title || !Array.isArray(links) || links.length === 0) {
-        return res.status(400).json({ error: 'title e almeno un link sono obbligatori' });
+      if (!title) {
+        return res.status(400).json({ error: 'title è obbligatorio' });
       }
-      const cleanLinks = links
+      const cleanLinks = (Array.isArray(links) ? links : [])
         .map((l) => ({ label: String(l?.label || '').trim(), url: String(l?.url || '').trim() }))
         .filter((l) => l.label && l.url);
-      if (cleanLinks.length === 0) return res.status(400).json({ error: 'Inserisci almeno un link valido' });
 
       await ensureOfficeUsefulGuidelinesTables();
       const parsedOrder = Number.isFinite(Number(sort_order)) ? Number(sort_order) : 0;

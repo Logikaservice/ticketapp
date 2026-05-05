@@ -618,7 +618,7 @@ const OfficePage = ({
     const links = (newUsefulGuideline.links || [])
       .map((link) => ({ label: String(link.label || '').trim(), url: String(link.url || '').trim() }))
       .filter((link) => link.label && link.url);
-    if (!title || links.length === 0) return;
+    if (!title) return;
 
     setSavingUsefulGuideline(true);
     try {
@@ -651,7 +651,7 @@ const OfficePage = ({
     const links = (editingUsefulGuideline.links || [])
       .map((link) => ({ label: String(link.label || '').trim(), url: String(link.url || '').trim() }))
       .filter((link) => link.label && link.url);
-    if (!title || links.length === 0) return;
+    if (!title) return;
 
     setSavingUsefulGuideline(true);
     try {
@@ -1876,7 +1876,7 @@ const OfficePage = ({
             {isTecnico && (
               <div className={ox.panelWhite}>
                 <h3 className={ox.panelHeading}>Nuova linea guida</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                <div className="space-y-3 mb-3">
                   <input
                     type="text"
                     value={newUsefulGuideline.title}
@@ -1884,14 +1884,12 @@ const OfficePage = ({
                     placeholder="Titolo (es. Best practice attivazione)"
                     className={ox.inp}
                   />
-                  <div className="md:row-span-2">
-                    <textarea
-                      value={newUsefulGuideline.description}
-                      onChange={(e) => setNewUsefulGuideline((prev) => ({ ...prev, description: e.target.value }))}
-                      placeholder="Descrizione (anche lunga)…"
-                      className={`${ox.inp} min-h-[6.5rem] resize-y`}
-                    />
-                  </div>
+                  <textarea
+                    value={newUsefulGuideline.description}
+                    onChange={(e) => setNewUsefulGuideline((prev) => ({ ...prev, description: e.target.value }))}
+                    placeholder="Descrizione (anche lunga)…"
+                    className={`${ox.inp} min-h-[12rem] resize-y`}
+                  />
                 </div>
                 <div className="space-y-2">
                   {(newUsefulGuideline.links || []).map((link, idx) => (
@@ -1991,7 +1989,7 @@ const OfficePage = ({
                             value={editingUsefulGuideline.description}
                             onChange={(e) => setEditingUsefulGuideline((prev) => ({ ...prev, description: e.target.value }))}
                             placeholder="Descrizione"
-                            className={`${ox.inp} min-h-[6.5rem] resize-y`}
+                            className={`${ox.inp} min-h-[12rem] resize-y`}
                           />
                           {(editingUsefulGuideline.links || []).map((editLink, idx) => (
                             <div key={`edit-useful-link-${idx}`} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
