@@ -150,8 +150,32 @@ const AntiVirusPage = ({
         fetchCompanies();
     }, [getAuthHeader]);
 
+    // Se l'azienda selezionata non esiste nella lista, resetta (evita select "vuoto" e fetch inutili)
+    useEffect(() => {
+        if (!selectedCompanyId) return;
+        if (!Array.isArray(companies) || companies.length === 0) return;
+        const exists = companies.some(c => String(c?.id) === String(selectedCompanyId));
+        if (!exists) {
+            setSelectedCompanyId('');
+            setDevices([]);
+            setSelectedDeviceIds([]);
+            setDrafts({});
+            if (typeof onCompanyChange === 'function') onCompanyChange('');
+        }
+    }, [companies, selectedCompanyId, onCompanyChange]);
+
     // Fetch devices when company selected
     useEffect(() => {
+        // Se l'id non è nella lista aziende, non fare fetch (evita carichi "fantasma")
+        if (selectedCompanyId && Array.isArray(companies) && companies.length > 0) {
+            const exists = companies.some(c => String(c?.id) === String(selectedCompanyId));
+            if (!exists) {
+                setDevices([]);
+                setSelectedDeviceIds([]);
+                setDrafts({});
+                return;
+            }
+        }
         if (!selectedCompanyId) {
             setDevices([]);
             setSelectedDeviceIds([]);
