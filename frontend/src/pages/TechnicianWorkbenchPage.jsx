@@ -57,6 +57,7 @@ import {
 import HubOverviewSection from '../components/hub/HubOverviewSection';
 import TemporarySuppliesSummaryHubModal from '../components/hub/TemporarySuppliesSummaryHubModal';
 import OfficeExpiriesHubModal from '../components/hub/OfficeExpiriesHubModal';
+import EmailExpiriesHubModal from '../components/hub/EmailExpiriesHubModal';
 import HubLogikubeMark from '../components/hub/HubLogikubeMark';
 import TicketsHubEmbedded from '../components/hub/TicketsHubEmbedded';
 import HubTimeCard from '../components/hub/HubTimeCard';
@@ -566,6 +567,12 @@ export default function TechnicianWorkbenchPage({
   const [officeExpiryItems, setOfficeExpiryItems] = useState([]);
   const [officeExpiryCompanyToOpen, setOfficeExpiryCompanyToOpen] = useState('');
 
+  // Scadenze Email (Hub badge + modale)
+  const [emailExpiryDays] = useState(30);
+  const [emailExpiryItems, setEmailExpiryItems] = useState([]);
+  const [emailExpiryCompanyToOpen, setEmailExpiryCompanyToOpen] = useState('');
+  const [emailExpiriesOpen, setEmailExpiriesOpen] = useState(false);
+
   const loadOfficeExpiries = useCallback(async () => {
     if (!getAuthHeader || !currentUser) return;
     const isTecnicoOrAdmin = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
@@ -600,6 +607,42 @@ export default function TechnicianWorkbenchPage({
 
   const openOfficeExpiries = useCallback(() => {
     setOfficeExpiriesOpen(true);
+  }, []);
+
+  const loadEmailExpiries = useCallback(async () => {
+    if (!getAuthHeader || !currentUser) return;
+    const isTecnicoOrAdmin = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
+    const isAdminAziendale =
+      currentUser?.ruolo === 'cliente' && Array.isArray(currentUser?.admin_companies) && currentUser.admin_companies.length > 0;
+    if (!isTecnicoOrAdmin && !isAdminAziendale) return;
+
+    try {
+      const res = await fetch(buildApiUrl(`/api/keepass/email-upcoming-expiries?days=${emailExpiryDays}`), {
+        headers: getAuthHeader(),
+        cache: 'no-store'
+      });
+      if (!res.ok) throw new Error('fetch');
+      const data = await res.json();
+      const list = Array.isArray(data?.items) ? data.items : [];
+      setEmailExpiryItems(list);
+    } catch (_) {
+      // Non azzerare: la "notifica" deve restare finché KeePass non cambia davvero.
+    }
+  }, [getAuthHeader, currentUser, emailExpiryDays]);
+
+  useEffect(() => {
+    loadEmailExpiries();
+    const t = setInterval(() => loadEmailExpiries(), 5 * 60 * 1000);
+    return () => clearInterval(t);
+  }, [loadEmailExpiries]);
+
+  const emailExpiryCount = useMemo(() => {
+    const list = Array.isArray(emailExpiryItems) ? emailExpiryItems : [];
+    return list.length;
+  }, [emailExpiryItems]);
+
+  const openEmailExpiries = useCallback(() => {
+    setEmailExpiriesOpen(true);
   }, []);
 
   useEffect(() => {
@@ -1370,6 +1413,7 @@ export default function TechnicianWorkbenchPage({
                 closeEmbedded={() => setHubCenterView('overview')}
                 getAuthHeader={getAuthHeader}
                 selectedCompanyId={selectedCompanyId}
+                initialCompanyName={emailExpiryCompanyToOpen || undefined}
                 onCompanyChange={onGloballyCompanyChange ?? undefined}
                 currentUser={currentUser}
                 onOpenTicket={onOpenTicketWithPrefill ?? undefined}
@@ -1562,6 +1606,8 @@ export default function TechnicianWorkbenchPage({
                 currentUser={currentUser}
                 onOpenFornitureResoconto={() => setFornitureResocontoOpen(true)}
                 hubTemporarySuppliesCount={hubTemporarySuppliesCount}
+                hubEmailExpiryCount={emailExpiryCount}
+                onOpenEmailExpiries={openEmailExpiries}
                 hubOfficeExpiryCount={officeExpiryCount}
                 onOpenOfficeExpiries={openOfficeExpiries}
               />
@@ -1717,6 +1763,21 @@ export default function TechnicianWorkbenchPage({
         onOpenCompany={(aziendaName) => {
           setOfficeExpiryCompanyToOpen(String(aziendaName || ''));
           setHubCenterView('office');
+        }}
+      />
+
+      <EmailExpiriesHubModal
+        open={emailExpiriesOpen}
+        onClose={() => setEmailExpiriesOpen(false)}
+        getAuthHeader={getAuthHeader}
+        currentUser={currentUser}
+        accentHex={accentHex}
+        days={emailExpiryDays}
+        prefetchedItems={emailExpiryItems}
+        onRefresh={loadEmailExpiries}
+        onOpenCompany={(aziendaName) => {
+          setEmailExpiryCompanyToOpen(String(aziendaName || ''));
+          setHubCenterView('email');
         }}
       />
     </div>

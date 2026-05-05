@@ -432,6 +432,10 @@ export default function HubOverviewSection({
   onOpenFornitureResoconto = null,
   /** Conteggio forniture visibili all'utente (dopo filtro ruolo); `undefined` durante caricamento iniziale. */
   hubTemporarySuppliesCount = undefined,
+  /** Badge rosso sulla card Email quando ci sono scadenze. */
+  hubEmailExpiryCount = 0,
+  /** Callback per aprire la lista scadenze Email. */
+  onOpenEmailExpiries = null,
   /** Badge rosso sulla card Office quando ci sono scadenze. */
   hubOfficeExpiryCount = 0,
   /** Callback per aprire la lista scadenze Office. */
@@ -750,16 +754,22 @@ export default function HubOverviewSection({
           />
         );
       case 'launch-email':
+        const emailAlert = Number(hubEmailExpiryCount || 0) > 0;
+        const emailAccent = emailAlert ? '#ef4444' : accentHex;
         return (
           <ModuleLaunchCard
             icon={Mail}
             label={txt(item, 'Email')}
             subtitle={sub(item, 'Apri modulo')}
-            accent={accentHex}
-            onClick={() => setHubCenterView?.('email')}
+            accent={emailAccent}
+            onClick={() => {
+              if (emailAlert && typeof onOpenEmailExpiries === 'function') onOpenEmailExpiries();
+              else setHubCenterView?.('email');
+            }}
             subdued={veil}
             suppressInteraction={suppressInteraction}
             iconOnly={io}
+            count={emailAlert ? hubEmailExpiryCount : undefined}
           />
         );
       case 'launch-network':

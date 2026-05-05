@@ -30,6 +30,7 @@ const EmailPage = ({
   onClose,
   getAuthHeader,
   selectedCompanyId: initialCompanyId,
+  initialCompanyName,
   onCompanyChange,
   currentUser,
   onOpenTicket,
@@ -69,6 +70,19 @@ const EmailPage = ({
       setSelectedCompanyId(initialCompanyId);
     }
   }, [initialCompanyId]);
+
+  // Auto-selezione azienda da nome (usato dall'Hub scadenze Email).
+  useEffect(() => {
+    if (!initialCompanyName) return;
+    if (!companies || companies.length === 0) return;
+    if (selectedCompanyId) return;
+    const target = String(initialCompanyName || '').trim().toLowerCase();
+    if (!target) return;
+    const match = companies.find((c) => String(c?.name || '').trim().toLowerCase() === target);
+    if (!match) return;
+    setSelectedCompanyId(match.id);
+    onCompanyChange?.(match.id);
+  }, [initialCompanyName, companies, selectedCompanyId, onCompanyChange]);
 
   // Quota state
   const [quotaData, setQuotaData] = useState({}); // keyed by email
