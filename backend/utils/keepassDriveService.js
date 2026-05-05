@@ -19,6 +19,8 @@ class KeepassDriveService {
     this._officeExpiriesCache = null; // { limitMs, fetchedAt, items }
     /** Cache struttura Email per azienda (evita ricalcolo ad ogni refresh). */
     this._emailStructureCache = new Map(); // key = aziendaNameLower, value = { fetchedAt, items }
+    /** Cache scadenze Email (Hub): evita scansioni ripetute. */
+    this._emailExpiriesCache = null; // { limitMs, companiesKey, fetchedAt, items }
   }
 
   invalidateDerivedCaches() {
@@ -26,6 +28,7 @@ class KeepassDriveService {
     this.lastCacheUpdate = null;
     this._officeExpiriesCache = null;
     this._emailStructureCache = new Map();
+    this._emailExpiriesCache = null;
   }
 
   normalizeCompanyName(name) {
@@ -886,13 +889,33 @@ class KeepassDriveService {
     const aziendeSet = new Set((aziendeNames || []).map(a => (a || '').trim().toLowerCase()).filter(Boolean));
     if (aziendeSet.size === 0) return [];
 
-    return this.withLoadedKdbx(password, async (db) => {
-    const results = [];
+    const limitMs = limit instanceof Date ? limit.getTime() : new Date(limit).getTime();
+    const companiesKey = [...aziendeSet].sort().join('|');
+    const cacheOk =
+      this._emailExpiriesCache &&
+      Number.isFinite(this._emailExpiriesCache.limitMs) &&
+      this._emailExpiriesCache.limitMs === limitMs &&
+      this._emailExpiriesCache.companiesKey === companiesKey &&
+      (Date.now() - (this._emailExpiriesCache.fetchedAt || 0)) < this.cacheTimeout &&
+      Array.isArray(this._emailExpiriesCache.items);
+
+    const computeAll = async () =>
+      this.withLoadedKdbx(password, async (db) => {
+      const results = [];
     const dayMs = 24 * 60 * 60 * 1000;
     const daysLeftFrom = (expDate) => {
       const diff = (expDate.getTime() - now.getTime()) / dayMs;
       // Per scadenze passate vogliamo -1, -2, ... (ceil(-0.1)=0 sarebbe sbagliato)
       return diff >= 0 ? Math.ceil(diff) : Math.floor(diff);
+    };
+
+    const getChildGroups = (g) => {
+      if (!g) return [];
+      const arr = g.groups || g.children || g.subGroups;
+      if (!arr) return [];
+      if (Array.isArray(arr)) return arr;
+      if (typeof arr[Symbol.iterator] === 'function') return [...arr];
+      return [];
     };
 
     const extractEntry = (entry, divider = '') => {
@@ -923,61 +946,87 @@ class KeepassDriveService {
     const findEmailGroupUnder = (group) => {
       if (!group) return null;
       if (group.name && (group.name.toLowerCase() === 'email' || group.name.toLowerCase() === 'e-mail')) return group;
-      for (const sub of group.groups || []) {
+      for (const sub of getChildGroups(group)) {
         const found = findEmailGroupUnder(sub);
         if (found) return found;
       }
       return null;
     };
 
-    const collectExpiriesFromGroup = (emailGroup, aziendaName, divider = '') => {
-      const list = [];
-      if (emailGroup.entries) {
-        for (const entry of emailGroup.entries) {
-          const item = extractEntry(entry, divider);
-          if (item.expires) list.push({ ...item, aziendaName });
-        }
-      }
-      if (emailGroup.groups) {
-        for (const sub of emailGroup.groups) {
-          const subName = sub.name || '';
-          if (sub.entries) {
-            for (const entry of sub.entries) {
-              const item = extractEntry(entry, subName);
-              if (item.expires) list.push({ ...item, aziendaName });
-            }
+    const collectExpiriesFromGroup = (emailGroup, aziendaName) => {
+      const out = [];
+      const walk = (group, divider = '') => {
+        if (!group) return;
+        const groupName = (group.name || '').toString().trim();
+        const nextDivider = divider || groupName || '';
+        if (group.entries) {
+          for (const entry of group.entries) {
+            const item = extractEntry(entry, divider);
+            if (item.expires) out.push({ ...item, aziendaName });
           }
         }
-      }
-      return list;
+        for (const sub of getChildGroups(group)) {
+          walk(sub, sub?.name ? String(sub.name) : nextDivider);
+        }
+      };
+      // divider vuoto per le entry direttamente sotto Email
+      walk(emailGroup, '');
+      return out;
     };
 
-    const visit = (group, pathSegments = []) => {
-      const name = group.name || '';
-      const segments = [...pathSegments, name].filter(Boolean);
-      const gestioneIdx = segments.findIndex(s => s.toLowerCase() === 'gestione');
-      // Solo quando siamo al gruppo Azienda (figlio diretto di Gestione), non più in profondità
-      if (gestioneIdx >= 0 && segments.length === gestioneIdx + 2) {
-        const aziendaSeg = segments[gestioneIdx + 1].trim().toLowerCase();
-        if (aziendeSet.has(aziendaSeg)) {
-          const emailGroup = findEmailGroupUnder(group);
-          if (emailGroup) {
-            const aziendaName = segments[gestioneIdx + 1].trim();
-            return collectExpiriesFromGroup(emailGroup, aziendaName);
-          }
-        }
-        return [];
+    const findGestioneGroup = (group) => {
+      if (!group) return null;
+      const name = (group.name || '').toString().trim().toLowerCase();
+      if (name === 'gestione') return group;
+      for (const sub of getChildGroups(group)) {
+        const found = findGestioneGroup(sub);
+        if (found) return found;
       }
-      let collected = [];
-      for (const sub of group.groups || []) {
-        collected = collected.concat(visit(sub, segments));
-      }
-      return collected;
+      return null;
     };
 
     let allEntries = [];
+    let gestione = null;
     for (const root of db.groups || []) {
-      allEntries = allEntries.concat(visit(root, []));
+      gestione = findGestioneGroup(root);
+      if (gestione) break;
+    }
+
+    if (gestione) {
+      // I figli diretti di Gestione sono le aziende: scansioniamo solo quello, non tutto il DB.
+      for (const companyGroup of getChildGroups(gestione)) {
+        const aziendaName = (companyGroup?.name || '').toString().trim();
+        if (!aziendaName) continue;
+        const key = aziendaName.toLowerCase();
+        if (!aziendeSet.has(key)) continue;
+        const emailGroup = findEmailGroupUnder(companyGroup);
+        if (!emailGroup) continue;
+        allEntries = allEntries.concat(collectExpiriesFromGroup(emailGroup, aziendaName));
+      }
+    } else {
+      // Fallback lento se non troviamo Gestione.
+      const visitSlow = (group, pathSegments = []) => {
+        const name = (group.name || '').toString();
+        const segments = [...pathSegments, name].map((s) => String(s || '').trim()).filter(Boolean);
+        const gestioneIdx = segments.findIndex((s) => s.toLowerCase() === 'gestione');
+        if (gestioneIdx >= 0 && segments.length === gestioneIdx + 2) {
+          const aziendaName = segments[gestioneIdx + 1].trim();
+          const key = aziendaName.toLowerCase();
+          if (aziendeSet.has(key)) {
+            const emailGroup = findEmailGroupUnder(group);
+            if (emailGroup) return collectExpiriesFromGroup(emailGroup, aziendaName);
+          }
+          return [];
+        }
+        let collected = [];
+        for (const sub of getChildGroups(group)) {
+          collected = collected.concat(visitSlow(sub, segments));
+        }
+        return collected;
+      };
+      for (const root of db.groups || []) {
+        allEntries = allEntries.concat(visitSlow(root, []));
+      }
     }
 
     for (const item of allEntries) {
@@ -998,6 +1047,11 @@ class KeepassDriveService {
     }
     return results;
     });
+
+    if (cacheOk) return this._emailExpiriesCache.items;
+    const items = await computeAll();
+    this._emailExpiriesCache = { limitMs, companiesKey, fetchedAt: Date.now(), items };
+    return items;
   }
 
   /**
