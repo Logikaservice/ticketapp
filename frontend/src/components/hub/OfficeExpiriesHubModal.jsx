@@ -12,6 +12,9 @@ export default function OfficeExpiriesHubModal({
   currentUser,
   accentHex,
   days = 30,
+  prefetchedItems,
+  prefetchedLoading = false,
+  onRefresh,
   onOpenCompany
 }) {
   const [loading, setLoading] = useState(false);
@@ -44,12 +47,17 @@ export default function OfficeExpiriesHubModal({
 
   useEffect(() => {
     if (!open) return;
+    if (Array.isArray(prefetchedItems)) {
+      setItems(prefetchedItems);
+      return;
+    }
     fetchList();
-  }, [open, fetchList]);
+  }, [open, fetchList, prefetchedItems]);
 
   const count = Array.isArray(items) ? items.length : 0;
 
-  const subtitle = loading ? 'Caricamento…' : `${count} scadenze (entro ${days} giorni o già scadute).`;
+  const subtitle =
+    prefetchedLoading || loading ? 'Caricamento…' : `${count} scadenze (entro ${days} giorni o già scadute).`;
 
   if (!open) return null;
 
@@ -63,6 +71,22 @@ export default function OfficeExpiriesHubModal({
       <HubModalChromeHeader icon={Building2} title="Scadenze Office" subtitle={subtitle} onClose={onClose} compact />
       <HubModalBody className="flex min-h-0 flex-1 flex-col space-y-0 p-4">
         <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto" style={hubModalCssVars(accentHex)}>
+          <div className="mb-3 flex items-center justify-end">
+            <button
+              type="button"
+              onClick={async () => {
+                if (prefetchedLoading || loading) return;
+                await onRefresh?.();
+                // Se il parent ricarica, la prop prefetchedItems aggiornerà items via effect.
+                if (!onRefresh) fetchList();
+              }}
+              className="rounded-xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] px-3 py-2 text-xs font-semibold text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)] disabled:opacity-45"
+              disabled={prefetchedLoading || loading}
+              title="Aggiorna scadenze"
+            >
+              Aggiorna
+            </button>
+          </div>
           {count === 0 ? (
             <div className="rounded-2xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] p-4 text-sm text-[color:var(--hub-chrome-text-faint)]">
               Nessuna scadenza Office rilevata.

@@ -1710,6 +1710,8 @@ export default function TechnicianWorkbenchPage({
         currentUser={currentUser}
         accentHex={accentHex}
         days={officeExpiryDays}
+        prefetchedItems={officeExpiryItems}
+        onRefresh={loadOfficeExpiries}
         onOpenCompany={(aziendaName) => {
           setOfficeExpiryCompanyToOpen(String(aziendaName || ''));
           setHubCenterView('office');
