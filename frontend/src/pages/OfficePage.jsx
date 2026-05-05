@@ -1536,74 +1536,6 @@ const OfficePage = ({
               </button>
             </div>
 
-            {isTecnico && (
-              <div className={ox.panelWhite}>
-                <h3 className={ox.panelHeading}>Nuovo blocco download</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                  <input
-                    type="text"
-                    value={newDownload.title}
-                    onChange={(e) => setNewDownload((prev) => ({ ...prev, title: e.target.value }))}
-                    placeholder="Titolo (es. Office 2024)"
-                    className={ox.inp}
-                  />
-                  <input
-                    type="text"
-                    value={newDownload.description}
-                    onChange={(e) => setNewDownload((prev) => ({ ...prev, description: e.target.value }))}
-                    placeholder="Descrizione (opzionale)"
-                    className={ox.inp}
-                  />
-                </div>
-                <div className="space-y-2">
-                  {(newDownload.links || []).map((link, idx) => (
-                    <div key={`new-link-${idx}`} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
-                      <input
-                        type="text"
-                        value={link.label}
-                        onChange={(e) => updateNewLinkField(idx, 'label', e.target.value)}
-                        placeholder="Etichetta link (es. Download 64bit)"
-                        className={ox.inp}
-                      />
-                      <input
-                        type="url"
-                        value={link.url}
-                        onChange={(e) => updateNewLinkField(idx, 'url', e.target.value)}
-                        placeholder="https://..."
-                        className={ox.inp}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeNewLinkRow(idx)}
-                        disabled={(newDownload.links || []).length <= 1}
-                        className={ox.btnRedGhost}
-                      >
-                        Rimuovi
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    onClick={addNewLinkRow}
-                    className={`mr-2 ${ox.btnGhostMd}`}
-                  >
-                    Aggiungi link
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCreateDownloadLink}
-                    disabled={savingDownload || !newDownload.title.trim()}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    <Plus size={13} />
-                    Aggiungi blocco
-                  </button>
-                </div>
-              </div>
-            )}
-
             {loadingDownloadLinks ? (
               <div className={ox.panelLoading}>
                 <Loader size={24} className={ox.spinSm} />
@@ -1792,6 +1724,74 @@ const OfficePage = ({
                 })}
               </div>
             )}
+
+            {isTecnico && (
+              <div className={ox.panelWhite}>
+                <h3 className={ox.panelHeading}>Nuovo blocco download</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                  <input
+                    type="text"
+                    value={newDownload.title}
+                    onChange={(e) => setNewDownload((prev) => ({ ...prev, title: e.target.value }))}
+                    placeholder="Titolo (es. Office 2024)"
+                    className={ox.inp}
+                  />
+                  <input
+                    type="text"
+                    value={newDownload.description}
+                    onChange={(e) => setNewDownload((prev) => ({ ...prev, description: e.target.value }))}
+                    placeholder="Descrizione (opzionale)"
+                    className={ox.inp}
+                  />
+                </div>
+                <div className="space-y-2">
+                  {(newDownload.links || []).map((link, idx) => (
+                    <div key={`new-link-${idx}`} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
+                      <input
+                        type="text"
+                        value={link.label}
+                        onChange={(e) => updateNewLinkField(idx, 'label', e.target.value)}
+                        placeholder="Etichetta link (es. Download 64bit)"
+                        className={ox.inp}
+                      />
+                      <input
+                        type="url"
+                        value={link.url}
+                        onChange={(e) => updateNewLinkField(idx, 'url', e.target.value)}
+                        placeholder="https://..."
+                        className={ox.inp}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeNewLinkRow(idx)}
+                        disabled={(newDownload.links || []).length <= 1}
+                        className={ox.btnRedGhost}
+                      >
+                        Rimuovi
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={addNewLinkRow}
+                    className={`mr-2 ${ox.btnGhostMd}`}
+                  >
+                    Aggiungi link
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCreateDownloadLink}
+                    disabled={savingDownload || !newDownload.title.trim()}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    <Plus size={13} />
+                    Aggiungi blocco
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1807,70 +1807,6 @@ const OfficePage = ({
                 Torna a Office
               </button>
             </div>
-
-            {isTecnico && (
-              <div className={ox.panelWhite}>
-                <h3 className={ox.panelHeading}>Nuova guida attivazione</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                  <input
-                    type="text"
-                    value={newActivation.title}
-                    onChange={(e) => setNewActivation((prev) => ({ ...prev, title: e.target.value }))}
-                    placeholder="Titolo (es. Office 2024 Pro Plus)"
-                    className={ox.inp}
-                  />
-                  <input
-                    type="text"
-                    value={newActivation.description}
-                    onChange={(e) => setNewActivation((prev) => ({ ...prev, description: e.target.value }))}
-                    placeholder="Descrizione (opzionale)"
-                    className={ox.inp}
-                  />
-                </div>
-                <div className="space-y-2">
-                  {(newActivation.links || []).map((link, idx) => (
-                    <div key={`new-activation-link-${idx}`} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
-                      <input
-                        type="text"
-                        value={link.label}
-                        onChange={(e) => updateNewActivationLinkField(idx, 'label', e.target.value)}
-                        placeholder="Etichetta link"
-                        className={ox.inp}
-                      />
-                      <input
-                        type="url"
-                        value={link.url}
-                        onChange={(e) => updateNewActivationLinkField(idx, 'url', e.target.value)}
-                        placeholder="https://..."
-                        className={ox.inp}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeNewActivationLinkRow(idx)}
-                        disabled={(newActivation.links || []).length <= 1}
-                        className={ox.btnRedGhost}
-                      >
-                        Rimuovi
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-3">
-                  <button type="button" onClick={addNewActivationLinkRow} className={`mr-2 ${ox.btnGhostMd}`}>
-                    Aggiungi link
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCreateActivationGuide}
-                    disabled={savingActivation || !newActivation.title.trim()}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    <Plus size={13} />
-                    Aggiungi guida
-                  </button>
-                </div>
-              </div>
-            )}
 
             {loadingActivationGuides ? (
               <div className={ox.panelLoading}>
@@ -2052,6 +1988,70 @@ const OfficePage = ({
                 })}
               </div>
             )}
+
+            {isTecnico && (
+              <div className={ox.panelWhite}>
+                <h3 className={ox.panelHeading}>Nuova guida attivazione</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                  <input
+                    type="text"
+                    value={newActivation.title}
+                    onChange={(e) => setNewActivation((prev) => ({ ...prev, title: e.target.value }))}
+                    placeholder="Titolo (es. Office 2024 Pro Plus)"
+                    className={ox.inp}
+                  />
+                  <input
+                    type="text"
+                    value={newActivation.description}
+                    onChange={(e) => setNewActivation((prev) => ({ ...prev, description: e.target.value }))}
+                    placeholder="Descrizione (opzionale)"
+                    className={ox.inp}
+                  />
+                </div>
+                <div className="space-y-2">
+                  {(newActivation.links || []).map((link, idx) => (
+                    <div key={`new-activation-link-${idx}`} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
+                      <input
+                        type="text"
+                        value={link.label}
+                        onChange={(e) => updateNewActivationLinkField(idx, 'label', e.target.value)}
+                        placeholder="Etichetta link"
+                        className={ox.inp}
+                      />
+                      <input
+                        type="url"
+                        value={link.url}
+                        onChange={(e) => updateNewActivationLinkField(idx, 'url', e.target.value)}
+                        placeholder="https://..."
+                        className={ox.inp}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeNewActivationLinkRow(idx)}
+                        disabled={(newActivation.links || []).length <= 1}
+                        className={ox.btnRedGhost}
+                      >
+                        Rimuovi
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <button type="button" onClick={addNewActivationLinkRow} className={`mr-2 ${ox.btnGhostMd}`}>
+                    Aggiungi link
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCreateActivationGuide}
+                    disabled={savingActivation || !newActivation.title.trim()}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    <Plus size={13} />
+                    Aggiungi guida
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -2067,69 +2067,6 @@ const OfficePage = ({
                 Torna a Office
               </button>
             </div>
-
-            {isTecnico && (
-              <div className={ox.panelWhite}>
-                <h3 className={ox.panelHeading}>Nuova linea guida</h3>
-                <div className="space-y-3 mb-3">
-                  <input
-                    type="text"
-                    value={newUsefulGuideline.title}
-                    onChange={(e) => setNewUsefulGuideline((prev) => ({ ...prev, title: e.target.value }))}
-                    placeholder="Titolo (es. Best practice attivazione)"
-                    className={ox.inp}
-                  />
-                  <textarea
-                    value={newUsefulGuideline.description}
-                    onChange={(e) => setNewUsefulGuideline((prev) => ({ ...prev, description: e.target.value }))}
-                    placeholder="Descrizione (anche lunga)…"
-                    className={`${ox.inp} min-h-[12rem] resize-y`}
-                  />
-                </div>
-                <div className="space-y-2">
-                  {(newUsefulGuideline.links || []).map((link, idx) => (
-                    <div key={`new-useful-link-${idx}`} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
-                      <input
-                        type="text"
-                        value={link.label}
-                        onChange={(e) => updateNewUsefulGuidelineLinkField(idx, 'label', e.target.value)}
-                        placeholder="Etichetta link"
-                        className={ox.inp}
-                      />
-                      <input
-                        type="url"
-                        value={link.url}
-                        onChange={(e) => updateNewUsefulGuidelineLinkField(idx, 'url', e.target.value)}
-                        placeholder="https://..."
-                        className={ox.inp}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeNewUsefulGuidelineLinkRow(idx)}
-                        disabled={(newUsefulGuideline.links || []).length <= 1}
-                        className={ox.btnRedGhost}
-                      >
-                        Rimuovi
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-3">
-                  <button type="button" onClick={addNewUsefulGuidelineLinkRow} className={`mr-2 ${ox.btnGhostMd}`}>
-                    Aggiungi link
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCreateUsefulGuideline}
-                    disabled={savingUsefulGuideline || !newUsefulGuideline.title.trim()}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    <Plus size={13} />
-                    Aggiungi linea guida
-                  </button>
-                </div>
-              </div>
-            )}
 
             {loadingUsefulGuidelines ? (
               <div className={ox.panelLoading}>
@@ -2308,6 +2245,69 @@ const OfficePage = ({
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {isTecnico && (
+              <div className={ox.panelWhite}>
+                <h3 className={ox.panelHeading}>Nuova linea guida</h3>
+                <div className="space-y-3 mb-3">
+                  <input
+                    type="text"
+                    value={newUsefulGuideline.title}
+                    onChange={(e) => setNewUsefulGuideline((prev) => ({ ...prev, title: e.target.value }))}
+                    placeholder="Titolo (es. Best practice attivazione)"
+                    className={ox.inp}
+                  />
+                  <textarea
+                    value={newUsefulGuideline.description}
+                    onChange={(e) => setNewUsefulGuideline((prev) => ({ ...prev, description: e.target.value }))}
+                    placeholder="Descrizione (anche lunga)…"
+                    className={`${ox.inp} min-h-[12rem] resize-y`}
+                  />
+                </div>
+                <div className="space-y-2">
+                  {(newUsefulGuideline.links || []).map((link, idx) => (
+                    <div key={`new-useful-link-${idx}`} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
+                      <input
+                        type="text"
+                        value={link.label}
+                        onChange={(e) => updateNewUsefulGuidelineLinkField(idx, 'label', e.target.value)}
+                        placeholder="Etichetta link"
+                        className={ox.inp}
+                      />
+                      <input
+                        type="url"
+                        value={link.url}
+                        onChange={(e) => updateNewUsefulGuidelineLinkField(idx, 'url', e.target.value)}
+                        placeholder="https://..."
+                        className={ox.inp}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeNewUsefulGuidelineLinkRow(idx)}
+                        disabled={(newUsefulGuideline.links || []).length <= 1}
+                        className={ox.btnRedGhost}
+                      >
+                        Rimuovi
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <button type="button" onClick={addNewUsefulGuidelineLinkRow} className={`mr-2 ${ox.btnGhostMd}`}>
+                    Aggiungi link
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCreateUsefulGuideline}
+                    disabled={savingUsefulGuideline || !newUsefulGuideline.title.trim()}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    <Plus size={13} />
+                    Aggiungi linea guida
+                  </button>
+                </div>
               </div>
             )}
           </div>
