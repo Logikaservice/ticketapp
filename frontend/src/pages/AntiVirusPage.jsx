@@ -611,7 +611,7 @@ const AntiVirusPage = ({
                             <>
                                 <div
                                     style={{
-                                        width: sidebarCollapsed ? 0 : Math.max(260, Math.min(380, sidebarWidth)),
+                                        width: sidebarCollapsed ? 0 : Math.max(280, Math.min(420, sidebarWidth)),
                                         ...(embedded ? { backgroundColor: 'var(--hub-chrome-surface)' } : {})
                                     }}
                                     className={`relative flex shrink-0 flex-col border-r ${embedded ? 'border-[color:var(--hub-chrome-border-soft)]' : 'bg-white'} ${sidebarCollapsed ? 'overflow-hidden' : ''} min-h-0`}
@@ -684,7 +684,7 @@ const AntiVirusPage = ({
                                                         <div
                                                             key={dev.device_id}
                                                             onClick={() => handleSelectDevice(dev)}
-                                                            className={`flex cursor-pointer items-center gap-2 px-3 py-2 transition-colors ${
+                                                            className={`flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 transition-colors ${
                                                                 embedded ? 'border-l-4 hover:bg-[color:var(--hub-chrome-hover)]' : 'cursor-pointer hover:bg-gray-50'
                                                             } ${isAdded && !embedded ? 'border-l-4 border-indigo-600 bg-indigo-50' : embedded ? '' : 'border-transparent'}`}
                                                             style={
@@ -700,10 +700,10 @@ const AntiVirusPage = ({
                                                                       : undefined
                                                             }
                                                         >
-                                                            <div className={`flex w-full items-center gap-2 overflow-hidden text-sm ${embedded ? 'text-[color:var(--hub-chrome-text)]' : ''}`}>
+                                                            <div className={`flex w-full items-center gap-1.5 overflow-hidden text-xs ${embedded ? 'text-[color:var(--hub-chrome-text)]' : ''}`}>
                                                                 {showIp && (
                                                                     <>
-                                                                        <span className={`whitespace-nowrap font-mono font-medium ${embedded ? 'text-[color:var(--hub-chrome-text)]' : 'text-gray-800'}`}>{dev.ip_address}</span>
+                                                                        <span className={`whitespace-nowrap font-mono font-semibold ${embedded ? 'text-[color:var(--hub-chrome-text)]' : 'text-gray-800'}`}>{dev.ip_address}</span>
                                                                         <span className={embedded ? 'text-[color:var(--hub-chrome-text-fainter)]' : 'text-gray-300'}>-</span>
                                                                     </>
                                                                 )}
@@ -733,7 +733,7 @@ const AntiVirusPage = ({
 
                         {/* Pannello destro: tabella compilata dal tecnico (le aziende vedono solo questa, in sola lettura) */}
                         <div
-                            className={`relative flex-1 min-h-0 overflow-hidden p-6 md:p-8 ${embedded ? '' : 'bg-gray-50'}`}
+                            className={`relative flex-1 min-h-0 overflow-y-auto p-6 md:p-8 ${embedded ? '' : 'bg-gray-50'}`}
                             style={embedded ? { backgroundColor: 'var(--hub-chrome-page)' } : undefined}
                         >
                             {/* Bottone per riaprire sidebar quando è nascosta */}
