@@ -859,8 +859,7 @@ export default function TechnicianWorkbenchPage({
       backgroundColor: 'var(--hub-chrome-page)',
       color: 'var(--hub-chrome-text)',
       colorScheme: hubSurfaceMode === 'light' ? 'light' : 'dark',
-      ['--hub-accent']: accentHex,
-      ['--hub-accent-border']: hexToRgba(accentHex, 0.52),
+      ...hubModalCssVars(accentHex, hubSurfaceMode),
       ['--hub-accent-glow']: hexToRgba(accentHex, 0.32)
     }),
     [accentHex, hubSurfaceMode]

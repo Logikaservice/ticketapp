@@ -197,11 +197,17 @@ export const HUB_PAGE_BG = '#121212';
 export const HUB_SURFACE = '#1E1E1E';
 
 /** Variabili CSS per moduli/modali allineati all'Hub (focus ring sull'accento). */
-export function hubModalCssVars(accentHex) {
-  const a = normalizeHex(accentHex) || DEFAULT_TECH_HUB_ACCENT;
+export function hubModalCssVars(accentHex, surfaceMode = null) {
+  const aRaw = normalizeHex(accentHex) || DEFAULT_TECH_HUB_ACCENT;
+  const skin = surfaceMode === 'light' || surfaceMode === 'dark' ? surfaceMode : getStoredTechHubSurfaceMode();
+  // In tema chiaro, scuriamo l'accento per mantenere contrasto su superfici bianche,
+  // senza cambiare il "colore scelto" dall'utente (disponibile in --hub-accent-raw).
+  const aFill = skin === 'light' ? darkenHex(aRaw, 0.22) : aRaw;
   return {
-    ['--hub-accent']: a,
-    ['--hub-accent-border']: hexToRgba(a, 0.52)
+    ['--hub-accent-raw']: aRaw,
+    ['--hub-accent']: aFill,
+    ['--hub-accent-fill']: aFill,
+    ['--hub-accent-border']: hexToRgba(aFill, 0.52)
   };
 }
 

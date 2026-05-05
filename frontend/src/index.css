@@ -255,6 +255,8 @@ input.anti-virus-hub-field:-webkit-autofill:focus {
 /* Fallback globali (--hub-chrome-*): allineati a hubChromeCssVariables('dark'); i moduli impostano i valori sopra nei contesti chiari. */
 :root {
   --hub-accent: #c1ff72;
+  --hub-accent-raw: #c1ff72;
+  --hub-accent-fill: #c1ff72;
   --hub-accent-border: rgba(193, 255, 114, 0.52);
   --hub-chrome-page: #121212;
   --hub-chrome-surface: #1e1e1e;

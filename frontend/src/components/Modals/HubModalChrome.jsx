@@ -18,7 +18,7 @@ function modalChromeInlineStyle(ah) {
   const skin = getStoredTechHubSurfaceMode();
   return {
     ...hubChromeCssVariables(skin),
-    ...hubModalCssVars(ah),
+    ...hubModalCssVars(ah, skin),
     colorScheme: skin === 'light' ? 'light' : 'dark'
   };
 }
