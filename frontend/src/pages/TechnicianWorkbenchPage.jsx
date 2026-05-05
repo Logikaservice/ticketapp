@@ -60,7 +60,7 @@ import HubLogikubeMark from '../components/hub/HubLogikubeMark';
 import TicketsHubEmbedded from '../components/hub/TicketsHubEmbedded';
 import HubTimeCard from '../components/hub/HubTimeCard';
 import TicketsCalendar from '../components/TicketsCalendar';
-import { loadHubLayout, getDefaultHubLayout, sanitizeLayoutItems } from '../utils/hubOverviewLayout';
+import { loadHubLayout, saveHubLayout, getDefaultHubLayout, sanitizeLayoutItems } from '../utils/hubOverviewLayout';
 import { buildApiUrl } from '../utils/apiConfig';
 
 const STORAGE_KEY_SIDEBAR_COLLAPSED = 'techHubSidebarCollapsed';
@@ -517,6 +517,38 @@ export default function TechnicianWorkbenchPage({
     else nav?.onOpenNetwork?.();
   }, [canNetworkMonitoring, nav]);
   const hubLayoutUserKey = currentUser?.id ?? currentUser?.email ?? '';
+  const hubPrefsLoadedRef = useRef(false);
+  const hubPrefsSaveTimerRef = useRef(null);
+
+  const fetchTechHubPrefs = useCallback(async () => {
+    if (!getAuthHeader || !currentUser) return null;
+    try {
+      const res = await fetch(buildApiUrl('/api/user-preferences/tech-hub'), {
+        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+        cache: 'no-store'
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (_) {
+      return null;
+    }
+  }, [getAuthHeader, currentUser]);
+
+  const persistTechHubPrefs = useCallback(
+    async (patch) => {
+      if (!getAuthHeader || !currentUser) return;
+      try {
+        await fetch(buildApiUrl('/api/user-preferences/tech-hub'), {
+          method: 'PUT',
+          headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch)
+        });
+      } catch (_) {
+        /* ignore */
+      }
+    },
+    [getAuthHeader, currentUser]
+  );
 
   /** Carica subito dal localStorage: se lo facessimo solo in useEffect, il figlio salverebbe il default e cancellerebbe il salvataggio. */
   const [hubLayout, setHubLayout] = useState(() => {
@@ -536,6 +568,34 @@ export default function TechnicianWorkbenchPage({
     const saved = loadHubLayout(key);
     setHubLayout(sanitizeLayoutItems(saved !== null ? saved : getDefaultHubLayout()));
   }, [currentUser?.id, currentUser?.email]);
+
+  // Carica preferenze Tech Hub dal backend (cross-PC) e applicale.
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      if (!currentUser || !getAuthHeader) return;
+      const prefs = await fetchTechHubPrefs();
+      if (cancelled || !prefs) return;
+
+      const nextAccent = typeof prefs.accentHex === 'string' && prefs.accentHex.trim() ? prefs.accentHex : null;
+      const nextSurface = prefs.surfaceMode === 'light' ? 'light' : prefs.surfaceMode === 'dark' ? 'dark' : null;
+      const nextLayout = Array.isArray(prefs.layout) ? prefs.layout : null;
+
+      if (nextAccent) setAccentHex(nextAccent);
+      if (nextSurface) setHubSurfaceMode(nextSurface);
+      if (nextLayout) {
+        const sanitized = sanitizeLayoutItems(nextLayout);
+        setHubLayout(sanitized);
+        // Mantieni cache locale coerente (stesso formato del resto dell'app)
+        saveHubLayout(hubLayoutUserKey, sanitized);
+      }
+      hubPrefsLoadedRef.current = true;
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser, getAuthHeader, fetchTechHubPrefs, hubLayoutUserKey]);
 
   useEffect(() => {
     if (hubCenterView !== 'overview') setHubLayoutEditMode(false);
@@ -622,6 +682,13 @@ export default function TechnicianWorkbenchPage({
     } catch (_) {
       /* ignore */
     }
+    // Salva anche lato server (cross-device), con debounce.
+    if (hubPrefsLoadedRef.current) {
+      if (hubPrefsSaveTimerRef.current) clearTimeout(hubPrefsSaveTimerRef.current);
+      hubPrefsSaveTimerRef.current = setTimeout(() => {
+        persistTechHubPrefs({ accentHex });
+      }, 500);
+    }
   }, [accentHex]);
 
   useEffect(() => {
@@ -631,7 +698,22 @@ export default function TechnicianWorkbenchPage({
       /* ignore */
     }
     window.dispatchEvent(new Event('tech-hub-surface'));
+    if (hubPrefsLoadedRef.current) {
+      if (hubPrefsSaveTimerRef.current) clearTimeout(hubPrefsSaveTimerRef.current);
+      hubPrefsSaveTimerRef.current = setTimeout(() => {
+        persistTechHubPrefs({ surfaceMode: hubSurfaceMode });
+      }, 500);
+    }
   }, [hubSurfaceMode]);
+
+  // Persist layout sul backend (oltre al localStorage già gestito da HubOverviewSection)
+  useEffect(() => {
+    if (!hubPrefsLoadedRef.current) return;
+    if (hubPrefsSaveTimerRef.current) clearTimeout(hubPrefsSaveTimerRef.current);
+    hubPrefsSaveTimerRef.current = setTimeout(() => {
+      persistTechHubPrefs({ layout: hubLayout });
+    }, 800);
+  }, [hubLayout, persistTechHubPrefs]);
 
   useEffect(() => {
     try {

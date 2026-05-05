@@ -28,6 +28,23 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
       /* ignore */
     }
     setTicketAccentHex(hex);
+
+    // Persistenza cross-device (best-effort)
+    try {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        fetch(buildApiUrl('/api/user-preferences/tech-hub'), {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ accentHex: hex })
+        }).catch(() => {});
+      }
+    } catch (_) {
+      /* ignore */
+    }
   };
 
   return (

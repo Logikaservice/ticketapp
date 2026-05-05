@@ -325,6 +325,29 @@ const recordAccessLog = async (user, req) => {
 // Crea tabella all'avvio
 ensureAccessLogsTable();
 
+// Preferenze utente (tema Hub + layout)
+const ensureUserPreferencesTable = async () => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_preferences (
+        user_id INTEGER PRIMARY KEY,
+        tech_hub_accent TEXT,
+        tech_hub_surface TEXT,
+        tech_hub_layout JSONB,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT fk_user_preferences_user
+          FOREIGN KEY (user_id)
+          REFERENCES users (id)
+          ON DELETE CASCADE
+      )
+    `);
+  } catch (err) {
+    console.error('❌ Errore creazione tabella user_preferences:', err);
+  }
+};
+
+ensureUserPreferencesTable();
+
 // --- MIDDLEWARE ---
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .split(',')
@@ -842,6 +865,7 @@ const { authenticateToken, requireRole } = require('./middleware/authMiddleware'
 
 // --- IMPORTA LE ROUTES ---
 const usersRoutes = require('./routes/users')(pool);
+const userPreferencesRoutes = require('./routes/userPreferences')(pool);
 const ticketsRoutes = require('./routes/tickets')(pool, uploadTicketPhotos, uploadOffertaDocs, io);
 const alertsRoutes = require('./routes/alerts')(pool);
 const googleCalendarRoutes = require('./routes/googleCalendar')(pool);
@@ -1353,6 +1377,7 @@ if (String(process.env.LSIGHT_RDP_ENABLED || '').trim() === '1') {
 // (RTC/WebRTC rimosso: usiamo RDP via RD Gateway)
 
 app.use('/api/users', authenticateToken, usersRoutes);
+app.use('/api/user-preferences', userPreferencesRoutes);
 app.use('/api/tickets', authenticateToken, ticketsRoutes);
 app.use('/api/alerts', authenticateToken, alertsRoutes);
 app.use('/api/keepass', authenticateToken, keepassRoutes);
