@@ -44,6 +44,16 @@ async function getCachedKeepassMap(password) {
 const ALL_EVENTS_CACHE_TTL_MS = 4000; // 4s: abbastanza per assorbire burst, non "stale" lato UI
 const _allEventsCache = new Map(); // key -> { at, payload }
 
+// ─── Cache breve risposta Anti-Virus devices (anti-latency KeePass) ───
+// L'endpoint può arricchire da KeePass (Drive): meglio non bloccare UI e assorbire burst.
+const ANTIVIRUS_DEVICES_CACHE_TTL_MS = 4000;
+const _antivirusDevicesCache = new Map(); // key -> { at, payload }
+
+function _antivirusDevicesCacheKey(req, aziendaId) {
+  const who = `${req.user?.id ?? ''}|${req.user?.ruolo ?? ''}|${(req.user?.azienda || '').toString()}`;
+  return `${who}|av-devices|${String(aziendaId ?? '')}`;
+}
+
 function _allEventsCacheKey(req) {
   // Include utente/ruolo per evitare leak cross-user (anche se oggi il filtro è query-driven).
   const who = `${req.user?.id ?? ''}|${req.user?.ruolo ?? ''}|${(req.user?.azienda || '').toString()}`;
@@ -8338,6 +8348,17 @@ pause
         return res.status(400).json({ error: 'ID azienda non valido' });
       }
 
+      // Cache breve per assorbire refresh ravvicinati e evitare blocchi KeePass
+      try {
+        const ck = _antivirusDevicesCacheKey(req, parsedAziendaId);
+        const hit = _antivirusDevicesCache.get(ck);
+        if (hit && (Date.now() - hit.at) < ANTIVIRUS_DEVICES_CACHE_TTL_MS) {
+          return res.json(hit.payload);
+        }
+      } catch (_) {
+        // no-op: cache best-effort
+      }
+
       await ensureTables();
 
       const devices = await pool.query(`
@@ -8413,7 +8434,26 @@ pause
           if (nameRes.rows.length > 0 && nameRes.rows[0].azienda) {
             aziendaName = (nameRes.rows[0].azienda || '').trim().toLowerCase();
           }
-          const keepassMap = await keepassDriveService.getMacToTitleMap(keepassPassword);
+          // Non bloccare la risposta se KeePass/Drive è lento: in quel caso saltiamo l'arricchimento.
+          let keepassMap = null;
+          try {
+            keepassMap = await _withTimeout(keepassDriveService.getMacToTitleMap(keepassPassword), 1500);
+          } catch (_) {
+            keepassMap = null;
+          }
+          if (!keepassMap) {
+            // nessun arricchimento, ritorniamo i dati base
+            const payload = sortedDevices;
+            try {
+              const ck = _antivirusDevicesCacheKey(req, parsedAziendaId);
+              _antivirusDevicesCache.set(ck, { at: Date.now(), payload });
+              if (_antivirusDevicesCache.size > 500) {
+                const keys = Array.from(_antivirusDevicesCache.keys()).slice(0, 200);
+                keys.forEach((k) => _antivirusDevicesCache.delete(k));
+              }
+            } catch (_) {}
+            return res.json(payload);
+          }
           for (const row of sortedDevices) {
             const rawMac = (row.mac_address || '').trim();
             if (!rawMac) continue;
@@ -8444,6 +8484,16 @@ pause
           console.warn('⚠️ Anti-Virus arricchimento KeePass:', kpErr.message);
         }
       }
+
+      // Cache finale best-effort
+      try {
+        const ck = _antivirusDevicesCacheKey(req, parsedAziendaId);
+        _antivirusDevicesCache.set(ck, { at: Date.now(), payload: sortedDevices });
+        if (_antivirusDevicesCache.size > 500) {
+          const keys = Array.from(_antivirusDevicesCache.keys()).slice(0, 200);
+          keys.forEach((k) => _antivirusDevicesCache.delete(k));
+        }
+      } catch (_) {}
 
       res.json(sortedDevices);
     } catch (err) {
