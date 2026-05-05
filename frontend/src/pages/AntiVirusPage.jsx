@@ -12,7 +12,9 @@ import {
   Smartphone,
   Tablet,
   MessageCircle,
-  ArrowLeft
+  ArrowLeft,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import AntiVirusIntroCard from '../components/AntiVirusIntroCard';
@@ -81,7 +83,8 @@ const AntiVirusPage = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(false);
     const [activeDropdown, setActiveDropdown] = useState(null); // ID of the row with open icon dropdown
-    const [sidebarWidth, setSidebarWidth] = useState(450); // Default width in px
+    const [sidebarWidth, setSidebarWidth] = useState(320); // Default width in px (più compatta)
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
     // Sincronizza lo stato locale con initialCompanyId se cambia esternamente
     useEffect(() => {
@@ -608,25 +611,39 @@ const AntiVirusPage = ({
                             <>
                                 <div
                                     style={{
-                                        width: sidebarWidth,
+                                        width: sidebarCollapsed ? 0 : Math.max(260, Math.min(380, sidebarWidth)),
                                         ...(embedded ? { backgroundColor: 'var(--hub-chrome-surface)' } : {})
                                     }}
-                                    className={`relative flex shrink-0 flex-col border-r ${embedded ? 'border-[color:var(--hub-chrome-border-soft)]' : 'bg-white'}`}
+                                    className={`relative flex shrink-0 flex-col border-r ${embedded ? 'border-[color:var(--hub-chrome-border-soft)]' : 'bg-white'} ${sidebarCollapsed ? 'overflow-hidden' : ''} min-h-0`}
                                 >
                                     <div className={`space-y-3 border-b p-4 ${embedded ? 'border-[color:var(--hub-chrome-border-soft)]' : ''}`}>
-                                        <button
-                                            type="button"
-                                            onClick={handleAddManualDevice}
-                                            className={
-                                                embedded
-                                                    ? 'flex w-full items-center justify-center gap-2 rounded-lg py-2 pl-4 pr-4 text-sm font-medium shadow-sm transition hover:brightness-110'
-                                                    : 'flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2 pl-4 pr-4 text-sm font-medium text-white transition-colors hover:bg-indigo-700'
-                                            }
-                                            style={embedded ? primaryBtnStyle : undefined}
-                                        >
-                                            <Plus size={16} />
-                                            Aggiungi Dispositivo
-                                        </button>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={handleAddManualDevice}
+                                                className={
+                                                    embedded
+                                                        ? 'flex w-full items-center justify-center gap-2 rounded-lg py-2 pl-4 pr-4 text-sm font-medium shadow-sm transition hover:brightness-110'
+                                                        : 'flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2 pl-4 pr-4 text-sm font-medium text-white transition-colors hover:bg-indigo-700'
+                                                }
+                                                style={embedded ? primaryBtnStyle : undefined}
+                                            >
+                                                <Plus size={16} />
+                                                Aggiungi Dispositivo
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setSidebarCollapsed(true)}
+                                                className={`shrink-0 rounded-lg border px-2 py-2 text-xs font-semibold transition ${
+                                                    embedded
+                                                        ? 'border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)]'
+                                                        : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
+                                                }`}
+                                                title="Nascondi lista IP"
+                                            >
+                                                <ChevronsLeft size={16} />
+                                            </button>
+                                        </div>
                                         <div className="relative">
                                             <Search
                                                 className={`absolute left-3 top-1/2 -translate-y-1/2 ${embedded ? 'text-[color:var(--hub-chrome-text-fainter)]' : 'text-gray-400'}`}
@@ -646,7 +663,7 @@ const AntiVirusPage = ({
                                             />
                                         </div>
                                     </div>
-                                    <div className="flex-1 overflow-y-auto">
+                                    <div className="flex-1 min-h-0 overflow-y-auto">
                                         {!selectedCompanyId ? (
                                             <div className={`p-8 text-center ${embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-500'}`}>
                                                 Seleziona un cliente per visualizzare i dispositivi
@@ -705,18 +722,37 @@ const AntiVirusPage = ({
                                         )}
                                     </div>
                                 </div>
-                                <div
-                                    className={`z-10 w-1 cursor-col-resize transition-colors ${embedded ? 'bg-[color:var(--hub-chrome-muted-fill)] hover:bg-[color:var(--hub-accent)]' : 'bg-gray-100 hover:bg-indigo-300'}`}
-                                    onMouseDown={startResizing}
-                                />
+                                {!sidebarCollapsed && (
+                                    <div
+                                        className={`z-10 w-1 cursor-col-resize transition-colors ${embedded ? 'bg-[color:var(--hub-chrome-muted-fill)] hover:bg-[color:var(--hub-accent)]' : 'bg-gray-100 hover:bg-indigo-300'}`}
+                                        onMouseDown={startResizing}
+                                    />
+                                )}
                             </>
                         )}
 
                         {/* Pannello destro: tabella compilata dal tecnico (le aziende vedono solo questa, in sola lettura) */}
                         <div
-                            className={`flex-1 overflow-y-auto p-8 ${embedded ? '' : 'bg-gray-50'}`}
+                            className={`relative flex-1 min-h-0 overflow-hidden p-6 md:p-8 ${embedded ? '' : 'bg-gray-50'}`}
                             style={embedded ? { backgroundColor: 'var(--hub-chrome-page)' } : undefined}
                         >
+                            {/* Bottone per riaprire sidebar quando è nascosta */}
+                            {!readOnly && sidebarCollapsed && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSidebarCollapsed(false)}
+                                    className={`absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-semibold transition ${
+                                        embedded
+                                            ? 'border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)]'
+                                            : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                                    }`}
+                                    title="Mostra lista IP"
+                                >
+                                    <ChevronsRight size={16} />
+                                    IP
+                                </button>
+                            )}
+
                             {selectedDeviceIds.length > 0 ? (
                                 <div
                                     className={`relative overflow-visible rounded-xl border shadow-sm ${embedded ? 'border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well-mid)]' : 'border bg-white'}`}
