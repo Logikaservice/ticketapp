@@ -12,11 +12,84 @@ const fs = require('fs');
 const { Pool } = require('pg');
 const http = require('http');
 const { Server } = require('socket.io');
+const crypto = require('crypto');
 const NetworkMonitorCron = require('./services/NetworkMonitorCron');
 
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Request tracing / diagnostics (per capire 502 & lentezze)
+// - Aggiunge x-request-id
+// - Logga richieste lente / interrotte (client abort / proxy timeout) per /api/keepass e /api/network-monitoring
+// ─────────────────────────────────────────────────────────────────────────────
+app.use((req, res, next) => {
+  const rid =
+    (typeof crypto.randomUUID === 'function')
+      ? crypto.randomUUID()
+      : crypto.randomBytes(12).toString('hex');
+
+  req.requestId = rid;
+  res.setHeader('x-request-id', rid);
+
+  const start = process.hrtime.bigint();
+  const isDiagRoute =
+    (req.originalUrl || '').startsWith('/api/keepass') ||
+    (req.originalUrl || '').startsWith('/api/network-monitoring');
+
+  const baseMeta = () => ({
+    rid,
+    method: req.method,
+    url: req.originalUrl || req.url,
+    user: req.user ? { id: req.user.id, role: req.user.ruolo } : undefined,
+  });
+
+  const logLine = (level, msg, extra) => {
+    const line = {
+      ts: new Date().toISOString(),
+      level,
+      msg,
+      ...baseMeta(),
+      ...(extra || {}),
+    };
+    // console.* perché i log finiscono in PM2/journal
+    if (level === 'error') console.error('[diag]', JSON.stringify(line));
+    else if (level === 'warn') console.warn('[diag]', JSON.stringify(line));
+    else console.log('[diag]', JSON.stringify(line));
+  };
+
+  // Se il proxy chiude prima della risposta (es. timeout Nginx), "close" arriva senza finish.
+  res.on('finish', () => {
+    if (!isDiagRoute) return;
+    const ms = Number(process.hrtime.bigint() - start) / 1e6;
+    // Log solo errori o lentezza, per non inondare
+    if (res.statusCode >= 500 || ms >= 2000) {
+      logLine(res.statusCode >= 500 ? 'error' : 'warn', 'request_done', {
+        status: res.statusCode,
+        ms: Math.round(ms),
+      });
+    }
+  });
+
+  res.on('close', () => {
+    if (!isDiagRoute) return;
+    if (res.writableEnded) return; // già finita (finish sopra)
+    const ms = Number(process.hrtime.bigint() - start) / 1e6;
+    logLine('warn', 'request_closed_before_finish', {
+      status: res.statusCode,
+      ms: Math.round(ms),
+    });
+  });
+
+  req.on('aborted', () => {
+    if (!isDiagRoute) return;
+    const ms = Number(process.hrtime.bigint() - start) / 1e6;
+    logLine('warn', 'request_aborted', { ms: Math.round(ms) });
+  });
+
+  next();
+});
 
 // --- CONFIGURAZIONE DATABASE ---
 // ✅ FIX: Parsa l'URL e passa parametri separati per gestire password con caratteri speciali
@@ -1490,6 +1563,9 @@ app.use((err, req, res, next) => {
   console.error('❌ Stack:', err.stack);
   console.error('❌ Route:', req.method, req.path);
   console.error('❌ URL completo:', req.originalUrl);
+  if (req.requestId) {
+    console.error('❌ requestId:', req.requestId);
+  }
 
 
   // Non esporre dettagli dell'errore in produzione
@@ -1497,6 +1573,7 @@ app.use((err, req, res, next) => {
 
   res.status(err.status || 500).json({
     error: err.message || 'Errore interno del server',
+    requestId: req.requestId,
     ...(isDevelopment && { stack: err.stack, details: err })
   });
 });
