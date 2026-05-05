@@ -50,7 +50,9 @@ const EmailPage = ({
 }) => {
   const accent = useMemo(() => normalizeHex(accentHexProp) || getStoredTechHubAccent(), [accentHexProp]);
   const isCliente = currentUser?.ruolo === 'cliente';
-  const showAssistenzaButton = isCliente && typeof onOpenTicket === 'function';
+  const showTicketButton =
+    typeof onOpenTicket === 'function' &&
+    (currentUser?.ruolo === 'cliente' || currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin');
   const showPasswordColumn = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin' || (currentUser?.ruolo === 'cliente' && currentUser?.admin_companies && currentUser.admin_companies.length > 0);
   const isTecnico = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
   const [loading, setLoading] = useState(false);
@@ -354,7 +356,7 @@ const EmailPage = ({
 
     const percent = parseFloat(q.usage_percent) || 0;
     const colors = getBarColor(percent);
-    const colCount = 4 + (showPasswordColumn ? 1 : 0) + (showAssistenzaButton ? 1 : 0);
+    const colCount = 4 + (showPasswordColumn ? 1 : 0) + (showTicketButton ? 1 : 0);
     const activity = getActivityStatus(q.last_email_date);
     const actHub =
       activity.status === 'active'
@@ -663,11 +665,11 @@ const EmailPage = ({
                     >
                       Scadenza
                     </th>
-                    {showAssistenzaButton && (
+                    {showTicketButton && (
                       <th
                         className={`min-w-[140px] w-40 px-3 py-1.5 text-left font-semibold ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-700'}`}
                       >
-                        Assistenza
+                        Ticket
                       </th>
                     )}
                   </tr>
@@ -708,7 +710,7 @@ const EmailPage = ({
                           }
                         >
                           <td
-                            colSpan={4 + (showPasswordColumn ? 1 : 0) + (showAssistenzaButton ? 1 : 0)}
+                            colSpan={4 + (showPasswordColumn ? 1 : 0) + (showTicketButton ? 1 : 0)}
                             className={`px-3 py-1 font-medium ${embedded ? 'text-[color:var(--hub-chrome-band-info-text)]' : 'text-sky-800'} ${isNested ? 'pl-10' : ''}`}
                           >
                             {isNested && (
@@ -809,13 +811,23 @@ const EmailPage = ({
                               '—'
                             )}
                           </td>
-                          {showAssistenzaButton && (
+                          {showTicketButton && (
                             <td className={`${cellPad} min-w-[140px] whitespace-nowrap`}>
                               <button
                                 type="button"
                                 onClick={() => onOpenTicket({
-                                  titolo: `Assistenza Email - ${(item.title || item.username || 'Account').toString().trim()}`,
-                                  descrizione: `Richiesta assistenza relativa all'account email:\n\nTitolo: ${item.title || '—'}\nUtente: ${item.username || '—'}\nURL: ${item.url || '—'}\nAzienda: ${companyName || '—'}`
+                                  titolo: `Supporto Email - ${(item.title || item.username || 'Account').toString().trim()}`,
+                                  descrizione: [
+                                    `Richiesta assistenza relativa all'account email.`,
+                                    '',
+                                    `Azienda: ${companyName || '—'}`,
+                                    `Titolo: ${item.title || '—'}`,
+                                    `Utente: ${item.username || '—'}`,
+                                    `URL: ${item.url || '—'}`,
+                                    `Scadenza: ${item.expires ? formatExpiry(item.expires) : '—'}`,
+                                    '',
+                                    'Descrivi qui il problema o la richiesta:'
+                                  ].join('\n')
                                 })}
                                 className={`inline-flex items-center gap-1 whitespace-nowrap rounded border px-2 py-1 text-xs font-medium transition-colors ${
                                   embedded
