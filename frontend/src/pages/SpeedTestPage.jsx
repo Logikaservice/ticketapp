@@ -26,7 +26,8 @@ import {
   normalizeHex,
   getStoredTechHubAccent,
   hubEmbeddedBackBtnInlineStyle,
-  readableOnAccent
+  readableOnAccent,
+  darkenHex
 } from '../utils/techHubAccent';
 import { useTechHubSurfaceMode } from '../hooks/useTechHubSurfaceMode';
 
@@ -601,8 +602,9 @@ const styles = {
 };
 
 /** Stili Speed Test quando è integrato nell’Hub (no slate #0f172a / viola #7c3aed di default). */
-function buildHubSpeedStyles(accentHex) {
+function buildHubSpeedStyles(accentHex, hubSurfaceMode = 'dark') {
   const a = normalizeHex(accentHex) || getStoredTechHubAccent();
+  const fill = hubSurfaceMode === 'light' ? darkenHex(a, 0.22) : a;
   const border = 'var(--hub-chrome-border-soft)';
   const borderHover = hexToRgba(a, 0.48);
   const cardBg = 'var(--hub-chrome-well-mid)';
@@ -665,9 +667,9 @@ function buildHubSpeedStyles(accentHex) {
       }
       return {
         ...styles.periodBtn(true),
-        background: a,
-        color: readableOnAccent(a),
-        border: `1px solid ${hexToRgba(a, 0.55)}`
+        background: fill,
+        color: readableOnAccent(fill),
+        border: `1px solid ${hexToRgba(fill, 0.55)}`
       };
     },
     backBtnSquare: {
@@ -964,8 +966,8 @@ const SpeedTestPage = ({
   const pageScrollRef = useRef(null);
   const accent = useMemo(() => normalizeHex(accentHexProp) || getStoredTechHubAccent(), [accentHexProp]);
   const hubSurface = useTechHubSurfaceMode();
-  const palette = useMemo(() => (embedded ? buildHubSpeedStyles(accent) : styles), [embedded, accent]);
-  const chartDownloadColor = embedded ? accent : '#7c3aed';
+  const palette = useMemo(() => (embedded ? buildHubSpeedStyles(accent, hubSurface) : styles), [embedded, accent, hubSurface]);
+  const chartDownloadColor = embedded ? (hubSurface === 'light' ? darkenHex(accent, 0.26) : accent) : '#7c3aed';
   const chartUploadColor = embedded ? '#eab308' : '#06b6d4';
   const ui = useMemo(
     () =>
