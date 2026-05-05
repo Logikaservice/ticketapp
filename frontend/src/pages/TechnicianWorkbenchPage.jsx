@@ -56,6 +56,7 @@ import {
 } from '../utils/techHubAccent';
 import HubOverviewSection from '../components/hub/HubOverviewSection';
 import TemporarySuppliesSummaryHubModal from '../components/hub/TemporarySuppliesSummaryHubModal';
+import OfficeExpiriesHubModal from '../components/hub/OfficeExpiriesHubModal';
 import HubLogikubeMark from '../components/hub/HubLogikubeMark';
 import TicketsHubEmbedded from '../components/hub/TicketsHubEmbedded';
 import HubTimeCard from '../components/hub/HubTimeCard';
@@ -484,9 +485,10 @@ export default function TechnicianWorkbenchPage({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   /** Centro Hub: panoramica a griglia oppure modulo integrato (Comunicazioni, Email, Anti-Virus…). */
   const [hubCenterView, setHubCenterView] = useState(
-    /** @type {'overview' | 'comunicazioni' | 'comm-agent-manager' | 'email' | 'office' | 'office-expiries' | 'antivirus' | 'dispositivi' | 'network-monitoring' | 'speedtest' | 'contratti' | 'avvisi' | 'tickets'} */ ('overview')
+    /** @type {'overview' | 'comunicazioni' | 'comm-agent-manager' | 'email' | 'office' | 'antivirus' | 'dispositivi' | 'network-monitoring' | 'speedtest' | 'contratti' | 'avvisi' | 'tickets'} */ ('overview')
   );
   const [fornitureResocontoOpen, setFornitureResocontoOpen] = useState(false);
+  const [officeExpiriesOpen, setOfficeExpiriesOpen] = useState(false);
   const isTechnician = currentUser?.ruolo === 'tecnico';
   const canSpeedTest = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
   const canNetworkMonitoring = useMemo(
@@ -559,9 +561,8 @@ export default function TechnicianWorkbenchPage({
   const [hubLayoutEditMode, setHubLayoutEditMode] = useState(false);
   const skipHubLayoutUserReloadRef = useRef(true);
 
-  // Scadenze Office (Hub badge + lista)
+  // Scadenze Office (Hub badge + modale)
   const [officeExpiryDays] = useState(30);
-  const [officeExpiryLoading, setOfficeExpiryLoading] = useState(false);
   const [officeExpiryItems, setOfficeExpiryItems] = useState([]);
   const [officeExpiryCompanyToOpen, setOfficeExpiryCompanyToOpen] = useState('');
 
@@ -572,7 +573,6 @@ export default function TechnicianWorkbenchPage({
       currentUser?.ruolo === 'cliente' && Array.isArray(currentUser?.admin_companies) && currentUser.admin_companies.length > 0;
     if (!isTecnicoOrAdmin && !isAdminAziendale) return;
 
-    setOfficeExpiryLoading(true);
     try {
       const res = await fetch(buildApiUrl(`/api/keepass/office-expiries?days=${officeExpiryDays}`), {
         headers: getAuthHeader(),
@@ -584,8 +584,6 @@ export default function TechnicianWorkbenchPage({
       setOfficeExpiryItems(list);
     } catch (_) {
       setOfficeExpiryItems([]);
-    } finally {
-      setOfficeExpiryLoading(false);
     }
   }, [getAuthHeader, currentUser, officeExpiryDays]);
 
@@ -601,7 +599,7 @@ export default function TechnicianWorkbenchPage({
   }, [officeExpiryItems]);
 
   const openOfficeExpiries = useCallback(() => {
-    setHubCenterView('office-expiries');
+    setOfficeExpiriesOpen(true);
   }, []);
 
   useEffect(() => {
@@ -1315,7 +1313,6 @@ export default function TechnicianWorkbenchPage({
               hubCenterView === 'comm-agent-manager' ||
               hubCenterView === 'email' ||
               hubCenterView === 'office' ||
-              hubCenterView === 'office-expiries' ||
               hubCenterView === 'antivirus' ||
               hubCenterView === 'dispositivi' ||
               hubCenterView === 'speedtest' ||
@@ -1405,70 +1402,6 @@ export default function TechnicianWorkbenchPage({
                 onNavigateVpn={() => nav?.onOpenVpn?.()}
                 onNavigateHome={() => setHubCenterView('overview')}
               />
-            ) : hubCenterView === 'office-expiries' ? (
-              <div className="max-w-4xl">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold text-[color:var(--hub-chrome-text)]">Scadenze Office</div>
-                    <div className="mt-0.5 text-xs text-[color:var(--hub-chrome-text-faint)]">
-                      {officeExpiryLoading ? 'Caricamento…' : `${officeExpiryCount} scadenze (entro ${officeExpiryDays} giorni o già scadute)`}
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => loadOfficeExpiries()}
-                      className="rounded-xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] px-3 py-2 text-xs font-semibold text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)]"
-                    >
-                      Aggiorna
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setHubCenterView('overview')}
-                      className="rounded-xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] px-3 py-2 text-xs font-semibold text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)]"
-                    >
-                      Indietro
-                    </button>
-                  </div>
-                </div>
-
-                {officeExpiryCount === 0 ? (
-                  <div className="rounded-2xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] p-4 text-sm text-[color:var(--hub-chrome-text-faint)]">
-                    Nessuna scadenza Office rilevata.
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {officeExpiryItems.map((it, idx) => {
-                      const daysLeft = typeof it?.daysLeft === 'number' ? it.daysLeft : null;
-                      const expired = typeof daysLeft === 'number' && daysLeft < 0;
-                      const soon = typeof daysLeft === 'number' && daysLeft >= 0 && daysLeft <= officeExpiryDays;
-                      const chipCls = expired || soon ? 'bg-red-500/10 text-red-600 border-red-500/30' : 'bg-slate-500/10 text-slate-600 border-slate-500/30';
-                      const chipText = expired ? 'Scaduta' : typeof daysLeft === 'number' ? `${daysLeft} gg` : '—';
-                      return (
-                        <button
-                          key={`${it?.aziendaName || ''}-${it?.title || ''}-${idx}`}
-                          type="button"
-                          onClick={() => {
-                            setOfficeExpiryCompanyToOpen(String(it?.aziendaName || ''));
-                            setHubCenterView('office');
-                          }}
-                          className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] p-4 text-left hover:bg-[color:var(--hub-chrome-hover)]"
-                        >
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-semibold text-[color:var(--hub-chrome-text)]">
-                              {it?.aziendaName || 'Azienda'}
-                            </div>
-                            <div className="mt-0.5 truncate text-xs text-[color:var(--hub-chrome-text-faint)]">
-                              {it?.title || 'Office'}{it?.username ? ` · ${it.username}` : ''}
-                            </div>
-                          </div>
-                          <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-bold ${chipCls}`}>{chipText}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
             ) : hubCenterView === 'antivirus' ? (
               <AntiVirusPage
                 embedded
@@ -1768,6 +1701,19 @@ export default function TechnicianWorkbenchPage({
               }
             : undefined
         }
+      />
+
+      <OfficeExpiriesHubModal
+        open={officeExpiriesOpen}
+        onClose={() => setOfficeExpiriesOpen(false)}
+        getAuthHeader={getAuthHeader}
+        currentUser={currentUser}
+        accentHex={accentHex}
+        days={officeExpiryDays}
+        onOpenCompany={(aziendaName) => {
+          setOfficeExpiryCompanyToOpen(String(aziendaName || ''));
+          setHubCenterView('office');
+        }}
       />
     </div>
   );
