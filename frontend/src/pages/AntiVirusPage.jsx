@@ -509,7 +509,7 @@ const AntiVirusPage = ({
     };
 
     const rootClassName = embedded
-        ? 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[color:var(--hub-chrome-border-soft)] font-sans'
+        ? 'flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[color:var(--hub-chrome-border-soft)] font-sans'
         : 'fixed inset-0 z-50 flex flex-col bg-gray-100 font-sans';
 
     return (
@@ -583,7 +583,7 @@ const AntiVirusPage = ({
             </div>
 
             {/* Content */}
-            <div className="flex flex-1 min-h-0 overflow-hidden">
+            <div className="flex h-full flex-1 min-h-0 overflow-hidden">
                 {!selectedCompanyId ? (
                     <div
                         className={`flex-1 overflow-auto ${embedded ? 'bg-[transparent] px-4 py-4 md:px-5' : 'p-6'}`}
@@ -733,9 +733,10 @@ const AntiVirusPage = ({
 
                         {/* Pannello destro: tabella compilata dal tecnico (le aziende vedono solo questa, in sola lettura) */}
                         <div
-                            className={`relative flex-1 min-h-0 overflow-y-auto p-6 md:p-8 ${embedded ? '' : 'bg-gray-50'}`}
+                            className={`relative flex-1 min-h-0 overflow-hidden p-6 md:p-8 ${embedded ? '' : 'bg-gray-50'}`}
                             style={embedded ? { backgroundColor: 'var(--hub-chrome-page)' } : undefined}
                         >
+                            <div className="h-full min-h-0 overflow-y-auto">
                             {/* Bottone per riaprire sidebar quando è nascosta */}
                             {!readOnly && sidebarCollapsed && (
                                 <button
@@ -1077,6 +1078,7 @@ const AntiVirusPage = ({
                                     </p>
                                 </div>
                             )}
+                            </div>
                         </div>
                     </>
                 )}
