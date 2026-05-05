@@ -13,6 +13,40 @@ const telegramService = require('../utils/telegramService');
 module.exports = function createKeepassRouter(pool) {
   const router = express.Router();
 
+  // ─── Anti-502: cache + timeout sulle route KeePass più pesanti ───
+  // Queste route possono dipendere da Google Drive / parsing KDBX; se il proxy va in timeout, il browser vede 502.
+  // Strategia: rispondiamo velocemente con cache "last good" quando Drive è lento.
+  const KEEPASS_HOT_CACHE_TTL_MS = 30_000; // 30s: stabilizza hub (badge/modali) senza diventare troppo stale
+  const KEEPASS_HOT_TIMEOUT_MS = 1_500; // sotto ai timeout proxy tipici
+  const _keepassHotCache = new Map(); // key -> { at, payload }
+
+  async function _withTimeout(promise, ms) {
+    let t;
+    const timeout = new Promise((_, reject) => {
+      t = setTimeout(() => reject(new Error('timeout')), ms);
+    });
+    try {
+      return await Promise.race([promise, timeout]);
+    } finally {
+      clearTimeout(t);
+    }
+  }
+
+  function _hotCacheGet(key) {
+    const hit = _keepassHotCache.get(key);
+    if (!hit) return null;
+    if ((Date.now() - hit.at) > KEEPASS_HOT_CACHE_TTL_MS) return null;
+    return hit.payload;
+  }
+
+  function _hotCacheSet(key, payload) {
+    _keepassHotCache.set(key, { at: Date.now(), payload });
+    if (_keepassHotCache.size > 500) {
+      const keys = Array.from(_keepassHotCache.keys()).slice(0, 200);
+      keys.forEach((k) => _keepassHotCache.delete(k));
+    }
+  }
+
   // Configurazione multer per upload file XML
   const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -1830,8 +1864,28 @@ module.exports = function createKeepassRouter(pool) {
         }
       }
 
-      const rows = await keepassDriveService.getOfficeUpcomingExpiriesAll(keepassPassword, now, limit, allowed);
-      return res.json({ days, items: rows || [] });
+      const cacheKey = `office-expiries|days=${days}|who=${req.user?.id ?? ''}|role=${userRole}|allowed=${Array.isArray(allowed) ? allowed.join(',') : ''}`;
+      const cached = _hotCacheGet(cacheKey);
+      if (cached) {
+        return res.json(cached);
+      }
+
+      let rows;
+      try {
+        rows = await _withTimeout(
+          keepassDriveService.getOfficeUpcomingExpiriesAll(keepassPassword, now, limit, allowed),
+          KEEPASS_HOT_TIMEOUT_MS
+        );
+      } catch (e) {
+        const fallback = _hotCacheGet(cacheKey);
+        if (fallback) return res.json(fallback);
+        // Risposta rapida (evita 502): nessuna cache ancora disponibile
+        return res.json({ days, items: [] });
+      }
+
+      const payload = { days, items: rows || [] };
+      _hotCacheSet(cacheKey, payload);
+      return res.json(payload);
     } catch (err) {
       console.error('❌ Errore office-expiries:', err);
       return res.status(500).json({
@@ -2919,12 +2973,41 @@ module.exports = function createKeepassRouter(pool) {
       const now = new Date();
       const limit = new Date(now);
       limit.setDate(limit.getDate() + days);
-      const aziendeResult = await pool.query(
-        `SELECT TRIM(u.azienda) AS azienda FROM users u WHERE u.ruolo = 'cliente' AND u.azienda IS NOT NULL AND TRIM(u.azienda) != '' GROUP BY TRIM(u.azienda) ORDER BY azienda`
-      );
-      const aziendeNames = (aziendeResult.rows || []).map(r => (r.azienda || '').split(':')[0].trim()).filter(Boolean);
-      const results = await keepassDriveService.getEmailUpcomingExpiriesAll(keepassPassword, aziendeNames, now, limit);
-      res.json(results);
+
+      const cacheKey = `email-expiries|days=${days}|who=${req.user?.id ?? ''}|role=${userRole}`;
+      const cached = _hotCacheGet(cacheKey);
+      if (cached) {
+        return res.json(cached);
+      }
+
+      let aziendeNames = [];
+      try {
+        const aziendeResult = await pool.query(
+          `SELECT TRIM(u.azienda) AS azienda FROM users u WHERE u.ruolo = 'cliente' AND u.azienda IS NOT NULL AND TRIM(u.azienda) != '' GROUP BY TRIM(u.azienda) ORDER BY azienda`
+        );
+        aziendeNames = (aziendeResult.rows || []).map(r => (r.azienda || '').split(':')[0].trim()).filter(Boolean);
+      } catch (e) {
+        // Se il DB è lento, non bloccare: fallback cache/empty (evita 502)
+        const fallback = _hotCacheGet(cacheKey);
+        if (fallback) return res.json(fallback);
+        return res.json([]);
+      }
+
+      let results;
+      try {
+        results = await _withTimeout(
+          keepassDriveService.getEmailUpcomingExpiriesAll(keepassPassword, aziendeNames, now, limit),
+          KEEPASS_HOT_TIMEOUT_MS
+        );
+      } catch (e) {
+        const fallback = _hotCacheGet(cacheKey);
+        if (fallback) return res.json(fallback);
+        return res.json([]);
+      }
+
+      const payload = Array.isArray(results) ? results : (Array.isArray(results?.items) ? results.items : []);
+      _hotCacheSet(cacheKey, payload);
+      res.json(payload);
     } catch (err) {
       console.error('❌ Errore email-upcoming-expiries:', err);
       res.status(500).json({ error: 'Errore interno' });
