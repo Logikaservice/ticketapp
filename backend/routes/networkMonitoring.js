@@ -38,6 +38,35 @@ async function getCachedKeepassMap(password) {
     return _keepassMapCache || null;
   }
 }
+
+// ─── Cache breve risposta /all/events (anti-burst UI) ───
+// Evita 502 quando il frontend fa retry/refresh ravvicinati (auto-refresh / filtri / count).
+const ALL_EVENTS_CACHE_TTL_MS = 4000; // 4s: abbastanza per assorbire burst, non "stale" lato UI
+const _allEventsCache = new Map(); // key -> { at, payload }
+
+function _allEventsCacheKey(req) {
+  // Include utente/ruolo per evitare leak cross-user (anche se oggi il filtro è query-driven).
+  const who = `${req.user?.id ?? ''}|${req.user?.ruolo ?? ''}|${(req.user?.azienda || '').toString()}`;
+  // Ordine query stabile
+  const q = req.query || {};
+  const qp = Object.keys(q)
+    .sort()
+    .map((k) => `${k}=${Array.isArray(q[k]) ? q[k].join(',') : String(q[k] ?? '')}`)
+    .join('&');
+  return `${who}|${req.path}|${qp}`;
+}
+
+async function _withTimeout(promise, ms) {
+  let t;
+  const timeout = new Promise((_, reject) => {
+    t = setTimeout(() => reject(new Error('timeout')), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(t);
+  }
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Chiavi allineate a frontend/src/utils/deviceTypeIcons.js (AVAILABLE_ICONS)
@@ -4013,6 +4042,13 @@ module.exports = (pool, io) => {
       const eventType = req.query.event_type || ''; // all, device, agent
       const count24h = req.query.count24h === 'true';
 
+      // Cache breve: se UI fa retry ravvicinati, rispondiamo subito.
+      const cacheKey = _allEventsCacheKey(req);
+      const cacheHit = _allEventsCache.get(cacheKey);
+      if (cacheHit && (Date.now() - (cacheHit.at || 0)) < ALL_EVENTS_CACHE_TTL_MS) {
+        return res.json(cacheHit.payload);
+      }
+
       // Query per eventi dispositivi (network_changes)
       const deviceEventsQuery = `
         SELECT 
@@ -4288,10 +4324,18 @@ module.exports = (pool, io) => {
       const keepassPassword = process.env.KEEPASS_PASSWORD;
       let keepassMap = null;
       if (keepassPassword && result.rows.length > 0) {
-        keepassMap = await getCachedKeepassMap(keepassPassword);
+        // Non bloccare la risposta se KeePass/Drive è lento: in quel caso saltiamo l'arricchimento.
+        try {
+          keepassMap = await _withTimeout(getCachedKeepassMap(keepassPassword), 1500);
+        } catch (_) {
+          keepassMap = null;
+        }
       }
       if (keepassMap) {
-        for (const row of result.rows) {
+        // Limite hard per evitare O(N) pesante quando limit è alto e cache scaduta.
+        const maxEnrich = Math.min(result.rows.length, 250);
+        for (let idx = 0; idx < maxEnrich; idx += 1) {
+          const row = result.rows[idx];
           if (row.event_category !== 'device' || !row.mac_address || !row.azienda) continue;
           try {
             const macHex = (row.mac_address || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
@@ -4315,11 +4359,14 @@ module.exports = (pool, io) => {
       }
 
       // Restituisci risultati
-      if (count24hResult !== null) {
-        res.json({ events: result.rows, count24h: count24hResult });
-      } else {
-        res.json(result.rows);
+      const payload = count24hResult !== null ? { events: result.rows, count24h: count24hResult } : result.rows;
+      _allEventsCache.set(cacheKey, { at: Date.now(), payload });
+      if (_allEventsCache.size > 200) {
+        // Evita crescita infinita
+        const firstKey = _allEventsCache.keys().next().value;
+        if (firstKey) _allEventsCache.delete(firstKey);
       }
+      res.json(payload);
     } catch (err) {
       console.error('❌ Errore recupero eventi unificati:', err);
       res.status(500).json({ error: 'Errore interno del server', details: err.message });
