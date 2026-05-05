@@ -7,12 +7,12 @@ import { buildApiUrl } from '../../utils/apiConfig';
 import { HUB_MODAL_FIELD_CLS, HUB_MODAL_LABEL_CLS } from '../../utils/techHubAccent';
 import { HubModalInnerCard, HubModalChromeHeader, HubModalBody } from './HubModalChrome';
 
-const CHART_TICK = { fill: '#c4c4c4', fontSize: 12 };
+const CHART_TICK = { fill: 'var(--hub-chrome-text-muted)', fontSize: 12 };
 const CHART_TOOLTIP_STYLE = {
-  backgroundColor: '#1e1e1e',
-  border: '1px solid rgba(255,255,255,0.12)',
+  backgroundColor: 'var(--hub-chrome-surface)',
+  border: '1px solid var(--hub-chrome-border)',
   borderRadius: 8,
-  color: '#f5f5f5'
+  color: 'var(--hub-chrome-text)'
 };
 
 const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
@@ -127,9 +127,9 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
     <HubModalInnerCard maxWidthClass="max-w-6xl" className="flex max-h-[90vh] flex-col overflow-hidden">
       <HubModalChromeHeader icon={BarChart3} title="Analytics" onClose={onClose} />
 
-      <div className="shrink-0 border-b border-white/10 bg-black/20 px-4 py-3">
+      <div className="shrink-0 border-b border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
-          <Building size={18} className="text-white/55" aria-hidden />
+          <Building size={18} className="text-[color:var(--hub-chrome-text-faint)]" aria-hidden />
           <label className={`${HUB_MODAL_LABEL_CLS} mb-0`}>Filtra per Azienda:</label>
           <select
             value={selectedCompany}
@@ -147,39 +147,39 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
       <HubModalBody className="flex-1 space-y-4 pb-6">
           {loading ? (
             <div className="flex h-64 items-center justify-center">
-              <div className="text-white/55">Caricamento dati...</div>
+              <div className="text-[color:var(--hub-chrome-text-muted)]">Caricamento dati...</div>
             </div>
           ) : data.length === 0 ? (
             <div className="flex h-64 items-center justify-center">
-              <div className="text-white/55">Nessun dato disponibile</div>
+              <div className="text-[color:var(--hub-chrome-text-muted)]">Nessun dato disponibile</div>
             </div>
           ) : (
             <>
               {/* Grafico */}
               <div className="mb-6">
-                <h3 className="mb-4 text-lg font-semibold text-white">Andamento Mensile</h3>
+                <h3 className="mb-4 text-lg font-semibold text-[color:var(--hub-chrome-text)]">Andamento Mensile</h3>
                 <ResponsiveContainer width="100%" height={400}>
                   <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--hub-chrome-border-soft)" />
                     <XAxis 
                       dataKey="month" 
                       tick={CHART_TICK}
-                      stroke="rgba(255,255,255,0.2)"
+                      stroke="var(--hub-chrome-border)"
                       angle={-45}
                       textAnchor="end"
                       height={80}
                     />
                     <YAxis 
                       tick={CHART_TICK}
-                      stroke="rgba(255,255,255,0.2)"
+                      stroke="var(--hub-chrome-border)"
                       tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
                     />
                     <Tooltip 
                       formatter={(value) => formatCurrency(value)}
                       contentStyle={CHART_TOOLTIP_STYLE}
-                      labelStyle={{ color: '#e5e5e5' }}
+                      labelStyle={{ color: 'var(--hub-chrome-text)' }}
                     />
-                    <Legend wrapperStyle={{ color: '#e5e5e5' }} />
+                    <Legend wrapperStyle={{ color: 'var(--hub-chrome-text-secondary)' }} />
                     <Bar dataKey="pagato" stackId="a" fill="#10b981" name="Pagato (Fatturati)" />
                     <Bar dataKey="inAttesa" stackId="a" fill="#f59e0b" name="In Attesa (Inviati)" />
                     <Bar dataKey="daFatturare" stackId="a" fill="#3b82f6" name="Da Fatturare (Chiusi)" />
@@ -219,20 +219,20 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
 
               {/* Tabella Dettagli */}
               <div className="mt-6">
-                <h3 className="mb-4 text-lg font-semibold text-white">Dettaglio Mensile</h3>
+                <h3 className="mb-4 text-lg font-semibold text-[color:var(--hub-chrome-text)]">Dettaglio Mensile</h3>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full rounded-lg border border-white/10 bg-black/20">
-                    <thead className="bg-black/30">
+                  <table className="min-w-full rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)]">
+                    <thead className="bg-[color:var(--hub-chrome-row-fill)]">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium uppercase text-white/70">Mese</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium uppercase text-white/70">Pagato</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium uppercase text-white/70">In Attesa</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium uppercase text-white/70">Da Fatturare</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium uppercase text-white/70">Da Completare</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium uppercase text-white/70">Totale Mese</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[color:var(--hub-chrome-text-muted)]">Mese</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase text-[color:var(--hub-chrome-text-muted)]">Pagato</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase text-[color:var(--hub-chrome-text-muted)]">In Attesa</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase text-[color:var(--hub-chrome-text-muted)]">Da Fatturare</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase text-[color:var(--hub-chrome-text-muted)]">Da Completare</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium uppercase text-[color:var(--hub-chrome-text-muted)]">Totale Mese</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/10">
+                    <tbody className="divide-y divide-[color:var(--hub-chrome-border-soft)]">
                       {data.map((row, index) => {
                         const totaleMese = row.pagato + row.inAttesa + row.daFatturare + row.daCompletare;
                         

@@ -156,12 +156,12 @@ const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
         subtitle="Monitoraggio accessi al portale"
         onClose={onClose}
       />
-      <div className="flex shrink-0 justify-end border-b border-white/10 bg-black/20 px-4 py-2">
+      <div className="flex shrink-0 justify-end border-b border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] px-4 py-2">
         <button
           type="button"
           onClick={fetchLogs}
           disabled={loading}
-          className="rounded-lg bg-white/10 p-2 text-white ring-1 ring-white/15 transition hover:bg-white/16 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-lg bg-[color:var(--hub-chrome-hover)] p-2 text-[color:var(--hub-chrome-text)] ring-1 ring-[color:var(--hub-chrome-border)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
           title="Aggiorna"
           aria-label="Aggiorna"
         >
@@ -170,36 +170,36 @@ const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4 border-b border-white/10 bg-black/20 px-6 py-4">
-        <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+      <div className="grid grid-cols-3 gap-4 border-b border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] px-6 py-4">
+        <div className="rounded-xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] p-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-500/20 ring-1 ring-sky-500/30">
               <Activity size={20} className="text-sky-300" />
             </div>
             <div>
-              <p className="text-sm text-white/55">Totale Accessi</p>
-              <p className="text-2xl font-bold text-white">{summary.total}</p>
+              <p className="text-sm text-[color:var(--hub-chrome-text-faint)]">Totale Accessi</p>
+              <p className="text-2xl font-bold text-[color:var(--hub-chrome-text)]">{summary.total}</p>
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+        <div className="rounded-xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] p-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/20 ring-1 ring-emerald-500/30">
               <Clock size={20} className="text-emerald-300" />
             </div>
             <div>
-              <p className="text-sm text-white/55">Sessioni Attive</p>
+              <p className="text-sm text-[color:var(--hub-chrome-text-faint)]">Sessioni Attive</p>
               <p className="text-2xl font-bold text-emerald-300">{summary.activeSessions}</p>
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+        <div className="rounded-xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] p-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/20 ring-1 ring-violet-500/30">
               <User size={20} className="text-violet-300" />
             </div>
             <div>
-              <p className="text-sm text-white/55">Utenti Unici</p>
+              <p className="text-sm text-[color:var(--hub-chrome-text-faint)]">Utenti Unici</p>
               <p className="text-2xl font-bold text-violet-300">{summary.uniqueUsers}</p>
             </div>
           </div>
@@ -207,10 +207,10 @@ const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
       </div>
 
       {/* Filters */}
-      <div className="border-b border-white/10 px-6 py-4">
+      <div className="border-b border-[color:var(--hub-chrome-border-soft)] px-6 py-4">
           <div className="mb-4 flex items-center gap-2">
-            <Filter size={18} className="text-white/45" />
-            <h3 className="font-semibold text-white/85">Filtri</h3>
+            <Filter size={18} className="text-[color:var(--hub-chrome-text-faint)]" />
+            <h3 className="font-semibold text-[color:var(--hub-chrome-text)]">Filtri</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
             {/* Campo ricerca unificato con selezione tipo */}

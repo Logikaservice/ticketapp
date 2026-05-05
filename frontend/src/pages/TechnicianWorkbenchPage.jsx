@@ -505,6 +505,7 @@ export default function TechnicianWorkbenchPage({
   const [navManagementClientsOpen, setNavManagementClientsOpen] = useState(true);
   const [navManagementAgentsOpen, setNavManagementAgentsOpen] = useState(true);
   const [navManagementCommsOpen, setNavManagementCommsOpen] = useState(true);
+  const [hubNetworkInitialView, setHubNetworkInitialView] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   /** Centro Hub: panoramica a griglia oppure modulo integrato (Comunicazioni, Email, Anti-Virus…). */
   const [hubCenterView, setHubCenterView] = useState(
@@ -1007,7 +1008,8 @@ export default function TechnicianWorkbenchPage({
                     type="button"
                     onClick={() => {
                       setUserMenuOpen(false);
-                      onOpenNetworkMonitoringTelegram?.();
+                      setHubNetworkInitialView('telegram');
+                      setHubCenterView('network-monitoring');
                     }}
                     className="group flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-[color:var(--hub-chrome-text-secondary)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)]"
                   >
@@ -1177,7 +1179,6 @@ export default function TechnicianWorkbenchPage({
             <SidebarLink
               railMode={railMode}
               hubSurfaceMode={hubSurfaceMode}
-              nested
               icon={Bell}
               label="Invia comunicazione"
               accentHex={accentHexEffective}
@@ -1302,7 +1303,10 @@ export default function TechnicianWorkbenchPage({
                     icon={ServerIcon}
                     label="Agent esistenti"
                     accentHex={accentHexEffective}
-                    onClick={() => nav?.onOpenNetworkAgents?.()}
+                    onClick={() => {
+                      setHubNetworkInitialView('agents');
+                      setHubCenterView('network-monitoring');
+                    }}
                   />
                   <SidebarLink
                     railMode={railMode}
@@ -1311,7 +1315,10 @@ export default function TechnicianWorkbenchPage({
                     icon={Plus}
                     label="Crea Agent"
                     accentHex={accentHexEffective}
-                    onClick={() => nav?.onOpenNetworkCreateAgent?.()}
+                    onClick={() => {
+                      setHubNetworkInitialView('create');
+                      setHubCenterView('network-monitoring');
+                    }}
                   />
                 </NavGroup>
 
@@ -1328,7 +1335,7 @@ export default function TechnicianWorkbenchPage({
                     icon={Monitor}
                     label="Crea / Visualizza Agent"
                     accentHex={accentHexEffective}
-                    onClick={() => nav?.onOpenCommAgentManager?.()}
+                    onClick={() => setHubCenterView('comm-agent-manager')}
                   />
                 </NavGroup>
               </NavGroup>
@@ -1685,6 +1692,8 @@ export default function TechnicianWorkbenchPage({
                 closeEmbedded={() => setHubCenterView('overview')}
                 getAuthHeader={getAuthHeader}
                 socket={socket}
+                initialView={hubNetworkInitialView}
+                onViewReset={() => setHubNetworkInitialView(null)}
                 initialCompanyId={selectedCompanyId}
                 onCompanyChange={onGloballyCompanyChange ?? undefined}
                 readOnly={

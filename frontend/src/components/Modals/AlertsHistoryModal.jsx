@@ -159,12 +159,12 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
         {loading ? (
           <div className="py-12 text-center">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-b-2 border-[color:var(--hub-accent)]" />
-            <p className="mt-4 text-white/60">Caricamento avvisi...</p>
+            <p className="mt-4 text-[color:var(--hub-chrome-text-muted)]">Caricamento avvisi...</p>
           </div>
         ) : alerts.length === 0 ? (
           <div className="py-12 text-center">
-            <Clock size={48} className="mx-auto mb-4 text-white/35" />
-            <p className="text-lg text-white/55">Nessun avviso presente</p>
+            <Clock size={48} className="mx-auto mb-4 text-[color:var(--hub-chrome-text-fainter)]" />
+            <p className="text-lg text-[color:var(--hub-chrome-text-muted)]">Nessun avviso presente</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -184,29 +184,29 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
                     <div className="min-w-0 flex-1">
                       <div className="mb-2 flex items-center justify-between gap-4">
                         <h3 className={`text-lg font-bold ${levelInfo.textColor}`}>{alert.title}</h3>
-                        <div className="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm text-white/55">
+                        <div className="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm text-[color:var(--hub-chrome-text-faint)]">
                           <Calendar size={14} />
                           <span>{formattedDate}</span>
                         </div>
                       </div>
 
                       {alert.createdBy && (
-                        <div className="mb-2 flex items-center gap-1 text-sm text-white/55">
+                        <div className="mb-2 flex items-center gap-1 text-sm text-[color:var(--hub-chrome-text-faint)]">
                           <User size={14} />
                           <span>{alert.createdBy}</span>
                         </div>
                       )}
 
                       {selectedAlert?.id === alert.id && (
-                        <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
+                        <div className="mt-4 space-y-3 border-t border-[color:var(--hub-chrome-border-soft)] pt-4">
                           <div>
-                            <p className="mb-1 text-sm font-semibold text-white/75">Descrizione:</p>
-                            <p className="whitespace-pre-wrap text-sm text-white/65">{alert.body}</p>
+                            <p className="mb-1 text-sm font-semibold text-[color:var(--hub-chrome-text-secondary)]">Descrizione:</p>
+                            <p className="whitespace-pre-wrap text-sm text-[color:var(--hub-chrome-text-muted)]">{alert.body}</p>
                           </div>
 
                           {alert.attachments && Array.isArray(alert.attachments) && alert.attachments.length > 0 && (
                             <div>
-                              <p className="mb-2 flex items-center gap-1 text-sm font-semibold text-white/75">
+                              <p className="mb-2 flex items-center gap-1 text-sm font-semibold text-[color:var(--hub-chrome-text-secondary)]">
                                 <FileImage size={14} />
                                 Allegati ({alert.attachments.length}):
                               </p>
@@ -223,7 +223,7 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
                                       href={attachmentHref}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="rounded px-3 py-1 text-xs text-white/85 transition hover:bg-white/10"
+                                      className="rounded px-3 py-1 text-xs text-[color:var(--hub-chrome-text-secondary)] transition hover:bg-[color:var(--hub-chrome-hover)]"
                                     >
                                       {att.originalName || att.filename}
                                     </a>
@@ -236,7 +236,7 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
                       )}
 
                       {selectedAlert?.id !== alert.id && (
-                        <p className="mt-2 line-clamp-2 text-sm text-white/55">{alert.body}</p>
+                        <p className="mt-2 line-clamp-2 text-sm text-[color:var(--hub-chrome-text-faint)]">{alert.body}</p>
                       )}
                     </div>
                   </div>
