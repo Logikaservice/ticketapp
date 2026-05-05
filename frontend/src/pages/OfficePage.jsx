@@ -1244,7 +1244,17 @@ const OfficePage = ({
               <div className="columns-1 md:columns-2 gap-4">
                 {officeData.files.map((file, index) => {
                 const status = cardStatuses[cardKey(file)] || { note: '' };
-                const keepassExpired = file.expires ? new Date(file.expires) < new Date() : false;
+                const expiryDate = file.expires ? new Date(file.expires) : null;
+                const keepassExpired = expiryDate ? expiryDate.getTime() < Date.now() : false;
+                const daysToExpiry = (() => {
+                  if (!expiryDate) return null;
+                  const t = expiryDate.getTime();
+                  if (!Number.isFinite(t)) return null;
+                  const ms = t - Date.now();
+                  return Math.ceil(ms / (24 * 60 * 60 * 1000));
+                })();
+                const expiringSoon =
+                  typeof daysToExpiry === 'number' && Number.isFinite(daysToExpiry) && daysToExpiry >= 0 && daysToExpiry <= 30;
                 const isExpired = keepassExpired;
                 const hasUsername = !!(file.username && file.username.trim() !== '');
                 const hasPassword = !!file.hasPassword;
@@ -1366,13 +1376,18 @@ const OfficePage = ({
                     <div className={ox.rowBorderT(isExpired)}>
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-2">
-                          <Calendar size={16} className={ox.calendarIcon(keepassExpired)} />
+                          <Calendar size={16} className={ox.calendarIcon(keepassExpired || expiringSoon)} />
                           <p className={ox.expLabelXs}>
                             Scadenza:{' '}
-                            <span className={ox.expDateStrong(keepassExpired)}>
+                            <span className={ox.expDateStrong(keepassExpired || expiringSoon)}>
                               {formatDate(file.expires)}
                               {keepassExpired ? ' (scaduta)' : ''}
                             </span>
+                            {!keepassExpired && expiringSoon && typeof daysToExpiry === 'number' && (
+                              <span className="ml-2 font-semibold text-red-600">
+                                (mancano {daysToExpiry} giorni)
+                              </span>
+                            )}
                           </p>
                         </div>
                         <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:max-w-xs">
