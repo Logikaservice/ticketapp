@@ -860,7 +860,6 @@ export default function TechnicianWorkbenchPage({
       color: 'var(--hub-chrome-text)',
       colorScheme: hubSurfaceMode === 'light' ? 'light' : 'dark',
       ...hubModalCssVars(accentHex, hubSurfaceMode),
-      ['--hub-accent-glow']: hexToRgba(accentHex, 0.32)
     }),
     [accentHex, hubSurfaceMode]
   );

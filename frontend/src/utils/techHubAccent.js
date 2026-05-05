@@ -202,12 +202,13 @@ export function hubModalCssVars(accentHex, surfaceMode = null) {
   const skin = surfaceMode === 'light' || surfaceMode === 'dark' ? surfaceMode : getStoredTechHubSurfaceMode();
   // In tema chiaro, scuriamo l'accento per mantenere contrasto su superfici bianche,
   // senza cambiare il "colore scelto" dall'utente (disponibile in --hub-accent-raw).
-  const aFill = skin === 'light' ? darkenHex(aRaw, 0.22) : aRaw;
+  const aFill = skin === 'light' ? darkenHex(aRaw, 0.34) : aRaw;
   return {
     ['--hub-accent-raw']: aRaw,
     ['--hub-accent']: aFill,
     ['--hub-accent-fill']: aFill,
-    ['--hub-accent-border']: hexToRgba(aFill, 0.52)
+    ['--hub-accent-border']: hexToRgba(aFill, 0.52),
+    ['--hub-accent-glow']: hexToRgba(aFill, 0.32)
   };
 }
 
