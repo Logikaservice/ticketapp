@@ -39,7 +39,7 @@ export default function OfficeExpiriesHubModal({
       const data = await res.json();
       setItems(Array.isArray(data?.items) ? data.items : []);
     } catch (_) {
-      setItems([]);
+      // Non azzerare: se il fetch fallisce, mantieni l'ultima lista nota.
     } finally {
       setLoading(false);
     }

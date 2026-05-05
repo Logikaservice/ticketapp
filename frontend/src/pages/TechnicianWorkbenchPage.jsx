@@ -583,7 +583,7 @@ export default function TechnicianWorkbenchPage({
       const list = Array.isArray(data?.items) ? data.items : [];
       setOfficeExpiryItems(list);
     } catch (_) {
-      setOfficeExpiryItems([]);
+      // Non azzerare: la "notifica" deve restare finché KeePass non cambia davvero.
     }
   }, [getAuthHeader, currentUser, officeExpiryDays]);
 
