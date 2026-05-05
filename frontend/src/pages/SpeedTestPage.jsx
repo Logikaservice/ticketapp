@@ -1860,11 +1860,11 @@ const SpeedTestPage = ({
                   {/* Info connessione */}
                   <div style={{ textAlign: 'center', color: ect.lo, fontSize: 14, marginBottom: 40, display: 'flex', justifyContent: 'center', gap: 24, flexWrap: 'wrap' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Globe size={14} /> Operatore: <strong style={{ color: '#e2e8f0' }}>{lastResult.isp || '—'}</strong>
+                      <Globe size={14} /> Operatore: <strong style={{ color: ect.hi }}>{lastResult.isp || '—'}</strong>
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       <Wifi size={14} /> IP Pubblico:{' '}
-                      <strong style={{ color: '#e2e8f0', fontFamily: 'monospace' }}>{lastResult.public_ip || '—'}</strong>
+                      <strong style={{ color: ect.hi, fontFamily: 'monospace' }}>{lastResult.public_ip || '—'}</strong>
                       {publicIpStabLabel && (lastResult.public_ip || '').trim() ? (
                         <span
                           style={{ color: publicIpStabLabel.color, fontWeight: 700, fontSize: 13 }}
@@ -1876,7 +1876,7 @@ const SpeedTestPage = ({
                       ) : null}
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <ServerIcon size={14} /> Server: <strong style={{ color: '#e2e8f0' }}>{lastResult.server_name || '—'}</strong>
+                      <ServerIcon size={14} /> Server: <strong style={{ color: ect.hi }}>{lastResult.server_name || '—'}</strong>
                     </span>
                   </div>
 
@@ -1896,7 +1896,7 @@ const SpeedTestPage = ({
               )}
 
               {!lastResult && (
-                <div style={{ textAlign: 'center', padding: 40, color: '#64748b' }}>
+                <div style={{ textAlign: 'center', padding: 40, color: ect.faint }}>
                   <Activity size={40} style={{ marginBottom: 12 }} />
                   <p>Nessun risultato speed test disponibile per questa azienda.</p>
                   <p style={{ fontSize: 13, marginTop: 4 }}>Il primo test verrà eseguito dall'agent entro 2 ore.</p>
@@ -2079,7 +2079,7 @@ const SpeedTestPage = ({
                             gap: 4,
                             textAlign: 'center',
                             fontSize: 10,
-                            color: '#64748b',
+                            color: ect.faint,
                             fontWeight: 600,
                             marginBottom: 6
                           }}
@@ -2136,7 +2136,7 @@ const SpeedTestPage = ({
                             return cells;
                           })()}
                         </div>
-                        <p style={{ margin: '12px 0 0', fontSize: 11, color: '#64748b', lineHeight: 1.4 }}>
+                        <p style={{ margin: '12px 0 0', fontSize: 11, color: ect.faint, lineHeight: 1.4 }}>
                           In grigio i giorni senza misure nel periodo caricato ({historyDays}g).
                         </p>
                       </div>
@@ -2145,7 +2145,7 @@ const SpeedTestPage = ({
 
                   {historyFiltered.length > 1 ? (
                     <>
-                      <div style={{ display: 'flex', gap: 20, marginBottom: 16, fontSize: 12, color: '#94a3b8', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: 20, marginBottom: 16, fontSize: 12, color: ect.lo, flexWrap: 'wrap' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ width: 20, height: 3, borderRadius: 2, background: chartDownloadColor, display: 'inline-block' }} />
                           DOWNLOAD (Mbps)
@@ -2162,7 +2162,7 @@ const SpeedTestPage = ({
                           <span style={{ width: 20, height: 8, borderRadius: 2, background: 'rgba(239, 68, 68, 0.20)', border: '1px dashed rgba(248, 113, 113, 0.55)', display: 'inline-block' }} />
                           Inattività / dati mancanti
                         </span>
-                        <span style={{ color: '#64748b', fontSize: 11 }}>
+                        <span style={{ color: ect.faint, fontSize: 11 }}>
                           (gap &gt; {inactivityThresholdHours} h)
                         </span>
                       </div>
@@ -2176,7 +2176,7 @@ const SpeedTestPage = ({
                       </div>
                     </>
                   ) : (
-                    <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 20px', lineHeight: 1.5 }}>
+                    <p style={{ fontSize: 13, color: ect.lo, margin: '0 0 20px', lineHeight: 1.5 }}>
                       {historyDayFilter
                         ? `Nella giornata ${ymdToItDisplay(historyDayFilter)} c’è una sola misura: servono almeno due punti per tracciare il grafico.`
                         : `Nel periodo selezionato c’è una sola misura: il grafico richiede almeno due punti. Estendi il periodo (es. 7g o 60g) o attendi i prossimi test dall’agent (circa ogni ${companyInfo?.speedtest_interval_hours ?? 2} h).`}
@@ -2184,8 +2184,8 @@ const SpeedTestPage = ({
                   )}
 
                   <div style={{ marginTop: historyFiltered.length > 1 ? 28 : 0 }}>
-                    <h4 style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0', margin: '0 0 6px' }}>Ultime misure</h4>
-                    <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 14px', lineHeight: 1.45 }}>
+                    <h4 style={{ fontSize: 15, fontWeight: 700, color: ect.hi, margin: '0 0 6px' }}>Ultime misure</h4>
+                    <p style={{ fontSize: 12, color: ect.faint, margin: '0 0 14px', lineHeight: 1.45 }}>
                       Fino a <strong>{SPEEDTEST_DETAIL_TABLE_MAX_ROWS}</strong> righe
                       {historyDayFilter ? (
                         <> filtrate per <strong>{ymdToItDisplay(historyDayFilter)}</strong></>
@@ -2209,14 +2209,14 @@ const SpeedTestPage = ({
                         <tbody>
                           {historyTableRows.map((row) => (
                             <tr key={row.id} style={{ borderTop: `1px solid ${ui.tableBorder}` }}>
-                              <td style={{ padding: '10px 12px', color: '#e2e8f0', whiteSpace: 'nowrap' }}>{formatDate(row.test_date)}</td>
-                              <td style={{ padding: '10px 12px', color: '#e2e8f0' }}>{fmtPing(row.ping_ms)} ms</td>
+                              <td style={{ padding: '10px 12px', color: ect.hi, whiteSpace: 'nowrap' }}>{formatDate(row.test_date)}</td>
+                              <td style={{ padding: '10px 12px', color: ect.hi }}>{fmtPing(row.ping_ms)} ms</td>
                               <td style={{ padding: '10px 12px', color: ui.tableCellDown }}>{fmtMbps(row.download_mbps)}</td>
                               <td style={{ padding: '10px 12px', color: ui.tableCellUp }}>{fmtMbps(row.upload_mbps)}</td>
                               <td style={{ padding: '10px 12px', color: ui.tableIp, fontFamily: 'monospace', fontSize: 11 }} title={row.public_ip || ''}>
                                 {row.public_ip || '—'}
                               </td>
-                              <td style={{ padding: '10px 12px', color: '#94a3b8', maxWidth: 200 }} title={row.isp || ''}>
+                              <td style={{ padding: '10px 12px', color: ect.lo, maxWidth: 200 }} title={row.isp || ''}>
                                 <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.isp || '—'}</span>
                               </td>
                             </tr>
