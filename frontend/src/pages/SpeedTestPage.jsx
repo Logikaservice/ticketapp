@@ -1784,10 +1784,10 @@ const SpeedTestPage = ({
                             <div style={palette.detailGaugeWrap}>
                               <div style={palette.detailGaugeRing(pq.pct, pq.color)} />
                               <div style={palette.detailGaugeInner}>
-                                <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
+                                <span style={{ fontSize: 36, fontWeight: 900, color: ect.hi, lineHeight: 1.1 }}>
                                   {fmtPing(lastResult.ping_ms)}
                                 </span>
-                                <span style={{ fontSize: 14, color: '#94a3b8' }}>ms</span>
+                                <span style={{ fontSize: 14, color: ect.lo }}>ms</span>
                               </div>
                             </div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: pq.color, lineHeight: 1.3, maxWidth: 220, margin: '0 auto' }}>{pq.label}</div>
@@ -1805,7 +1805,7 @@ const SpeedTestPage = ({
                               <div style={palette.detailGaugeRing(dq.pct, dq.color)} />
                               <div style={palette.detailGaugeInner}>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '4px 8px' }}>
-                                  <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
+                                  <span style={{ fontSize: 36, fontWeight: 900, color: ect.hi, lineHeight: 1.1 }}>
                                     {fmtMbps(lastResult.download_mbps)}
                                   </span>
                                   {downloadVsHistDetail != null && (
@@ -1817,7 +1817,7 @@ const SpeedTestPage = ({
                                     </span>
                                   )}
                                 </div>
-                                <span style={{ fontSize: 14, color: '#94a3b8' }}>Mbps</span>
+                                <span style={{ fontSize: 14, color: ect.lo }}>Mbps</span>
                               </div>
                             </div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: dq.color, lineHeight: 1.3, maxWidth: 260, margin: '0 auto' }}>{dq.label}</div>
@@ -1835,7 +1835,7 @@ const SpeedTestPage = ({
                               <div style={palette.detailGaugeRing(uq.pct, uq.color)} />
                               <div style={palette.detailGaugeInner}>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '4px 8px' }}>
-                                  <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
+                                  <span style={{ fontSize: 36, fontWeight: 900, color: ect.hi, lineHeight: 1.1 }}>
                                     {fmtMbps(lastResult.upload_mbps)}
                                   </span>
                                   {uploadVsHistDetail != null && (
@@ -1847,7 +1847,7 @@ const SpeedTestPage = ({
                                     </span>
                                   )}
                                 </div>
-                                <span style={{ fontSize: 14, color: '#94a3b8' }}>Mbps</span>
+                                <span style={{ fontSize: 14, color: ect.lo }}>Mbps</span>
                               </div>
                             </div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: uq.color, lineHeight: 1.3, maxWidth: 260, margin: '0 auto' }}>{uq.label}</div>
@@ -1858,7 +1858,7 @@ const SpeedTestPage = ({
                   </div>
 
                   {/* Info connessione */}
-                  <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 14, marginBottom: 40, display: 'flex', justifyContent: 'center', gap: 24, flexWrap: 'wrap' }}>
+                  <div style={{ textAlign: 'center', color: ect.lo, fontSize: 14, marginBottom: 40, display: 'flex', justifyContent: 'center', gap: 24, flexWrap: 'wrap' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Globe size={14} /> Operatore: <strong style={{ color: '#e2e8f0' }}>{lastResult.isp || '—'}</strong>
                     </span>
@@ -1907,7 +1907,7 @@ const SpeedTestPage = ({
               {!historyLoading && history.length >= 1 && (
                 <div style={palette.chartSection}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
-                    <h3 style={{ fontSize: 18, fontWeight: 700, color: '#f1f5f9', margin: 0 }}>📈 Cronologia</h3>
+                    <h3 style={{ fontSize: 18, fontWeight: 700, color: ect.hi, margin: 0 }}>📈 Cronologia</h3>
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                       {[7, 14, 30, 60].map((d) => (
                         <button key={d} type="button" style={palette.periodBtn(historyDays === d)} onClick={() => setHistoryDays(d)}>
@@ -1929,7 +1929,7 @@ const SpeedTestPage = ({
                       zIndex: 5
                     }}
                   >
-                    <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600 }}>Giorno</span>
+                    <span style={{ fontSize: 12, color: ect.lo, fontWeight: 600 }}>Giorno</span>
                     <input
                       type="text"
                       value={daySearchInput}
@@ -2055,18 +2055,18 @@ const SpeedTestPage = ({
                           <button
                             type="button"
                             onClick={() => setDayPickerMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
-                            style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 4 }}
+                            style={{ background: 'none', border: 'none', color: ect.lo, cursor: 'pointer', padding: 4 }}
                             aria-label="Mese precedente"
                           >
                             <ChevronLeft size={22} />
                           </button>
-                          <span style={{ fontSize: 14, fontWeight: 700, color: '#f1f5f9', textTransform: 'capitalize' }}>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: ect.hi, textTransform: 'capitalize' }}>
                             {dayPickerMonth.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
                           </span>
                           <button
                             type="button"
                             onClick={() => setDayPickerMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
-                            style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 4 }}
+                            style={{ background: 'none', border: 'none', color: ect.lo, cursor: 'pointer', padding: 4 }}
                             aria-label="Mese successivo"
                           >
                             <ChevronRight size={22} />
