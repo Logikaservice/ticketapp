@@ -1782,7 +1782,10 @@ module.exports = function createKeepassRouter(pool) {
       res.json(officeData);
     } catch (err) {
       console.error('❌ Errore recupero Office:', err);
-      res.status(500).json({ error: 'Errore durante il recupero dei dati Office' });
+      res.status(500).json({
+        error: 'Errore durante il recupero dei dati Office',
+        details: err?.message || String(err)
+      });
     }
   });
 

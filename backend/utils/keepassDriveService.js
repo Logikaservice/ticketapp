@@ -35,7 +35,9 @@ class KeepassDriveService {
 
     const normalizedTarget = this.normalizeCompanyName(aziendaName);
     const gestioneIndex = pathSegments.findIndex(seg => this.normalizeCompanyName(seg) === 'gestione');
-    if (gestioneIndex === -1) return false;
+    // Se non abbiamo ancora incontrato "gestione" nel percorso, non possiamo ancora filtrare:
+    // permettiamo la discesa nei sottogruppi e applicheremo il filtro quando "gestione" apparirà.
+    if (gestioneIndex === -1) return true;
 
     const afterGestione = pathSegments.slice(gestioneIndex + 1).map(seg => this.normalizeCompanyName(seg)).filter(Boolean);
     if (afterGestione.length === 0) return true;
