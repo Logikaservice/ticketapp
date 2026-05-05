@@ -1163,6 +1163,140 @@ class KeepassDriveService {
   }
 
   /**
+   * Office in scadenza per tutte le aziende: carica KeePass UNA sola volta e restituisce le entry con scadenza entro `limit`.
+   * Include anche le entry già scadute (daysLeft < 0) perché sono comunque "scadenze" rilevanti per l'Hub.
+   * @param {string} password - Password KeePass
+   * @param {Date} now - Data ora
+   * @param {Date} limit - Data limite (es. now + 30 giorni)
+   * @param {string[] | null} allowedCompanies - se valorizzato, filtra per aziende (case-insensitive)
+   * @returns {Array<{aziendaName: string, title: string, username: string, expires: string, daysLeft: number}>}
+   */
+  async getOfficeUpcomingExpiriesAll(password, now, limit, allowedCompanies = null) {
+    const allowedSet =
+      Array.isArray(allowedCompanies) && allowedCompanies.length > 0
+        ? new Set(allowedCompanies.map((a) => (a || '').trim().toLowerCase()).filter(Boolean))
+        : null;
+
+    return this.withLoadedKdbx(password, async (db) => {
+      const results = [];
+
+      const getChildGroups = (g) => {
+        if (!g) return [];
+        const arr = g.groups || g.children || g.subGroups;
+        if (!arr) return [];
+        if (Array.isArray(arr)) return arr;
+        if (typeof arr[Symbol.iterator] === 'function') return [...arr];
+        return [];
+      };
+
+      const extractExpiryIso = (entry) => {
+        let expires = null;
+        const useExpiry = entry.times && (entry.times.expires === true || entry.times.Expires === true);
+        if (!useExpiry) return null;
+        const raw = entry.times.expiryTime ?? entry.times.ExpiryTime;
+        if (raw == null) return null;
+        let d;
+        if (raw instanceof Date) d = raw;
+        else if (typeof raw === 'object' && typeof raw.getTime === 'function') d = raw;
+        else if (typeof raw === 'object' && raw.value != null) d = new Date(raw.value);
+        else d = new Date(raw);
+        const maxDate = new Date();
+        maxDate.setFullYear(maxDate.getFullYear() + 100);
+        if (isNaN(d.getTime()) || d.getTime() <= 0 || d > maxDate) return null;
+        expires = d.toISOString();
+        return expires;
+      };
+
+      const extractOfficeEntries = (officeGroup, aziendaName) => {
+        const out = [];
+        const walk = (group) => {
+          if (!group) return;
+          if (group.entries) {
+            for (const entry of group.entries) {
+              const expires = extractExpiryIso(entry);
+              if (!expires) continue;
+              const titleF = entry.fields && entry.fields['Title'];
+              const userF = entry.fields && entry.fields['UserName'];
+              const title = titleF ? (titleF instanceof ProtectedValue ? titleF.getText() : String(titleF)) : '';
+              const username = userF ? (userF instanceof ProtectedValue ? userF.getText() : String(userF)) : '';
+              out.push({
+                aziendaName,
+                title: title || '',
+                username: username || '',
+                expires
+              });
+            }
+          }
+          for (const sub of getChildGroups(group)) walk(sub);
+        };
+        walk(officeGroup);
+        return out;
+      };
+
+      const findOfficeGroupUnder = (group) => {
+        if (!group) return null;
+        const name = (group.name || '').toString().trim().toLowerCase();
+        if (name === 'office') return group;
+        for (const sub of getChildGroups(group)) {
+          const found = findOfficeGroupUnder(sub);
+          if (found) return found;
+        }
+        return null;
+      };
+
+      const visit = (group, pathSegments = []) => {
+        const name = (group.name || '').toString();
+        const segments = [...pathSegments, name].map((s) => String(s || '').trim()).filter(Boolean);
+        const gestioneIdx = segments.findIndex((s) => s.toLowerCase() === 'gestione');
+
+        // Al livello Azienda (figlio diretto di Gestione)
+        if (gestioneIdx >= 0 && segments.length === gestioneIdx + 2) {
+          const aziendaName = segments[gestioneIdx + 1].trim();
+          const aziendaKey = aziendaName.toLowerCase();
+          if (allowedSet && !allowedSet.has(aziendaKey)) return [];
+
+          const officeGroup = findOfficeGroupUnder(group);
+          if (!officeGroup) return [];
+          return extractOfficeEntries(officeGroup, aziendaName);
+        }
+
+        let collected = [];
+        for (const sub of getChildGroups(group)) {
+          collected = collected.concat(visit(sub, segments));
+        }
+        return collected;
+      };
+
+      let allEntries = [];
+      for (const root of db.groups || []) {
+        allEntries = allEntries.concat(visit(root, []));
+      }
+
+      for (const item of allEntries) {
+        const exp = new Date(item.expires);
+        if (isNaN(exp.getTime())) continue;
+        if (exp > limit) continue;
+        const daysLeft = Math.ceil((exp - now) / (24 * 60 * 60 * 1000));
+        results.push({
+          aziendaName: item.aziendaName,
+          title: item.title || '',
+          username: item.username || '',
+          expires: item.expires,
+          daysLeft
+        });
+      }
+
+      results.sort((a, b) => {
+        const ta = new Date(a.expires).getTime();
+        const tb = new Date(b.expires).getTime();
+        return ta - tb;
+      });
+
+      return results;
+    });
+  }
+
+  /**
    * Recupera la password di una singola entry Office da KeePass.
    * @param {string} password - Password del file Keepass
    * @param {string} aziendaName - Nome azienda

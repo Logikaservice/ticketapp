@@ -431,7 +431,11 @@ export default function HubOverviewSection({
   currentUser,
   onOpenFornitureResoconto = null,
   /** Conteggio forniture visibili all'utente (dopo filtro ruolo); `undefined` durante caricamento iniziale. */
-  hubTemporarySuppliesCount = undefined
+  hubTemporarySuppliesCount = undefined,
+  /** Badge rosso sulla card Office quando ci sono scadenze. */
+  hubOfficeExpiryCount = 0,
+  /** Callback per aprire la lista scadenze Office. */
+  onOpenOfficeExpiries = null
 }) {
   const hubLight = hubSurfaceMode === 'light';
   const hubKpiActiveColor = useMemo(
@@ -857,16 +861,22 @@ export default function HubOverviewSection({
           />
         );
       case 'launch-office':
+        const officeAlert = Number(hubOfficeExpiryCount || 0) > 0;
+        const officeAccent = officeAlert ? '#ef4444' : accentHex;
         return (
           <ModuleLaunchCard
             icon={Building2}
             label={txt(item, 'Office')}
             subtitle={sub(item, 'Licenze, download e attivazioni')}
-            accent={accentHex}
-            onClick={() => setHubCenterView?.('office')}
+            accent={officeAccent}
+            onClick={() => {
+              if (officeAlert && typeof onOpenOfficeExpiries === 'function') onOpenOfficeExpiries();
+              else setHubCenterView?.('office');
+            }}
             subdued={veil}
             suppressInteraction={suppressInteraction}
             iconOnly={io}
+            count={officeAlert ? hubOfficeExpiryCount : undefined}
           />
         );
       case 'contracts':

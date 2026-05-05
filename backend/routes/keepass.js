@@ -1789,6 +1789,55 @@ module.exports = function createKeepassRouter(pool) {
     }
   });
 
+  /**
+   * GET /api/keepass/office-expiries?days=30
+   * Ritorna le entry Office con expiry attivo e scadenza <= now + days (include scadute).
+   * Usato per badge Hub + lista scadenze.
+   */
+  router.get('/office-expiries', authenticateToken, async (req, res) => {
+    try {
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+
+      const userRole = req.user?.ruolo || '';
+      const adminCompanies = req.user?.admin_companies || [];
+      const isTecnicoOrAdmin = userRole === 'tecnico' || userRole === 'admin';
+      const isAdminAziendale = userRole === 'cliente' && adminCompanies && adminCompanies.length > 0;
+      if (!isTecnicoOrAdmin && !isAdminAziendale) {
+        return res.status(403).json({ error: 'Accesso negato' });
+      }
+
+      const keepassPassword = process.env.KEEPASS_PASSWORD;
+      if (!keepassPassword) {
+        return res.status(500).json({ error: 'Password Keepass non configurata' });
+      }
+
+      const daysRaw = parseInt(req.query.days, 10);
+      const days = Number.isFinite(daysRaw) && daysRaw > 0 && daysRaw <= 365 ? daysRaw : 30;
+      const now = new Date();
+      const limit = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+
+      // Cliente admin aziendale: filtra alle aziende con permesso
+      let allowed = null;
+      if (isAdminAziendale) {
+        allowed = [...adminCompanies];
+        const userAzienda = req.user?.azienda || '';
+        if (userAzienda === 'Paradiso Group' || adminCompanies.includes('Paradiso Group')) {
+          ['Conad Mercurio', 'Conad La Torre', 'Conad Albatros'].forEach((c) => {
+            if (!allowed.includes(c)) allowed.push(c);
+          });
+        }
+      }
+
+      const rows = await keepassDriveService.getOfficeUpcomingExpiriesAll(keepassPassword, now, limit, allowed);
+      return res.json({ days, items: rows || [] });
+    } catch (err) {
+      console.error('❌ Errore office-expiries:', err);
+      return res.status(500).json({ error: 'Errore durante il recupero scadenze Office' });
+    }
+  });
+
   // GET /api/keepass/office-password - Recupera password di una entry Office (tecnico, admin, amministratori aziendali)
   router.get('/office-password', authenticateToken, async (req, res) => {
     try {

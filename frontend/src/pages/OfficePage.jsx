@@ -18,6 +18,7 @@ const OfficePage = ({
   onClose,
   getAuthHeader,
   selectedCompanyId: initialCompanyId,
+  initialCompanyName,
   onCompanyChange,
   currentUser,
   onOpenTicket,
@@ -188,6 +189,23 @@ const OfficePage = ({
     };
     fetchCompanies();
   }, []);
+
+  // Auto-selezione azienda da nome (usato dall'Hub scadenze Office).
+  useEffect(() => {
+    if (!initialCompanyName) return;
+    if (!companies || companies.length === 0) return;
+    if (selectedCompanyId) return;
+    const target = String(initialCompanyName || '').trim().toLowerCase();
+    if (!target) return;
+    const match = companies.find((c) => {
+      const raw = String(c?.azienda || '').trim();
+      const clean = raw.includes(':') ? raw.split(':')[0].trim() : raw;
+      return clean.toLowerCase() === target || raw.toLowerCase() === target;
+    });
+    if (!match) return;
+    setSelectedCompanyId(match.id);
+    onCompanyChange?.(match.id);
+  }, [initialCompanyName, companies, selectedCompanyId, onCompanyChange]);
 
   // Reset selezione se l'azienda non è nella lista (es. cliente con default non allineato)
   useEffect(() => {
