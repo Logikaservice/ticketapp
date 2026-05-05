@@ -79,7 +79,8 @@ const EmailPage = ({
     if (!companies || companies.length === 0) return;
     const target = String(initialCompanyName || '').trim().toLowerCase();
     if (!target) return;
-    const match = companies.find((c) => String(c?.name || '').trim().toLowerCase() === target);
+    const normCompany = (c) => String(c?.azienda || c?.name || '').split(':')[0].trim().toLowerCase();
+    const match = companies.find((c) => normCompany(c) === target);
     if (!match) return;
     if (String(match.id) === String(selectedCompanyId || '')) return;
     setSelectedCompanyId(match.id);
