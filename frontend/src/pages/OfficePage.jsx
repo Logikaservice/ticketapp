@@ -41,6 +41,8 @@ const OfficePage = ({
   const [error, setError] = useState(null);
   const [officeData, setOfficeData] = useState(null);
   const [companyName, setCompanyName] = useState('');
+  // Chiave usata nelle chiamate a KeePass (può includere suffissi/ID)
+  const [companyKey, setCompanyKey] = useState('');
   const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId);
   const [companies, setCompanies] = useState([]);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
@@ -130,6 +132,7 @@ const OfficePage = ({
       setOfficeData(null);
       setError(null);
       setCompanyName('');
+      setCompanyKey('');
     }
     setVisiblePasswords({});
     setLoadingPasswords({});
@@ -138,11 +141,11 @@ const OfficePage = ({
   const officeEntryKey = (file) => `${file.title || ''}|${file.username || ''}`;
 
   const fetchPassword = async (file) => {
-    if (!showPasswordColumn || !companyName || !getAuthHeader) return;
+    if (!showPasswordColumn || !companyKey || !getAuthHeader) return;
     const key = officeEntryKey(file);
     setLoadingPasswords(p => ({ ...p, [key]: true }));
     try {
-      const params = new URLSearchParams({ aziendaName: companyName, title: file.title || '', username: file.username || '' });
+      const params = new URLSearchParams({ aziendaName: companyKey, title: file.title || '', username: file.username || '' });
       const res = await fetch(buildApiUrl(`/api/keepass/office-password?${params}`), {
         headers: getAuthHeader(),
         cache: 'no-store'
@@ -214,7 +217,7 @@ const OfficePage = ({
   }, [getAuthHeader]);
 
   useEffect(() => {
-    if (!selectedCompanyValid || !companyName) {
+    if (!selectedCompanyValid || !companyKey) {
       setDownloadLinks([]);
       setDownloadError(null);
       setActivationGuides([]);
@@ -222,12 +225,12 @@ const OfficePage = ({
       setActiveView('licenses');
       return;
     }
-    loadDownloadLinks(companyName);
-    loadActivationGuides(companyName);
-  }, [selectedCompanyValid, companyName, loadDownloadLinks, loadActivationGuides]);
+    loadDownloadLinks(companyKey);
+    loadActivationGuides(companyKey);
+  }, [selectedCompanyValid, companyKey, loadDownloadLinks, loadActivationGuides]);
 
   const handleCreateDownloadLink = async () => {
-    if (!isTecnico || !companyName || savingDownload) return;
+    if (!isTecnico || !companyKey || savingDownload) return;
     const title = newDownload.title.trim();
     const description = newDownload.description.trim();
     const links = (newDownload.links || [])
@@ -241,7 +244,7 @@ const OfficePage = ({
         method: 'POST',
         headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          azienda_name: companyName,
+          azienda_name: companyKey,
           title,
           description,
           links,
@@ -250,7 +253,7 @@ const OfficePage = ({
       });
       if (!res.ok) throw new Error('Errore creazione link');
       setNewDownload({ title: '', description: '', links: [{ label: '', url: '' }] });
-      await loadDownloadLinks(companyName);
+      await loadDownloadLinks(companyKey);
     } catch (err) {
       console.error('Errore creazione link download:', err);
       setDownloadError('Impossibile creare il link');
@@ -260,7 +263,7 @@ const OfficePage = ({
   };
 
   const handleSaveDownloadLink = async (id) => {
-    if (!isTecnico || !companyName || !id) return;
+    if (!isTecnico || !companyKey || !id) return;
     const title = editingDownload.title.trim();
     const description = editingDownload.description.trim();
     const links = (editingDownload.links || [])
@@ -284,7 +287,7 @@ const OfficePage = ({
       if (!res.ok) throw new Error('Errore aggiornamento link');
       setEditingDownloadId(null);
       setEditingDownload({ title: '', description: '', links: [{ label: '', url: '' }] });
-      await loadDownloadLinks(companyName);
+      await loadDownloadLinks(companyKey);
     } catch (err) {
       console.error('Errore salvataggio link download:', err);
       setDownloadError('Impossibile aggiornare il link');
@@ -294,7 +297,7 @@ const OfficePage = ({
   };
 
   const handleDeleteDownloadLink = async (id) => {
-    if (!isTecnico || !companyName || !id || savingDownload) return;
+    if (!isTecnico || !companyKey || !id || savingDownload) return;
     setSavingDownload(true);
     try {
       const res = await fetch(buildApiUrl(`/api/keepass/office-download-links/${id}`), {
@@ -306,7 +309,7 @@ const OfficePage = ({
         setEditingDownloadId(null);
         setEditingDownload({ title: '', description: '', links: [{ label: '', url: '' }] });
       }
-      await loadDownloadLinks(companyName);
+      await loadDownloadLinks(companyKey);
     } catch (err) {
       console.error('Errore eliminazione link download:', err);
       setDownloadError('Impossibile eliminare il link');
@@ -356,7 +359,7 @@ const OfficePage = ({
   };
 
   const persistDownloadOrder = async (reordered) => {
-    if (!isTecnico || !companyName || savingDownload) return;
+    if (!isTecnico || !companyKey || savingDownload) return;
     setSavingDownload(true);
     setDownloadError(null);
     try {
@@ -364,7 +367,7 @@ const OfficePage = ({
         method: 'PUT',
         headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          azienda_name: companyName,
+          azienda_name: companyKey,
           ordered_ids: reordered.map((item) => item.id)
         })
       });
@@ -373,7 +376,7 @@ const OfficePage = ({
     } catch (err) {
       console.error('Errore riordino link download:', err);
       setDownloadError('Impossibile riordinare i link');
-      await loadDownloadLinks(companyName);
+      await loadDownloadLinks(companyKey);
     } finally {
       setSavingDownload(false);
     }
@@ -402,7 +405,7 @@ const OfficePage = ({
   };
 
   const handleCreateActivationGuide = async () => {
-    if (!isTecnico || !companyName || savingActivation) return;
+    if (!isTecnico || !companyKey || savingActivation) return;
     const title = newActivation.title.trim();
     const description = newActivation.description.trim();
     const links = (newActivation.links || [])
@@ -416,7 +419,7 @@ const OfficePage = ({
         method: 'POST',
         headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          azienda_name: companyName,
+          azienda_name: companyKey,
           title,
           description,
           links,
@@ -425,7 +428,7 @@ const OfficePage = ({
       });
       if (!res.ok) throw new Error('Errore creazione guida');
       setNewActivation({ title: '', description: '', links: [{ label: '', url: '' }] });
-      await loadActivationGuides(companyName);
+      await loadActivationGuides(companyKey);
     } catch (err) {
       console.error('Errore creazione guida attivazione:', err);
       setActivationError('Impossibile creare la guida');
@@ -435,7 +438,7 @@ const OfficePage = ({
   };
 
   const handleSaveActivationGuide = async (id) => {
-    if (!isTecnico || !companyName || !id) return;
+    if (!isTecnico || !companyKey || !id) return;
     const title = editingActivation.title.trim();
     const description = editingActivation.description.trim();
     const links = (editingActivation.links || [])
@@ -459,7 +462,7 @@ const OfficePage = ({
       if (!res.ok) throw new Error('Errore aggiornamento guida');
       setEditingActivationId(null);
       setEditingActivation({ title: '', description: '', links: [{ label: '', url: '' }] });
-      await loadActivationGuides(companyName);
+      await loadActivationGuides(companyKey);
     } catch (err) {
       console.error('Errore salvataggio guida attivazione:', err);
       setActivationError('Impossibile aggiornare la guida');
@@ -469,7 +472,7 @@ const OfficePage = ({
   };
 
   const handleDeleteActivationGuide = async (id) => {
-    if (!isTecnico || !companyName || !id || savingActivation) return;
+    if (!isTecnico || !companyKey || !id || savingActivation) return;
     setSavingActivation(true);
     try {
       const res = await fetch(buildApiUrl(`/api/keepass/office-activation-guides/${id}`), {
@@ -481,7 +484,7 @@ const OfficePage = ({
         setEditingActivationId(null);
         setEditingActivation({ title: '', description: '', links: [{ label: '', url: '' }] });
       }
-      await loadActivationGuides(companyName);
+      await loadActivationGuides(companyKey);
     } catch (err) {
       console.error('Errore eliminazione guida attivazione:', err);
       setActivationError('Impossibile eliminare la guida');
@@ -531,7 +534,7 @@ const OfficePage = ({
   };
 
   const persistActivationOrder = async (reordered) => {
-    if (!isTecnico || !companyName || savingActivation) return;
+    if (!isTecnico || !companyKey || savingActivation) return;
     setSavingActivation(true);
     setActivationError(null);
     try {
@@ -539,7 +542,7 @@ const OfficePage = ({
         method: 'PUT',
         headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          azienda_name: companyName,
+          azienda_name: companyKey,
           ordered_ids: reordered.map((item) => item.id)
         })
       });
@@ -548,7 +551,7 @@ const OfficePage = ({
     } catch (err) {
       console.error('Errore riordino guide attivazione:', err);
       setActivationError('Impossibile riordinare le guide');
-      await loadActivationGuides(companyName);
+      await loadActivationGuides(companyKey);
     } finally {
       setSavingActivation(false);
     }
@@ -595,24 +598,31 @@ const OfficePage = ({
         throw new Error('Azienda non trovata');
       }
 
-      const aziendaName = company.azienda || '';
-      console.log('🔍 Caricamento Office per azienda:', aziendaName, 'ID:', company.id);
+      const aziendaNameRaw = String(company.azienda || '').trim();
+      console.log('🔍 Caricamento Office per azienda:', aziendaNameRaw, 'ID:', company.id);
       
       // Pulisci il nome dell'azienda da eventuali caratteri strani o ID
-      const cleanAziendaName = aziendaName.split(':')[0].trim();
+      const cleanAziendaName = aziendaNameRaw.includes(':') ? aziendaNameRaw.split(':')[0].trim() : aziendaNameRaw;
       console.log('🔍 Nome azienda pulito:', cleanAziendaName);
 
       if (gen !== officeLoadGen.current) return;
       setCompanyName(cleanAziendaName);
+      setCompanyKey(aziendaNameRaw || cleanAziendaName);
 
       // Ora recupera i dati Office da Keepass
-      const apiUrl = buildApiUrl(`/api/keepass/office/${encodeURIComponent(cleanAziendaName)}`);
-      console.log('🔍 URL API chiamato:', apiUrl);
-      
-      const response = await fetch(apiUrl, {
-        headers: getAuthHeader(),
-        cache: 'no-store'
-      });
+      const tryNames = Array.from(
+        new Set([aziendaNameRaw, cleanAziendaName].map((s) => String(s || '').trim()).filter(Boolean))
+      );
+      let response = null;
+      let usedKey = '';
+      for (const name of tryNames) {
+        const apiUrl = buildApiUrl(`/api/keepass/office/${encodeURIComponent(name)}`);
+        console.log('🔍 URL API chiamato:', apiUrl);
+        const r = await fetch(apiUrl, { headers: getAuthHeader(), cache: 'no-store' });
+        response = r;
+        usedKey = name;
+        if (r.ok || r.status !== 404) break;
+      }
 
       if (gen !== officeLoadGen.current) return;
 
@@ -636,8 +646,9 @@ const OfficePage = ({
       console.log('📦 Chiavi customFields:', data.customFields ? Object.keys(data.customFields) : 'null');
       console.log('📦 Valori customFields:', data.customFields ? Object.entries(data.customFields).map(([k, v]) => `${k}: "${v}"`).join(', ') : 'null');
       setOfficeData(data);
+      setCompanyKey(usedKey || aziendaNameRaw || cleanAziendaName);
       // Carica stati scaduta/nota per le card di questa azienda
-      await loadCardStatuses(cleanAziendaName);
+      await loadCardStatuses(usedKey || aziendaNameRaw || cleanAziendaName);
     } catch (err) {
       if (gen !== officeLoadGen.current) return;
       console.error('Errore caricamento Office:', err);
@@ -668,7 +679,7 @@ const OfficePage = ({
 
   // Salva stato card (con debounce per la nota)
   const saveCardStatus = useCallback(async (file, fields) => {
-    if (!companyName || !getAuthHeader || !isTecnico) return;
+    if (!companyKey || !getAuthHeader || !isTecnico) return;
     const key = cardKey(file);
     const current = cardStatuses[key] || { note: '' };
     const merged = { ...current, ...fields };
@@ -678,7 +689,7 @@ const OfficePage = ({
         method: 'PUT',
         headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          azienda_name: companyName,
+          azienda_name: companyKey,
           card_title: file.title || '',
           card_username: file.username || '',
           is_expired: false,
@@ -686,7 +697,7 @@ const OfficePage = ({
         })
       });
     } catch (e) { console.warn('Errore salvataggio card status:', e); }
-  }, [companyName, getAuthHeader, isTecnico, cardStatuses]);
+  }, [companyKey, getAuthHeader, isTecnico, cardStatuses]);
 
   // Salva nota con debounce (evita troppe chiamate durante la digitazione)
   const saveNoteDebounced = useCallback((file, note) => {
@@ -795,6 +806,7 @@ const OfficePage = ({
                   setError(null);
                   setOfficeData(null);
                   setCompanyName('');
+                  setCompanyKey('');
                   
                   // Carica i dati solo se è stata selezionata un'azienda
                   if (newCompanyId) {
@@ -852,9 +864,14 @@ const OfficePage = ({
                 setError(null);
                 setOfficeData(null);
                 setCompanyName('');
+                setCompanyKey('');
                 if (newCompanyId) {
                   const company = companies.find(c => String(c.id) === String(newCompanyId));
-                  if (company) setCompanyName((company.azienda || '').split(':')[0].trim());
+                  if (company) {
+                    const raw = String(company.azienda || '').trim();
+                    setCompanyName(raw.includes(':') ? raw.split(':')[0].trim() : raw);
+                    setCompanyKey(raw);
+                  }
                 }
               }}
             />
@@ -974,20 +991,24 @@ const OfficePage = ({
                     <h4 className={ox.hAttivo}>Attivo su:</h4>
                     
                     {file.customFields && Object.keys(file.customFields).length > 0 ? (() => {
-                      const numericFieldMap = new Map();
-                      Object.entries(file.customFields).forEach(([rawKey, rawValue]) => {
-                        const match = String(rawKey).match(/^(?:custom)?(\d+)$/i);
-                        if (!match) return;
-                        const fieldNumber = parseInt(match[1], 10);
-                        if (!Number.isFinite(fieldNumber) || fieldNumber < 1) return;
-                        numericFieldMap.set(fieldNumber, rawValue);
-                      });
+                      const entries = Object.entries(file.customFields || {})
+                        .map(([k, v]) => ({ k: String(k || '').trim(), v }))
+                        .filter((x) => x.k && String(x.v ?? '').trim() !== '');
 
-                      if (numericFieldMap.size === 0) {
-                        return <p className={ox.pMutedItalicXs}>Nessun campo personalizzato numerico trovato</p>;
+                      if (entries.length === 0) {
+                        return <p className={ox.pMutedItalicXs}>Nessun campo personalizzato trovato</p>;
                       }
 
-                      const maxFieldNumber = Math.max(...numericFieldMap.keys());
+                      const numeric = [];
+                      const other = [];
+                      for (const e of entries) {
+                        const m = e.k.match(/^(?:custom)?(\d+)$/i);
+                        if (m) numeric.push({ n: parseInt(m[1], 10), k: e.k, v: e.v });
+                        else other.push(e);
+                      }
+                      numeric.sort((a, b) => (a.n || 0) - (b.n || 0));
+                      other.sort((a, b) => a.k.localeCompare(b.k, 'it-IT'));
+
                       const getBorderColor = (num) => {
                         const colorBySlot = {
                           1: 'border-blue-500',
@@ -1001,20 +1022,20 @@ const OfficePage = ({
 
                       return (
                         <div className="space-y-0.5">
-                          {Array.from({ length: maxFieldNumber }, (_, idx) => {
-                            const fieldNumber = idx + 1;
-                            const value = numericFieldMap.get(fieldNumber);
-                            const valueStr = value ? String(value).trim() : '';
-
-                            return (
-                              <div key={`custom-${fieldNumber}`} className={`border-l-4 ${getBorderColor(fieldNumber)} pl-3 py-1`}>
-                                <p className={ox.pBodySm}>
-                                  <span className="font-semibold">{fieldNumber}.</span>
-                                  {valueStr ? <> {valueStr}</> : null}
-                                </p>
-                              </div>
-                            );
-                          })}
+                          {numeric.map((row) => (
+                            <div key={`custom-${row.n}`} className={`border-l-4 ${getBorderColor(row.n)} pl-3 py-1`}>
+                              <p className={ox.pBodySm}>
+                                <span className="font-semibold">{row.n}.</span> {String(row.v).trim()}
+                              </p>
+                            </div>
+                          ))}
+                          {other.map((row) => (
+                            <div key={`custom-${row.k}`} className="border-l-4 border-gray-400 pl-3 py-1">
+                              <p className={ox.pBodySm}>
+                                <span className="font-semibold">{row.k}:</span> {String(row.v).trim()}
+                              </p>
+                            </div>
+                          ))}
                         </div>
                       );
                     })() : (
