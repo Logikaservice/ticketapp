@@ -68,6 +68,15 @@ const OfficePage = ({
   const [editingActivation, setEditingActivation] = useState({ title: '', description: '', links: [{ label: '', url: '' }] });
   const [draggingActivationId, setDraggingActivationId] = useState(null);
   const [dragOverActivationId, setDragOverActivationId] = useState(null);
+  const [usefulGuidelines, setUsefulGuidelines] = useState([]);
+  const [loadingUsefulGuidelines, setLoadingUsefulGuidelines] = useState(false);
+  const [usefulGuidelinesError, setUsefulGuidelinesError] = useState(null);
+  const [newUsefulGuideline, setNewUsefulGuideline] = useState({ title: '', description: '', links: [{ label: '', url: '' }] });
+  const [savingUsefulGuideline, setSavingUsefulGuideline] = useState(false);
+  const [editingUsefulGuidelineId, setEditingUsefulGuidelineId] = useState(null);
+  const [editingUsefulGuideline, setEditingUsefulGuideline] = useState({ title: '', description: '', links: [{ label: '', url: '' }] });
+  const [draggingUsefulGuidelineId, setDraggingUsefulGuidelineId] = useState(null);
+  const [dragOverUsefulGuidelineId, setDragOverUsefulGuidelineId] = useState(null);
 
   // Sincronizza lo stato locale con initialCompanyId se cambia esternamente
   useEffect(() => {
@@ -216,18 +225,42 @@ const OfficePage = ({
     }
   }, [getAuthHeader]);
 
+  const loadUsefulGuidelines = useCallback(async (azienda) => {
+    if (!azienda || !getAuthHeader) return;
+    setLoadingUsefulGuidelines(true);
+    setUsefulGuidelinesError(null);
+    try {
+      const res = await fetch(buildApiUrl(`/api/keepass/office-useful-guidelines/${encodeURIComponent(azienda)}`), {
+        headers: getAuthHeader(),
+        cache: 'no-store'
+      });
+      if (!res.ok) throw new Error('Errore nel caricamento delle linee guida');
+      const data = await res.json();
+      setUsefulGuidelines(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Errore caricamento office useful guidelines:', err);
+      setUsefulGuidelinesError('Impossibile caricare le linee guida utili');
+      setUsefulGuidelines([]);
+    } finally {
+      setLoadingUsefulGuidelines(false);
+    }
+  }, [getAuthHeader]);
+
   useEffect(() => {
     if (!selectedCompanyValid || !companyKey) {
       setDownloadLinks([]);
       setDownloadError(null);
       setActivationGuides([]);
       setActivationError(null);
+      setUsefulGuidelines([]);
+      setUsefulGuidelinesError(null);
       setActiveView('licenses');
       return;
     }
     loadDownloadLinks(companyKey);
     loadActivationGuides(companyKey);
-  }, [selectedCompanyValid, companyKey, loadDownloadLinks, loadActivationGuides]);
+    loadUsefulGuidelines(companyKey);
+  }, [selectedCompanyValid, companyKey, loadDownloadLinks, loadActivationGuides, loadUsefulGuidelines]);
 
   const handleCreateDownloadLink = async () => {
     if (!isTecnico || !companyKey || savingDownload) return;
@@ -578,6 +611,180 @@ const OfficePage = ({
     await persistActivationOrder(reordered);
   };
 
+  const handleCreateUsefulGuideline = async () => {
+    if (!isTecnico || !companyKey || savingUsefulGuideline) return;
+    const title = newUsefulGuideline.title.trim();
+    const description = newUsefulGuideline.description.trim();
+    const links = (newUsefulGuideline.links || [])
+      .map((link) => ({ label: String(link.label || '').trim(), url: String(link.url || '').trim() }))
+      .filter((link) => link.label && link.url);
+    if (!title || links.length === 0) return;
+
+    setSavingUsefulGuideline(true);
+    try {
+      const res = await fetch(buildApiUrl('/api/keepass/office-useful-guidelines'), {
+        method: 'POST',
+        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          azienda_name: companyKey,
+          title,
+          description,
+          links,
+          sort_order: usefulGuidelines.length
+        })
+      });
+      if (!res.ok) throw new Error('Errore creazione linea guida');
+      setNewUsefulGuideline({ title: '', description: '', links: [{ label: '', url: '' }] });
+      await loadUsefulGuidelines(companyKey);
+    } catch (err) {
+      console.error('Errore creazione linea guida utile:', err);
+      setUsefulGuidelinesError('Impossibile creare la linea guida');
+    } finally {
+      setSavingUsefulGuideline(false);
+    }
+  };
+
+  const handleSaveUsefulGuideline = async (id) => {
+    if (!isTecnico || !companyKey || !id) return;
+    const title = editingUsefulGuideline.title.trim();
+    const description = editingUsefulGuideline.description.trim();
+    const links = (editingUsefulGuideline.links || [])
+      .map((link) => ({ label: String(link.label || '').trim(), url: String(link.url || '').trim() }))
+      .filter((link) => link.label && link.url);
+    if (!title || links.length === 0) return;
+
+    setSavingUsefulGuideline(true);
+    try {
+      const target = usefulGuidelines.find((g) => g.id === id);
+      const res = await fetch(buildApiUrl(`/api/keepass/office-useful-guidelines/${id}`), {
+        method: 'PUT',
+        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          description,
+          links,
+          sort_order: target?.sort_order ?? 0
+        })
+      });
+      if (!res.ok) throw new Error('Errore aggiornamento linea guida');
+      setEditingUsefulGuidelineId(null);
+      setEditingUsefulGuideline({ title: '', description: '', links: [{ label: '', url: '' }] });
+      await loadUsefulGuidelines(companyKey);
+    } catch (err) {
+      console.error('Errore salvataggio linea guida utile:', err);
+      setUsefulGuidelinesError('Impossibile aggiornare la linea guida');
+    } finally {
+      setSavingUsefulGuideline(false);
+    }
+  };
+
+  const handleDeleteUsefulGuideline = async (id) => {
+    if (!isTecnico || !companyKey || !id || savingUsefulGuideline) return;
+    setSavingUsefulGuideline(true);
+    try {
+      const res = await fetch(buildApiUrl(`/api/keepass/office-useful-guidelines/${id}`), {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+      if (!res.ok) throw new Error('Errore eliminazione linea guida');
+      if (editingUsefulGuidelineId === id) {
+        setEditingUsefulGuidelineId(null);
+        setEditingUsefulGuideline({ title: '', description: '', links: [{ label: '', url: '' }] });
+      }
+      await loadUsefulGuidelines(companyKey);
+    } catch (err) {
+      console.error('Errore eliminazione linea guida utile:', err);
+      setUsefulGuidelinesError('Impossibile eliminare la linea guida');
+    } finally {
+      setSavingUsefulGuideline(false);
+    }
+  };
+
+  const updateNewUsefulGuidelineLinkField = (index, field, value) => {
+    setNewUsefulGuideline((prev) => {
+      const nextLinks = [...(prev.links || [])];
+      nextLinks[index] = { ...(nextLinks[index] || { label: '', url: '' }), [field]: value };
+      return { ...prev, links: nextLinks };
+    });
+  };
+
+  const addNewUsefulGuidelineLinkRow = () => {
+    setNewUsefulGuideline((prev) => ({ ...prev, links: [...(prev.links || []), { label: '', url: '' }] }));
+  };
+
+  const removeNewUsefulGuidelineLinkRow = (index) => {
+    setNewUsefulGuideline((prev) => {
+      const current = prev.links || [];
+      if (current.length <= 1) return prev;
+      return { ...prev, links: current.filter((_, idx) => idx !== index) };
+    });
+  };
+
+  const updateEditingUsefulGuidelineLinkField = (index, field, value) => {
+    setEditingUsefulGuideline((prev) => {
+      const nextLinks = [...(prev.links || [])];
+      nextLinks[index] = { ...(nextLinks[index] || { label: '', url: '' }), [field]: value };
+      return { ...prev, links: nextLinks };
+    });
+  };
+
+  const addEditingUsefulGuidelineLinkRow = () => {
+    setEditingUsefulGuideline((prev) => ({ ...prev, links: [...(prev.links || []), { label: '', url: '' }] }));
+  };
+
+  const removeEditingUsefulGuidelineLinkRow = (index) => {
+    setEditingUsefulGuideline((prev) => {
+      const current = prev.links || [];
+      if (current.length <= 1) return prev;
+      return { ...prev, links: current.filter((_, idx) => idx !== index) };
+    });
+  };
+
+  const persistUsefulGuidelinesOrder = async (reordered) => {
+    if (!isTecnico || !companyKey || savingUsefulGuideline) return;
+    setSavingUsefulGuideline(true);
+    setUsefulGuidelinesError(null);
+    try {
+      const res = await fetch(buildApiUrl('/api/keepass/office-useful-guidelines-reorder'), {
+        method: 'PUT',
+        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          azienda_name: companyKey,
+          ordered_ids: reordered.map((item) => item.id)
+        })
+      });
+      if (!res.ok) throw new Error('Errore riordino linee guida');
+      setUsefulGuidelines(reordered.map((item, idx) => ({ ...item, sort_order: idx })));
+    } catch (err) {
+      console.error('Errore riordino linee guida utili:', err);
+      setUsefulGuidelinesError('Impossibile riordinare le linee guida');
+      await loadUsefulGuidelines(companyKey);
+    } finally {
+      setSavingUsefulGuideline(false);
+    }
+  };
+
+  const handleUsefulGuidelineDrop = async (targetId) => {
+    if (!isTecnico || !draggingUsefulGuidelineId || draggingUsefulGuidelineId === targetId) {
+      setDraggingUsefulGuidelineId(null);
+      setDragOverUsefulGuidelineId(null);
+      return;
+    }
+    const fromIndex = usefulGuidelines.findIndex((item) => item.id === draggingUsefulGuidelineId);
+    const toIndex = usefulGuidelines.findIndex((item) => item.id === targetId);
+    if (fromIndex < 0 || toIndex < 0) {
+      setDraggingUsefulGuidelineId(null);
+      setDragOverUsefulGuidelineId(null);
+      return;
+    }
+    const reordered = [...usefulGuidelines];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    setDraggingUsefulGuidelineId(null);
+    setDragOverUsefulGuidelineId(null);
+    await persistUsefulGuidelinesOrder(reordered);
+  };
+
   const loadOfficeData = async (companyIdOverride = null) => {
     const companyIdToUse = companyIdOverride || selectedCompanyId;
     const gen = ++officeLoadGen.current;
@@ -919,6 +1126,16 @@ const OfficePage = ({
                 className="shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
               >
                 Apri attivazioni
+              </button>
+            </div>
+            <div className={ox.rowBanner}>
+              <p className={ox.textSingle}>Linee guida utili Office</p>
+              <button
+                type="button"
+                onClick={() => setActiveView('useful-guidelines')}
+                className="shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
+              >
+                Apri linee guida
               </button>
             </div>
             {/* Lista di tutti i file trovati */}
@@ -1628,6 +1845,266 @@ const OfficePage = ({
                             type="button"
                             onClick={() => handleDeleteActivationGuide(guide.id)}
                             disabled={savingActivation}
+                            className={ox.btnDelDanger}
+                          >
+                            <Trash2 size={12} />
+                            Elimina
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {!loading && !error && officeData && activeView === 'useful-guidelines' && (
+          <div className="max-w-5xl mx-auto">
+            <div className={ox.rowBanner}>
+              <div>
+                <p className={ox.hSmBold}>Linee guida utili Office</p>
+                <p className={ox.textMutedXs}>I tecnici possono creare e aggiornare le linee guida. Gli utenti possono solo aprire i link.</p>
+              </div>
+              <button type="button" onClick={() => setActiveView('licenses')} className={ox.btnGhostNav}>
+                <ArrowLeft size={13} />
+                Torna a Office
+              </button>
+            </div>
+
+            {isTecnico && (
+              <div className={ox.panelWhite}>
+                <h3 className={ox.panelHeading}>Nuova linea guida</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                  <input
+                    type="text"
+                    value={newUsefulGuideline.title}
+                    onChange={(e) => setNewUsefulGuideline((prev) => ({ ...prev, title: e.target.value }))}
+                    placeholder="Titolo (es. Best practice attivazione)"
+                    className={ox.inp}
+                  />
+                  <div className="md:row-span-2">
+                    <textarea
+                      value={newUsefulGuideline.description}
+                      onChange={(e) => setNewUsefulGuideline((prev) => ({ ...prev, description: e.target.value }))}
+                      placeholder="Descrizione (anche lunga)…"
+                      className={`${ox.inp} min-h-[6.5rem] resize-y`}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {(newUsefulGuideline.links || []).map((link, idx) => (
+                    <div key={`new-useful-link-${idx}`} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
+                      <input
+                        type="text"
+                        value={link.label}
+                        onChange={(e) => updateNewUsefulGuidelineLinkField(idx, 'label', e.target.value)}
+                        placeholder="Etichetta link"
+                        className={ox.inp}
+                      />
+                      <input
+                        type="url"
+                        value={link.url}
+                        onChange={(e) => updateNewUsefulGuidelineLinkField(idx, 'url', e.target.value)}
+                        placeholder="https://..."
+                        className={ox.inp}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeNewUsefulGuidelineLinkRow(idx)}
+                        disabled={(newUsefulGuideline.links || []).length <= 1}
+                        className={ox.btnRedGhost}
+                      >
+                        Rimuovi
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <button type="button" onClick={addNewUsefulGuidelineLinkRow} className={`mr-2 ${ox.btnGhostMd}`}>
+                    Aggiungi link
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCreateUsefulGuideline}
+                    disabled={savingUsefulGuideline || !newUsefulGuideline.title.trim()}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    <Plus size={13} />
+                    Aggiungi linea guida
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {loadingUsefulGuidelines ? (
+              <div className={ox.panelLoading}>
+                <Loader size={24} className={ox.spinSm} />
+                <p className={ox.msgLoadingSm}>Caricamento linee guida...</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {usefulGuidelinesError && <div className={ox.errStrip}>{usefulGuidelinesError}</div>}
+                {usefulGuidelines.length === 0 && !usefulGuidelinesError && (
+                  <div className={ox.inlineErr}>
+                    <p className={ox.inlineEmptyMsg}>Nessuna linea guida configurata per questa azienda</p>
+                  </div>
+                )}
+                {usefulGuidelines.map((g) => {
+                  const isEditing = editingUsefulGuidelineId === g.id;
+                  const isDragOver = dragOverUsefulGuidelineId === g.id;
+                  return (
+                    <div
+                      key={g.id}
+                      className={ox.listCardDrag(isDragOver)}
+                      draggable={isTecnico && !isEditing}
+                      onDragStart={() => {
+                        if (!isTecnico || isEditing) return;
+                        setDraggingUsefulGuidelineId(g.id);
+                        setDragOverUsefulGuidelineId(g.id);
+                      }}
+                      onDragOver={(e) => {
+                        if (!isTecnico || !draggingUsefulGuidelineId || isEditing) return;
+                        e.preventDefault();
+                        setDragOverUsefulGuidelineId(g.id);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        handleUsefulGuidelineDrop(g.id);
+                      }}
+                      onDragEnd={() => {
+                        setDraggingUsefulGuidelineId(null);
+                        setDragOverUsefulGuidelineId(null);
+                      }}
+                    >
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={editingUsefulGuideline.title}
+                            onChange={(e) => setEditingUsefulGuideline((prev) => ({ ...prev, title: e.target.value }))}
+                            placeholder="Titolo"
+                            className={ox.inp}
+                          />
+                          <textarea
+                            value={editingUsefulGuideline.description}
+                            onChange={(e) => setEditingUsefulGuideline((prev) => ({ ...prev, description: e.target.value }))}
+                            placeholder="Descrizione"
+                            className={`${ox.inp} min-h-[6.5rem] resize-y`}
+                          />
+                          {(editingUsefulGuideline.links || []).map((editLink, idx) => (
+                            <div key={`edit-useful-link-${idx}`} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
+                              <input
+                                type="text"
+                                value={editLink.label}
+                                onChange={(e) => updateEditingUsefulGuidelineLinkField(idx, 'label', e.target.value)}
+                                placeholder="Etichetta link"
+                                className={ox.inp}
+                              />
+                              <input
+                                type="url"
+                                value={editLink.url}
+                                onChange={(e) => updateEditingUsefulGuidelineLinkField(idx, 'url', e.target.value)}
+                                placeholder="https://..."
+                                className={ox.inp}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeEditingUsefulGuidelineLinkRow(idx)}
+                                disabled={(editingUsefulGuideline.links || []).length <= 1}
+                                className={ox.btnRedGhost}
+                              >
+                                Rimuovi
+                              </button>
+                            </div>
+                          ))}
+                          <button type="button" onClick={addEditingUsefulGuidelineLinkRow} className={ox.btnGhostWFit}>
+                            Aggiungi link
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1">
+                          <p className={ox.titleLink}>{g.title}</p>
+                          {g.description ? <p className={ox.descLink}>{g.description}</p> : null}
+                          <div className="mt-1 space-y-1">
+                            {(g.links || []).map((item, idx) => (
+                              <div key={`${g.id}-useful-item-${idx}`} className="flex items-center justify-between gap-3">
+                                <span className={ox.lblLinkRow}>{item.label}</span>
+                                <a
+                                  href={item.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={ox.linkOpenPill}
+                                >
+                                  Apri
+                                </a>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-3 flex items-center gap-2">
+                        {isTecnico && !isEditing && (
+                          <div className={ox.dragBadge} title="Trascina per riordinare">
+                            <GripVertical size={12} />
+                            Trascina
+                          </div>
+                        )}
+                        <a
+                          href={isEditing ? (editingUsefulGuideline.links?.[0]?.url || '#') : (g.links?.[0]?.url || '#')}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
+                        >
+                          Apri primo link
+                        </a>
+                        {isTecnico && !isEditing && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingUsefulGuidelineId(g.id);
+                              setEditingUsefulGuideline({
+                                title: g.title || '',
+                                description: g.description || '',
+                                links: (g.links && g.links.length > 0)
+                                  ? g.links.map((item) => ({ label: item.label || '', url: item.url || '' }))
+                                  : [{ label: '', url: '' }]
+                              });
+                            }}
+                            className={ox.btnGhostMd}
+                          >
+                            Modifica
+                          </button>
+                        )}
+                        {isTecnico && isEditing && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleSaveUsefulGuideline(g.id)}
+                              disabled={savingUsefulGuideline || !editingUsefulGuideline.title.trim()}
+                              className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+                            >
+                              Salva
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingUsefulGuidelineId(null);
+                                setEditingUsefulGuideline({ title: '', description: '', links: [{ label: '', url: '' }] });
+                              }}
+                              className={ox.btnGhostMd}
+                            >
+                              Annulla
+                            </button>
+                          </>
+                        )}
+                        {isTecnico && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteUsefulGuideline(g.id)}
+                            disabled={savingUsefulGuideline}
                             className={ox.btnDelDanger}
                           >
                             <Trash2 size={12} />
