@@ -32,7 +32,8 @@ const OfficePage = ({
   onNavigateHome,
   embedded = false,
   closeEmbedded,
-  accentHex: accentHexProp
+  accentHex: accentHexProp,
+  hubSurfaceMode: hubSurfaceModeProp = 'dark'
 }) => {
   const accent = useMemo(() => normalizeHex(accentHexProp) || getStoredTechHubAccent(), [accentHexProp]);
   const isCliente = currentUser?.ruolo === 'cliente';
@@ -1142,6 +1143,7 @@ const OfficePage = ({
           <div className="max-w-4xl mx-auto w-full">
             <OfficeIntroCard
               embedded={embedded}
+              hubSurfaceMode={hubSurfaceModeProp}
               companies={companies}
               value={selectedCompanyValid ? selectedCompanyId : ''}
               onChange={(companyId) => {

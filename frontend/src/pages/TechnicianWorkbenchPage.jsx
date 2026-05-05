@@ -1386,6 +1386,7 @@ export default function TechnicianWorkbenchPage({
               <OfficePage
                 embedded
                 accentHex={accentHex}
+                hubSurfaceMode={hubSurfaceMode}
                 closeEmbedded={() => setHubCenterView('overview')}
                 getAuthHeader={getAuthHeader}
                 selectedCompanyId={selectedCompanyId}
