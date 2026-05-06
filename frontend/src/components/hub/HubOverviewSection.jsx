@@ -174,9 +174,7 @@ function ModuleLaunchCard({
       type="button"
       onClick={onClick}
       aria-label={hasCount ? `${label}: ${n}` : label}
-      className={`flex h-full min-h-[6rem] w-full min-w-0 flex-col rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${countActive ? HUB_CARD_INNER_GLOW_CLASS : ''} ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''} ${
-        hasCount ? 'justify-start text-left' : 'justify-center text-center'
-      }`}
+      className={`flex h-full min-h-[6rem] w-full min-w-0 flex-col justify-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-left transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] hover:shadow-[0_0_0_1px_var(--hub-accent-glow)] ${countActive ? HUB_CARD_INNER_GLOW_CLASS : ''} ${className} ${subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
       style={{
         backgroundColor: 'var(--hub-chrome-surface)',
         ...hubOverviewCardLift,
@@ -210,9 +208,9 @@ function ModuleLaunchCard({
         {hasCount ? (
           <div className="flex w-full min-w-0 items-center gap-2">
             <div className="min-w-0 flex-1 leading-tight">
-              <div className="break-words text-base font-semibold text-[color:var(--hub-chrome-text)]">{label}</div>
+              <div className="truncate text-base font-semibold text-[color:var(--hub-chrome-text)]">{label}</div>
               {subtitle ? (
-                <div className="mt-1 break-words text-xs leading-snug text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div>
+                <div className="mt-1 truncate text-xs leading-snug text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div>
               ) : null}
             </div>
             <span
@@ -227,9 +225,9 @@ function ModuleLaunchCard({
           </div>
         ) : (
           <div className="w-full min-w-0 leading-tight">
-            <div className="break-words text-base font-semibold text-[color:var(--hub-chrome-text)]">{label}</div>
+            <div className="truncate text-base font-semibold text-[color:var(--hub-chrome-text)]">{label}</div>
             {subtitle ? (
-              <div className="mt-1 break-words text-xs leading-snug text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div>
+              <div className="mt-1 truncate text-xs leading-snug text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div>
             ) : null}
           </div>
         )}
@@ -294,9 +292,9 @@ function TicketHubStatCard({
       </div>
       <div className="flex w-full min-w-0 items-center gap-2">
         <div className="min-w-0 flex-1 leading-tight">
-          <div className="break-words text-base font-semibold text-[color:var(--hub-chrome-text)]">{title}</div>
+          <div className="truncate text-base font-semibold text-[color:var(--hub-chrome-text)]">{title}</div>
           {subtitle ? (
-            <div className="mt-1 break-words text-xs font-normal leading-snug text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div>
+            <div className="mt-1 truncate text-xs font-normal leading-snug text-[color:var(--hub-chrome-text-faint)]">{subtitle}</div>
           ) : null}
         </div>
         <span
