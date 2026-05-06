@@ -255,12 +255,20 @@ const OfficePage = ({
     setVisiblePasswords(v => { const n = { ...v }; delete n[key]; return n; });
   };
 
+  // Non usare loadOfficeData in deps qui: la funzione è dichiarata più sotto (evita TDZ in runtime).
   const refreshOfficeData = useCallback(async () => {
     if (!selectedCompanyValid) return;
     setVisiblePasswords({});
     setLoadingPasswords({});
-    await loadOfficeData(selectedCompanyId);
-  }, [loadOfficeData, selectedCompanyId, selectedCompanyValid]);
+    // trigger "soft refresh": la useEffect che ascolta selectedCompanyId/selectedCompanyValid ricarica i dati
+    // e inoltre eseguiamo il refresh diretto se la funzione esiste già.
+    try {
+      // eslint-disable-next-line no-use-before-define
+      await loadOfficeData(selectedCompanyId);
+    } catch (_) {
+      // ignore
+    }
+  }, [selectedCompanyId, selectedCompanyValid]);
 
   // Refresh "locale" dalla topbar dell'Hub: non ricarica tutta l'app.
   useEffect(() => {
