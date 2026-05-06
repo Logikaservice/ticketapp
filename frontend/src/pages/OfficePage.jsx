@@ -1028,7 +1028,7 @@ const OfficePage = ({
   const embeddedBackBtnStyle = useMemo(() => hubEmbeddedBackBtnInlineStyle(), []);
 
   const selectClsOffice = embedded
-    ? 'rounded-md border border-gray-300 bg-gray-50 px-3 py-1.5 text-sm text-gray-900 outline-none [color-scheme:light] focus:ring-2 focus:ring-blue-500/80'
+    ? 'rounded-md border border-gray-300 bg-gray-50 px-3 py-1 text-xs text-gray-900 outline-none [color-scheme:light] focus:ring-2 focus:ring-blue-500/80'
     : 'border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none';
 
   const refreshOfficeBtnCls = embedded
@@ -1127,7 +1127,7 @@ const OfficePage = ({
       {/* Content */}
       <div className={embedded ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'flex-1 overflow-y-auto p-6'}>
         <div
-          className={embedded ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-6 md:px-5' : 'h-full'}
+          className={embedded ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 pb-4 md:px-5' : 'h-full'}
           style={embedded ? { backgroundColor: 'var(--hub-chrome-page)' } : undefined}
         >
         {loadingCompanies && (

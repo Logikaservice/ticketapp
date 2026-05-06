@@ -104,9 +104,9 @@ export function getOfficeContentTheme(embedded) {
     errTitle: 'font-semibold text-[color:var(--hub-chrome-msg-error-text)] mb-1',
     errMsg: 'text-[color:var(--hub-chrome-msg-error-text)]',
     rowBanner:
-      'mb-4 flex items-center justify-between gap-3 rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] px-4 py-3',
-    textSingle: 'text-sm text-[color:var(--hub-chrome-text-secondary)]',
-    hSmBold: 'text-sm font-medium text-[color:var(--hub-chrome-text)]',
+      'mb-3 flex items-center justify-between gap-2 rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] px-4 py-2.5',
+    textSingle: 'text-xs text-[color:var(--hub-chrome-text-secondary)]',
+    hSmBold: 'text-xs font-medium text-[color:var(--hub-chrome-text)]',
     textMutedXs: 'text-xs text-[color:var(--hub-chrome-text-muted)]',
     btnGhostNav:
       'inline-flex items-center gap-1 rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] px-3 py-1.5 text-xs font-medium text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)] transition-colors',
@@ -116,23 +116,23 @@ export function getOfficeContentTheme(embedded) {
       'rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] px-3 py-1.5 text-xs font-medium text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)] transition-colors',
     btnGhostWFit:
       'w-fit rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] px-3 py-1.5 text-xs font-medium text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)] transition-colors',
-    panelWhite: 'mb-4 rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] p-4',
-    panelHeading: 'text-sm font-semibold text-[color:var(--hub-chrome-text)] mb-3',
+    panelWhite: 'mb-3 rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] p-3',
+    panelHeading: 'text-xs font-semibold text-[color:var(--hub-chrome-text)] mb-2',
     inp: H_INP,
     btnRedGhost:
       'rounded-md border border-[color:var(--hub-chrome-notice-danger-border)] bg-[color:var(--hub-chrome-notice-danger-bg)] px-3 py-1.5 text-xs font-medium text-[color:var(--hub-chrome-notice-danger-text)] hover:brightness-95 transition-colors disabled:opacity-50',
     btnDelDanger:
       'inline-flex items-center gap-1 rounded-md border border-[color:var(--hub-chrome-notice-danger-border)] bg-[color:var(--hub-chrome-notice-danger-bg)] px-3 py-1.5 text-xs font-medium text-[color:var(--hub-chrome-notice-danger-text)] hover:brightness-95 transition-colors disabled:opacity-50',
     panelLoading:
-      'rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] p-6 text-center',
+      'rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] p-5 text-center',
     spinSm: 'animate-spin text-[color:var(--hub-accent)] mx-auto mb-2',
     msgLoadingSm: 'text-sm text-[color:var(--hub-chrome-text-muted)]',
     errStrip:
       'rounded-lg border border-[color:var(--hub-chrome-msg-error-border)] bg-[color:var(--hub-chrome-msg-error-bg)] p-3 text-sm text-[color:var(--hub-chrome-msg-error-text)]',
     emptyBox:
-      'rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] p-6 text-sm text-[color:var(--hub-chrome-text-faint)] italic',
+      'rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] p-5 text-xs text-[color:var(--hub-chrome-text-faint)] italic',
     listCardDrag: (drag) =>
-      `rounded-xl border p-4 transition-colors bg-[color:var(--hub-chrome-surface)] ${
+      `rounded-xl border p-3 transition-colors bg-[color:var(--hub-chrome-surface)] ${
         drag ? 'border-[color:var(--hub-accent)] bg-[color:var(--hub-accent)]/12' : 'border-[color:var(--hub-chrome-border)]'
       }`,
     titleLink: 'text-sm font-semibold text-[color:var(--hub-chrome-text)]',
@@ -143,8 +143,8 @@ export function getOfficeContentTheme(embedded) {
     dragBadge:
       'inline-flex items-center gap-1 rounded-md border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] px-2 py-1 text-xs font-medium text-[color:var(--hub-chrome-text-muted)]',
     inlineErr:
-      'rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] p-6 text-center',
-    inlineEmptyMsg: 'text-sm text-[color:var(--hub-chrome-text-faint)] italic',
+      'rounded-xl border border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-surface)] p-5 text-center',
+    inlineEmptyMsg: 'text-xs text-[color:var(--hub-chrome-text-faint)] italic',
     pwdChip:
       'font-mono rounded bg-[color:var(--hub-chrome-muted-fill)] px-2 py-0.5 text-xs text-[color:var(--hub-chrome-text)]',
     eyeBtn:
@@ -154,10 +154,10 @@ export function getOfficeContentTheme(embedded) {
 
     fileCardOuter: (exp) =>
       exp
-        ? 'break-inside-avoid mb-4 rounded-xl border-2 border-[color:var(--hub-chrome-notice-danger-border)] bg-[color:var(--hub-chrome-notice-danger-bg)] px-4 py-3 shadow-none'
-        : 'break-inside-avoid mb-4 rounded-xl border-2 border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)] px-4 py-3 shadow-none',
+        ? 'break-inside-avoid mb-3 rounded-xl border-2 border-[color:var(--hub-chrome-notice-danger-border)] bg-[color:var(--hub-chrome-notice-danger-bg)] px-3 py-2.5 shadow-none'
+        : 'break-inside-avoid mb-3 rounded-xl border-2 border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)] px-3 py-2.5 shadow-none',
     borderBHdr: 'mb-2 border-b border-[color:var(--hub-chrome-border-soft)] pb-2',
-    fileTitle: 'truncate text-base font-bold text-[color:var(--hub-chrome-text)]',
+    fileTitle: 'truncate text-[13px] font-bold text-[color:var(--hub-chrome-text)]',
     labelUpperSm:
       'shrink-0 text-[10px] font-medium uppercase tracking-wide text-[color:var(--hub-chrome-text-faint)]',
     valMonoXs: 'font-mono text-xs text-[color:var(--hub-chrome-text)]',
