@@ -798,6 +798,29 @@ export default function TechnicianWorkbenchPage({
   const minMd = useMinMd();
   const railMode = sidebarCollapsed && minMd;
 
+  // Evita scrollbar del documento quando l'Hub è aperto (Hub è fixed full-screen).
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtmlOverflow = html.style.overflow;
+    const prevBodyOverflow = body.style.overflow;
+    const prevHtmlHeight = html.style.height;
+    const prevBodyHeight = body.style.height;
+
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    html.style.height = '100%';
+    body.style.height = '100%';
+
+    return () => {
+      html.style.overflow = prevHtmlOverflow;
+      body.style.overflow = prevBodyOverflow;
+      html.style.height = prevHtmlHeight;
+      body.style.height = prevBodyHeight;
+    };
+  }, []);
+
   // Sempre compatti: quando passi a "Solo icone" o fai refresh, richiudi i gruppi.
   useEffect(() => {
     setNavProjectsOpen(false);
