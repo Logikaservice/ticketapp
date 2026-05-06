@@ -922,10 +922,10 @@ export default function TechnicianWorkbenchPage({
   );
 
   return (
-    <div className="relative z-[70] flex h-[100dvh] w-full flex-col overflow-hidden md:flex-row" style={accentStyle}>
+    <div className="fixed inset-0 z-[70] flex h-[100dvh] w-full flex-col overflow-hidden md:flex-row" style={accentStyle}>
       {/* Colonna sinistra */}
       <aside
-        className={`flex w-full shrink-0 flex-col border-[color:var(--hub-chrome-border-soft)] py-5 text-[color:var(--hub-chrome-text-secondary)] transition-[width,padding] duration-200 ease-out max-md:w-full max-md:px-5 md:h-full md:border-r ${
+        className={`flex h-full w-full shrink-0 flex-col border-[color:var(--hub-chrome-border-soft)] py-5 text-[color:var(--hub-chrome-text-secondary)] transition-[width,padding] duration-200 ease-out max-md:w-full max-md:px-5 md:border-r ${
           railMode
             ? 'md:w-[76px] md:items-center md:px-2 md:overflow-visible'
             : 'md:w-[280px] md:px-5 lg:w-[292px]'
@@ -1798,7 +1798,7 @@ export default function TechnicianWorkbenchPage({
 
         {/* Colonna destra */}
         <aside
-          className={`flex min-h-0 shrink-0 flex-col gap-3 overflow-hidden border-[color:var(--hub-chrome-border-soft)] py-5 lg:h-full lg:w-[300px] lg:border-l xl:w-[320px] ${
+          className={`flex h-full min-h-0 shrink-0 flex-col gap-3 overflow-hidden border-[color:var(--hub-chrome-border-soft)] py-5 lg:w-[300px] lg:border-l xl:w-[320px] ${
             hubCenterView === 'tickets' && ticketHubListProps ? 'px-2' : 'px-4'
           }`}
           style={{ backgroundColor: 'var(--hub-chrome-page)' }}
