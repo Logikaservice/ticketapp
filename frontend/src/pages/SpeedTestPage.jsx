@@ -939,7 +939,9 @@ const SpeedTestPage = ({
   embedded = false,
   closeEmbedded,
   accentHex: accentHexProp,
-  selectedCompanyId
+  selectedCompanyId,
+  hubRefreshTick,
+  hubRefreshView
 }) => {
   const [overview, setOverview] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1285,6 +1287,23 @@ const SpeedTestPage = ({
   useEffect(() => {
     fetchOverview();
   }, [fetchOverview]);
+
+  // Refresh "locale" da Hub (pulsante "Aggiorna vista" nella topbar Hub)
+  useEffect(() => {
+    if (!embedded) return;
+    if (hubRefreshTick == null) return;
+    if (hubRefreshView !== 'speedtest') return;
+    try {
+      // In panoramica → aggiorna lista aziende. In dettaglio → aggiorna anche cronologia.
+      fetchOverview();
+      if (selectedCompany && (selectedCompany.agentId != null || selectedCompany.aziendaId != null)) {
+        fetchHistory(selectedCompany, historyDays);
+      }
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hubRefreshTick, hubRefreshView, embedded]);
 
   // Quando si seleziona una card, carica cronologia (agent o azienda)
   useEffect(() => {

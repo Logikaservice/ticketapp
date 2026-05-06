@@ -1793,6 +1793,8 @@ export default function TechnicianWorkbenchPage({
                 onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
                 onNavigateVpn={() => nav?.onOpenVpn?.()}
                 onNavigateLSight={() => nav?.onOpenLSight?.()}
+                hubRefreshTick={hubRefreshTick}
+                hubRefreshView={hubRefreshViewRef.current}
               />
             ) : hubCenterView === 'network-monitoring' && canNetworkMonitoring ? (
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain text-[11px] leading-tight">
