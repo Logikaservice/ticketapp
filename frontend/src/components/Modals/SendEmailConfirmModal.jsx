@@ -6,20 +6,20 @@ import { HUB_MODAL_NOTICE_INFO } from '../../utils/techHubAccent';
 const SendEmailConfirmModal = ({ onConfirm, onCancel, ticket }) => {
   return (
     <HubModalInnerCard maxWidthClass="max-w-md w-full">
-      <div className="p-6 pb-2 text-white">
+      <div className="p-6 pb-2 text-[color:var(--hub-chrome-text)]">
         <div className="mb-4 text-center">
           <Mail size={44} className="mx-auto mb-3 text-sky-400" aria-hidden />
-          <h2 className="text-xl font-bold text-white">Invia Email di Notifica</h2>
+          <h2 className="text-xl font-bold text-[color:var(--hub-chrome-text)]">Invia Email di Notifica</h2>
         </div>
 
         <div className={`mb-6 ${HUB_MODAL_NOTICE_INFO}`}>
-          <p className="font-semibold text-sky-100">Vuoi inviare una email di notifica al cliente?</p>
+          <p className="font-semibold text-[color:var(--hub-chrome-text-secondary)]">Vuoi inviare una email di notifica al cliente?</p>
           {ticket && (
-            <p className="mt-2 text-sm text-white/85">
+            <p className="mt-2 text-sm text-[color:var(--hub-chrome-text-muted)]">
               Ticket: <strong>#{ticket.numero}</strong> — {ticket.titolo}
             </p>
           )}
-          <p className="mt-2 text-xs text-white/65">Il cliente riceverà una notifica che il ticket è stato risolto.</p>
+          <p className="mt-2 text-xs text-[color:var(--hub-chrome-text-faint)]">Il cliente riceverà una notifica che il ticket è stato risolto.</p>
         </div>
       </div>
 
@@ -27,7 +27,7 @@ const SendEmailConfirmModal = ({ onConfirm, onCancel, ticket }) => {
         <button
           type="button"
           onClick={onCancel}
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-white/[0.1] px-4 py-3 text-sm font-medium text-white transition hover:bg-white/[0.14]"
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[color:var(--hub-chrome-hover)] px-4 py-3 text-sm font-medium text-[color:var(--hub-chrome-text)] ring-1 ring-[color:var(--hub-chrome-border)] transition hover:brightness-110"
         >
           <X size={18} aria-hidden />
           Annulla
@@ -35,7 +35,8 @@ const SendEmailConfirmModal = ({ onConfirm, onCancel, ticket }) => {
         <button
           type="button"
           onClick={onConfirm}
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-sky-500"
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-bold transition hover:brightness-110"
+          style={{ backgroundColor: 'var(--hub-accent)', color: 'var(--hub-accent-on)' }}
         >
           <Send size={18} aria-hidden />
           Invia Email
