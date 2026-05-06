@@ -190,40 +190,52 @@ export default function HubDispositiviSpaceCard({
               Nessun dato disponibile.
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {top.map((c) => {
                 const hasIssue = c.crit + c.warn > 0;
+                const showCrit = c.crit > 0;
+                const showWarn = c.warn > 0;
                 return (
                   <div
                     key={c.name}
-                    className="flex items-center gap-3 rounded-xl border border-[color:var(--hub-chrome-border-soft)] px-3 py-2"
-                    style={{ backgroundColor: rowFill }}
+                    className="flex items-start gap-3 py-1.5"
                   >
+                    {hasIssue ? (
+                      <AlertTriangle
+                        size={14}
+                        className={c.crit > 0 ? 'text-red-500' : 'text-yellow-500'}
+                        aria-hidden
+                        style={{ marginTop: 2 }}
+                      />
+                    ) : (
+                      <span className="h-[14px] w-[14px]" aria-hidden />
+                    )}
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        {hasIssue ? (
-                          <AlertTriangle
-                            size={14}
-                            className={c.crit > 0 ? 'text-red-500' : 'text-yellow-500'}
-                            aria-hidden
-                          />
-                        ) : null}
+                      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                         <div className="truncate text-[13px] font-semibold" style={{ color: chromeText }}>
                           {shortCompanyLabel(c.name, 18)}
                         </div>
+
+                        {(showCrit || showWarn) && (
+                          <div className="flex items-center gap-2 text-[11px] font-medium" style={{ color: chromeMuted }}>
+                            {showCrit ? (
+                              <span className="inline-flex items-center gap-1">
+                                <span className="h-2 w-2 rounded-full bg-red-500" aria-hidden />
+                                {c.crit} rosso
+                              </span>
+                            ) : null}
+                            {showWarn ? (
+                              <span className="inline-flex items-center gap-1">
+                                <span className="h-2 w-2 rounded-full bg-yellow-500" aria-hidden />
+                                {c.warn} giallo
+                              </span>
+                            ) : null}
+                          </div>
+                        )}
+
                         <div className="ml-auto shrink-0 text-[11px] font-semibold" style={{ color: chromeMuted }}>
                           {c.total} PC
                         </div>
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]" style={{ color: chromeMuted }}>
-                        <span className="inline-flex items-center gap-1">
-                          <span className="h-2 w-2 rounded-full bg-red-500" aria-hidden />
-                          {c.crit} rosso
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <span className="h-2 w-2 rounded-full bg-yellow-500" aria-hidden />
-                          {c.warn} giallo
-                        </span>
                       </div>
                     </div>
                   </div>
