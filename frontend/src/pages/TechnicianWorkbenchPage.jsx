@@ -112,7 +112,7 @@ function NavGroup({ title, open, onToggle, children, railMode }) {
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-widest text-[color:var(--hub-chrome-text-muted)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)]"
+        className="flex w-full items-center justify-between rounded-xl px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-[color:var(--hub-chrome-text-muted)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)]"
       >
         <span>{title}</span>
         {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -188,13 +188,13 @@ function SidebarLink({
       type="button"
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
-      className={`group flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
+      className={`group flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm transition ${
         active
           ? hubLight
             ? 'border-[color:color-mix(in_srgb,var(--hub-accent)_35%,var(--hub-chrome-border))] font-semibold shadow-sm hover:brightness-[1.01]'
             : 'border-transparent font-semibold shadow-sm hover:brightness-105'
           : 'border-transparent hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)]'
-      } ${nested ? 'pl-6 text-[13px]' : ''}`}
+      } ${nested ? 'pl-5 text-[12px]' : ''}`}
       style={active ? activeSurfaceStyle : undefined}
     >
       <Icon
@@ -500,11 +500,12 @@ export default function TechnicianWorkbenchPage({
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [accentPickerOpen, setAccentPickerOpen] = useState(false);
   const [navToolsOpen, setNavToolsOpen] = useState(true);
-  const [navProjectsOpen, setNavProjectsOpen] = useState(true);
-  const [navManagementOpen, setNavManagementOpen] = useState(true);
-  const [navManagementClientsOpen, setNavManagementClientsOpen] = useState(true);
-  const [navManagementAgentsOpen, setNavManagementAgentsOpen] = useState(true);
-  const [navManagementCommsOpen, setNavManagementCommsOpen] = useState(true);
+  // Sidebar: questi gruppi devono restare compatti e NON "ricordare" apertura dopo refresh
+  const [navProjectsOpen, setNavProjectsOpen] = useState(false);
+  const [navManagementOpen, setNavManagementOpen] = useState(false);
+  const [navManagementClientsOpen, setNavManagementClientsOpen] = useState(false);
+  const [navManagementAgentsOpen, setNavManagementAgentsOpen] = useState(false);
+  const [navManagementCommsOpen, setNavManagementCommsOpen] = useState(false);
   const [hubNetworkInitialView, setHubNetworkInitialView] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   /** Centro Hub: panoramica a griglia oppure modulo integrato (Comunicazioni, Email, Anti-Virus…). */
@@ -784,6 +785,15 @@ export default function TechnicianWorkbenchPage({
   const accentPickerRef = useRef(null);
   const minMd = useMinMd();
   const railMode = sidebarCollapsed && minMd;
+
+  // Sempre compatti: quando passi a "Solo icone" o fai refresh, richiudi i gruppi.
+  useEffect(() => {
+    setNavProjectsOpen(false);
+    setNavManagementOpen(false);
+    setNavManagementClientsOpen(false);
+    setNavManagementAgentsOpen(false);
+    setNavManagementCommsOpen(false);
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     try {
