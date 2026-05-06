@@ -425,21 +425,23 @@ const TelegramConfigSection = ({
         </div>
       )}
 
-      <div className="mb-4">
-        <button
-          onClick={handleNew}
-          disabled={readOnly || !onSave}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-            readOnly || !onSave
-              ? 'bg-gray-400 text-white cursor-not-allowed'
-              : 'bg-blue-600 text-white hover:bg-blue-700'
-          }`}
-          title={readOnly || !onSave ? 'Non disponibile in modalità visualizzazione' : 'Nuova configurazione Telegram'}
-        >
-          <MessageSquare size={18} />
-          Nuova Configurazione
-        </button>
-      </div>
+      {!embedded && (
+        <div className="mb-4">
+          <button
+            onClick={handleNew}
+            disabled={readOnly || !onSave}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+              readOnly || !onSave
+                ? 'bg-gray-400 text-white cursor-not-allowed'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
+            title={readOnly || !onSave ? 'Non disponibile in modalità visualizzazione' : 'Nuova configurazione Telegram'}
+          >
+            <MessageSquare size={18} />
+            Nuova Configurazione
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-8 text-gray-500">Caricamento...</div>
