@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, AlertCircle, RefreshCw } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Plus } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import TelegramConfigSection from '../components/TelegramConfigSection';
 import {
@@ -29,6 +29,7 @@ const TelegramNotificationsPage = ({
   const [agents, setAgents] = useState([]);
   const [telegramConfigs, setTelegramConfigs] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [newKick, setNewKick] = useState(0);
 
   const readOnly = currentUser?.ruolo === 'cliente';
 
@@ -142,13 +143,13 @@ const TelegramNotificationsPage = ({
         {embedded ? (
           <button
             type="button"
-            onClick={loadTelegramConfigs}
-            className="inline-flex items-center gap-2 rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] px-3 py-1.5 text-xs font-semibold text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)]"
-            title="Aggiorna lista"
+            onClick={() => setNewKick((k) => k + 1)}
+            className="inline-flex items-center gap-2 rounded-lg border border-[color:var(--hub-accent-border)] bg-[color:var(--hub-accent)]/14 px-3 py-1.5 text-xs font-semibold text-[color:var(--hub-chrome-text)] hover:bg-[color:var(--hub-accent)]/22"
+            title="Nuova Configurazione"
             disabled={loading}
           >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Aggiorna
+            <Plus size={14} />
+            Nuova Configurazione
           </button>
         ) : null}
       </div>
@@ -158,7 +159,7 @@ const TelegramNotificationsPage = ({
         style={embedded ? { backgroundColor: 'var(--hub-chrome-page)' } : undefined}
       >
         <div className={embedded ? '' : 'mx-auto max-w-5xl'}>
-          <div className={embedded ? 'rounded-2xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)] p-4' : ''}>
+          <div className={embedded ? 'text-[11px] leading-tight' : ''}>
             {!readOnly ? (
               <TelegramConfigSection
                 companies={companies}
@@ -170,6 +171,9 @@ const TelegramNotificationsPage = ({
                 onClose={embedded ? onEmbeddedBack : onClose}
                 getAuthHeader={getAuthHeader}
                 readOnly={false}
+                embedded={embedded}
+                hideHeader={true}
+                newConfigKick={newKick}
               />
             ) : (
               <div className={`flex items-center gap-2 rounded-lg border p-4 text-sm ${embedded ? 'border-[color:var(--hub-chrome-border-soft)] text-[color:var(--hub-chrome-text-muted)]' : 'border-gray-200 text-gray-600'}`}>

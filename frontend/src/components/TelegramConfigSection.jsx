@@ -3,16 +3,19 @@ import React, { useState } from 'react';
 import { MessageSquare, X, Save, Trash, Bell, BellOff, CheckCircle, AlertCircle, Edit, Send, TestTube } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
-const TelegramConfigSection = ({ 
-  companies, 
-  agents, 
-  telegramConfigs, 
-  loading, 
-  onSave, 
-  onDelete, 
+const TelegramConfigSection = ({
+  companies,
+  agents,
+  telegramConfigs,
+  loading,
+  onSave,
+  onDelete,
   onClose,
   getAuthHeader,
-  readOnly = false
+  readOnly = false,
+  embedded = false,
+  hideHeader = false,
+  newConfigKick = 0
 }) => {
   const [editingConfig, setEditingConfig] = useState(null);
   const [formData, setFormData] = useState({
@@ -68,6 +71,13 @@ const TelegramConfigSection = ({
     setError(null);
     setSuccess(null);
   };
+
+  // Trigger esterno (es. bottone nella topbar della pagina Hub)
+  React.useEffect(() => {
+    if (!newConfigKick) return;
+    handleNew();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newConfigKick]);
 
   const handleCancel = () => {
     setEditingConfig(null);
@@ -202,20 +212,30 @@ const TelegramConfigSection = ({
   };
 
   return (
-    <div className="mb-6 bg-white rounded-lg shadow p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <MessageSquare className="w-6 h-6 text-blue-600" />
-          <h2 className="text-xl font-bold text-gray-800">Notifiche Telegram</h2>
+    <div
+      className={
+        embedded
+          ? 'mb-0 rounded-2xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)] p-4 text-[11px] leading-tight'
+          : 'mb-6 bg-white rounded-lg shadow p-6'
+      }
+    >
+      {!hideHeader && (
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <MessageSquare className={`w-6 h-6 ${embedded ? 'text-[color:var(--hub-accent)]' : 'text-blue-600'}`} />
+            <h2 className={`${embedded ? 'text-base font-bold text-[color:var(--hub-chrome-text)]' : 'text-xl font-bold text-gray-800'}`}>
+              Notifiche Telegram
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className={`rounded-lg p-2 ${embedded ? 'text-[color:var(--hub-chrome-text-faint)] hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-chrome-text)]' : 'text-gray-400 hover:text-gray-600'}`}
+            title="Chiudi"
+          >
+            <X size={20} />
+          </button>
         </div>
-        <button
-          onClick={onClose}
-          className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
-          title="Chiudi"
-        >
-          <X size={20} />
-        </button>
-      </div>
+      )}
 
       {success && (
         <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center gap-2">
@@ -232,20 +252,23 @@ const TelegramConfigSection = ({
       )}
 
       {editingConfig && (
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <h3 className="text-lg font-semibold mb-4 text-gray-800">
+        <div className={`mb-6 rounded-lg border p-4 ${embedded ? 'border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-well)]' : 'bg-gray-50 border-gray-200'}`}>
+          <h3 className={`${embedded ? 'text-sm font-semibold mb-3 text-[color:var(--hub-chrome-text)]' : 'text-lg font-semibold mb-4 text-gray-800'}`}>
             {editingConfig === 'new' ? 'Nuova Configurazione' : 'Modifica Configurazione'}
           </h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className={`block mb-1 font-medium ${embedded ? 'text-xs text-[color:var(--hub-chrome-text-secondary)]' : 'text-sm text-gray-700'}`}>
                   Azienda (opzionale - lascia vuoto per tutte)
                 </label>
                 <select
                   value={formData.azienda_id}
                   onChange={(e) => setFormData({ ...formData, azienda_id: e.target.value || '' })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={embedded
+                    ? 'w-full rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-input-well)] px-3 py-2 text-xs text-[color:var(--hub-chrome-text)] outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]'
+                    : 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                  }
                 >
                   <option value="">Tutte le aziende</option>
                   {companies.map(company => (
@@ -257,13 +280,16 @@ const TelegramConfigSection = ({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className={`block mb-1 font-medium ${embedded ? 'text-xs text-[color:var(--hub-chrome-text-secondary)]' : 'text-sm text-gray-700'}`}>
                   Agent (opzionale - lascia vuoto per tutti)
                 </label>
                 <select
                   value={formData.agent_id}
                   onChange={(e) => setFormData({ ...formData, agent_id: e.target.value || '' })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={embedded
+                    ? 'w-full rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-input-well)] px-3 py-2 text-xs text-[color:var(--hub-chrome-text)] outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]'
+                    : 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                  }
                 >
                   <option value="">Tutti gli agent</option>
                   {agents.map(agent => (
@@ -275,7 +301,7 @@ const TelegramConfigSection = ({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className={`block mb-1 font-medium ${embedded ? 'text-xs text-[color:var(--hub-chrome-text-secondary)]' : 'text-sm text-gray-700'}`}>
                   Bot Token <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -283,14 +309,17 @@ const TelegramConfigSection = ({
                   value={formData.bot_token}
                   onChange={(e) => setFormData({ ...formData, bot_token: e.target.value })}
                   placeholder="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={embedded
+                    ? 'w-full rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-input-well)] px-3 py-2 text-xs text-[color:var(--hub-chrome-text)] outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]'
+                    : 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                  }
                   required
                 />
-                <p className="text-xs text-gray-500 mt-1">Ottieni da @BotFather su Telegram</p>
+                <p className={`mt-1 ${embedded ? 'text-[11px] text-[color:var(--hub-chrome-text-faint)]' : 'text-xs text-gray-500'}`}>Ottieni da @BotFather su Telegram</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className={`block mb-1 font-medium ${embedded ? 'text-xs text-[color:var(--hub-chrome-text-secondary)]' : 'text-sm text-gray-700'}`}>
                   Chat ID <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -298,7 +327,10 @@ const TelegramConfigSection = ({
                   value={formData.chat_id}
                   onChange={(e) => setFormData({ ...formData, chat_id: e.target.value })}
                   placeholder="123456789"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={embedded
+                    ? 'w-full rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-input-well)] px-3 py-2 text-xs text-[color:var(--hub-chrome-text)] outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]'
+                    : 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                  }
                   required
                 />
                 <p className="text-xs text-gray-500 mt-1">Ottieni inviando /start al bot e controllando getUpdates</p>
