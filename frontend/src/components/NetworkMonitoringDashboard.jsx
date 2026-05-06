@@ -2718,41 +2718,41 @@ const NetworkMonitoringDashboard = ({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => loadAgentEvents({ limit: 200, unreadOnly: false })}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2 ${embedded ? 'border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-muted-fill)] text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)]' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs ${embedded ? 'border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-muted-fill)] text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)]' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                   disabled={agentEventsLoading}
                   title="Aggiorna notifiche"
                 >
-                  <RefreshCw size={16} className={agentEventsLoading ? 'animate-spin' : ''} />
+                  <RefreshCw size={14} className={agentEventsLoading ? 'animate-spin' : ''} />
                   Aggiorna
                 </button>
                 <button
                   onClick={clearAllAgentNotifications}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2 font-semibold transition hover:brightness-110 disabled:opacity-50 ${embedded ? '' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition hover:brightness-110 disabled:opacity-50 ${embedded ? '' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
                   style={embedded ? embedBtnPrimaryStyle : undefined}
                   title="Segna tutte come lette (lo storico resta)"
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={14} />
                   Segna tutte lette
                 </button>
                 <button
                   onClick={() => setShowAgentNotificationsList(false)}
-                  className={`rounded-lg p-2 ${embedded ? 'text-[color:var(--hub-chrome-text-faint)] hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-chrome-text-secondary)]' : 'text-gray-400 hover:text-gray-600'}`}
+                  className={`rounded-lg p-1.5 ${embedded ? 'text-[color:var(--hub-chrome-text-faint)] hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-chrome-text-secondary)]' : 'text-gray-400 hover:text-gray-600'}`}
                   title="Chiudi"
                 >
-                  <X size={20} />
+                  <X size={18} />
                 </button>
               </div>
             </div>
 
             {/* Filtri */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-1 gap-2 mb-3 md:grid-cols-4">
               <select
                 value={agentEventsFilters.azienda}
                 onChange={(e) => setAgentEventsFilters(prev => ({ ...prev, azienda: e.target.value }))}
                 style={embeddedSelectSurfaceStyle}
                 className={
                   embedded
-                    ? `${eSelectFull} !w-full px-3 py-2`
+                    ? `${eSelectFull} !w-full px-3 py-1.5 text-xs`
                     : 'rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-700'
                 }
               >
@@ -2768,7 +2768,7 @@ const NetworkMonitoringDashboard = ({
                 style={embeddedSelectSurfaceStyle}
                 className={
                   embedded
-                    ? `${eSelectFull} !w-full px-3 py-2`
+                    ? `${eSelectFull} !w-full px-3 py-1.5 text-xs`
                     : 'rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-700'
                 }
               >
@@ -2786,7 +2786,7 @@ const NetworkMonitoringDashboard = ({
                 style={embeddedSelectSurfaceStyle}
                 className={
                   embedded
-                    ? `${eSelectFull} !w-full px-3 py-2`
+                    ? `${eSelectFull} !w-full px-3 py-1.5 text-xs`
                     : 'rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-700'
                 }
               >
@@ -2797,8 +2797,8 @@ const NetworkMonitoringDashboard = ({
                 <option value="network_issue">Problema rete</option>
               </select>
 
-              <div className="flex items-center gap-3">
-                <label className={`flex items-center gap-2 text-sm ${embedded ? 'text-[color:var(--hub-chrome-text-secondary)]' : 'text-gray-700'}`}>
+              <div className="flex items-center gap-2">
+                <label className={`flex items-center gap-2 text-xs ${embedded ? 'text-[color:var(--hub-chrome-text-secondary)]' : 'text-gray-700'}`}>
                   <input
                     type="checkbox"
                     checked={agentEventsFilters.unreadOnly}
@@ -2808,7 +2808,7 @@ const NetworkMonitoringDashboard = ({
                 </label>
                 <div className="relative flex-1">
                   <Search
-                    size={16}
+                    size={14}
                     className={`absolute left-3 top-1/2 -translate-y-1/2 ${embedded ? 'text-[color:var(--hub-chrome-text-fainter)]' : 'text-gray-400'}`}
                   />
                   <input
@@ -2817,7 +2817,7 @@ const NetworkMonitoringDashboard = ({
                     placeholder="Cerca..."
                     className={
                       embedded
-                        ? 'w-full rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] py-2 pl-9 pr-3 text-sm text-[color:var(--hub-chrome-text)] outline-none placeholder:text-[color:var(--hub-chrome-placeholder)]'
+                        ? 'w-full rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] py-1.5 pl-8 pr-3 text-xs text-[color:var(--hub-chrome-text)] outline-none placeholder:text-[color:var(--hub-chrome-placeholder)]'
                         : 'w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm'
                     }
                   />
@@ -2900,7 +2900,7 @@ const NetworkMonitoringDashboard = ({
                     return (
                       <div
                         key={ev.id}
-                        className={`flex items-start justify-between gap-4 p-4 ${embedded ? 'hover:bg-[color:var(--hub-chrome-hover)]' : 'hover:bg-gray-50'} ${
+                        className={`flex items-start justify-between gap-3 p-3 ${embedded ? 'hover:bg-[color:var(--hub-chrome-hover)]' : 'hover:bg-gray-50'} ${
                           isUnread
                             ? embedded
                               ? 'bg-[color:var(--hub-accent)]/[0.07]'
@@ -2910,23 +2910,23 @@ const NetworkMonitoringDashboard = ({
                       >
                         <div className="min-w-0 flex-1">
                           <div className="mb-1 flex items-center gap-2">
-                            <span className={`rounded px-2 py-0.5 text-xs font-semibold ${typeCls}`}>
+                            <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${typeCls}`}>
                               {ev.event_type}
                             </span>
                             {isUnread && (
                               <span
-                                className={`text-xs font-semibold ${embedded ? 'text-[color:var(--hub-accent)]' : 'text-blue-700'}`}
+                                className={`text-[11px] font-semibold ${embedded ? 'text-[color:var(--hub-accent)]' : 'text-blue-700'}`}
                               >
                                 NON LETTA
                               </span>
                             )}
                           </div>
                           <div
-                            className={`truncate text-sm font-medium ${embedded ? 'text-[color:var(--hub-chrome-text)]' : 'text-gray-900'}`}
+                            className={`truncate text-[13px] font-medium ${embedded ? 'text-[color:var(--hub-chrome-text)]' : 'text-gray-900'}`}
                           >
                             {getAgentEventLabel(ev)}
                           </div>
-                          <div className={`mt-1 text-xs ${embedded ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-gray-500'}`}>
+                          <div className={`mt-0.5 text-[11px] ${embedded ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-gray-500'}`}>
                             {ev.detected_at ? formatDate(ev.detected_at) : 'N/A'}
                             {ev.azienda ? ` • ${ev.azienda}` : ''}
                             {ev.agent_name ? ` • ${ev.agent_name}` : ''}
@@ -2936,7 +2936,7 @@ const NetworkMonitoringDashboard = ({
                           {!ev.is_read && (
                             <button
                               onClick={() => markAgentEventAsRead(ev.id)}
-                              className={`rounded-lg px-3 py-2 text-sm font-semibold transition hover:brightness-110 ${embedded ? '' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                              className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition hover:brightness-110 ${embedded ? '' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
                               style={embedded ? embedBtnPrimaryStyle : undefined}
                               title="Segna come letta"
                             >
@@ -3137,7 +3137,7 @@ const NetworkMonitoringDashboard = ({
                   title={readOnly ? 'Non disponibile in modalità visualizzazione' : "Resetta l'avviso di 'Disconnessioni rilevate' per tutti i dispositivi di questa azienda"}
                 >
                   <Activity size={18} />
-                  <span className="text-sm font-medium">Reset Errori</span>
+                  <span className="text-xs font-medium">Reset Errori</span>
                 </button>
                 <button
                   type="button"
@@ -3164,7 +3164,7 @@ const NetworkMonitoringDashboard = ({
                           : 'text-gray-400'
                     }
                   />
-                  <span className="text-sm font-medium">Disconnessioni rilevate</span>
+                  <span className="text-xs font-medium">Disconnessioni rilevate</span>
                 </button>
 
                 <button
@@ -3183,12 +3183,12 @@ const NetworkMonitoringDashboard = ({
                   {showOfflineDevices ? (
                     <>
                       <EyeOff size={18} />
-                      <span className="text-sm font-medium">Nascondi Offline</span>
+                      <span className="text-xs font-medium">Nascondi Offline</span>
                     </>
                   ) : (
                     <>
                       <Eye size={18} />
-                      <span className="text-sm font-medium">Mostra Offline</span>
+                      <span className="text-xs font-medium">Mostra Offline</span>
                     </>
                   )}
                 </button>
@@ -3201,7 +3201,7 @@ const NetworkMonitoringDashboard = ({
                   disabled={companyDevices.length === 0}
                 >
                   <FileText size={18} />
-                  <span className="text-sm font-medium">Report Stampabile</span>
+                  <span className="text-xs font-medium">Report Stampabile</span>
                 </button>
 
                 <button
@@ -3288,7 +3288,7 @@ const NetworkMonitoringDashboard = ({
                             }`}
                           >
                             {/* 1. Opzioni (Statico / Notifica) - su 2 righe */}
-                            <td className="py-1 px-4">
+                            <td className="py-1 px-3">
                               <div className="flex flex-col gap-1">
                                 <label className="flex items-center gap-1 cursor-pointer" title="IP Statico - Dispositivo con IP fisso">
                                   <input
@@ -3331,7 +3331,7 @@ const NetworkMonitoringDashboard = ({
                                         delete pendingUpdatesRef.current[device.id]?.is_static;
                                       }
                                     }}
-                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    className="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                                   />
                                   <span className={`text-xs ${embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}>Statico</span>
                                 </label>
@@ -3374,7 +3374,7 @@ const NetworkMonitoringDashboard = ({
                                         delete pendingUpdatesRef.current[device.id]?.notify_telegram;
                                       }
                                     }}
-                                    className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                                    className="w-3.5 h-3.5 text-green-600 border-gray-300 rounded focus:ring-green-500"
                                   />
                                   <span
                                     className={`text-xs cursor-pointer flex items-center gap-0.5 ${embedded ? 'text-[color:var(--hub-chrome-text-muted)] hover:text-[color:var(--hub-accent)]' : 'text-gray-600 hover:text-blue-600'}`}
@@ -3395,7 +3395,7 @@ const NetworkMonitoringDashboard = ({
                               </div>
                             </td>
                             {/* 2. Icona tipo dispositivo (modificabile) + Status - stessa lista Mappatura, sincronizzato ovunque */}
-                            <td className="py-1 px-4 min-w-[5rem] align-top">
+                            <td className="py-1 px-3 min-w-[5rem] align-top">
                               <div className="flex items-center gap-1.5">
                                 <div className="relative flex-shrink-0">
                                   <button
@@ -3410,10 +3410,10 @@ const NetworkMonitoringDashboard = ({
                                         setDeviceTypePickerAnchor({ left: rect.left, top: rect.bottom + 6 });
                                       }
                                     }}
-                                    className={`inline-flex min-h-[28px] min-w-[28px] items-center justify-center rounded p-1 transition-colors ${embedded ? 'hover:bg-[color:var(--hub-chrome-hover)]' : 'hover:bg-gray-200'}`}
+                                    className={`inline-flex min-h-[24px] min-w-[24px] items-center justify-center rounded p-1 transition-colors ${embedded ? 'hover:bg-[color:var(--hub-chrome-hover)]' : 'hover:bg-gray-200'}`}
                                     title="Clicca per cambiare tipo dispositivo (si aggiorna anche in Mappatura)"
                                   >
-                                    {getDeviceIcon(device.device_type, 20, embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600')}
+                                    {getDeviceIcon(device.device_type, 18, embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600')}
                                   </button>
                                 </div>
                                 <StatusBadge status={device.status} pingResponsive={device.ping_responsive} />
@@ -3931,17 +3931,17 @@ const NetworkMonitoringDashboard = ({
         {/* Sezione eventi unificati (dispositivi + agent): nascosta se cliente senza agent */}
         {showEventiDiRete && (
           <div className={embedded ? `${eHubPanelFlat} overflow-hidden` : 'rounded-lg bg-white shadow'}>
-            <div className={`px-6 py-4 ${embedded ? 'border-b border-[color:var(--hub-chrome-border-soft)]' : 'border-b border-gray-200'}`}>
+            <div className={`px-4 py-3 ${embedded ? 'border-b border-[color:var(--hub-chrome-border-soft)]' : 'border-b border-gray-200'}`}>
               <div
                 ref={eventiReteSectionRef}
-                className="mb-4 flex items-center justify-between"
+                className="mb-3 flex items-center justify-between"
               >
                 <h2 className={eH2semi}>Eventi di Rete</h2>
-                <span className={embedded ? 'text-sm text-[color:var(--hub-chrome-text-muted)]' : 'text-sm text-gray-500'}>
+                <span className={embedded ? 'text-xs text-[color:var(--hub-chrome-text-muted)]' : 'text-xs text-gray-500'}>
                   {changes.length} totali
                 </span>
               </div>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
                 {/* Filtro Azienda */}
                 <div className="relative">
                   <select
@@ -4007,7 +4007,7 @@ const NetworkMonitoringDashboard = ({
                   style={embeddedSelectSurfaceStyle}
                   className={
                     embedded
-                      ? `${eSelectInline} min-w-0 md:w-auto`
+                      ? `${eSelectInline} min-w-0 md:w-auto py-1.5 text-xs`
                       : 'cursor-pointer rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500'
                   }
                 >
@@ -4029,7 +4029,7 @@ const NetworkMonitoringDashboard = ({
                     onKeyDown={(e) => e.key === 'Enter' && loadChanges(false)}
                     className={
                       embedded
-                        ? 'w-full rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] py-2 pl-10 pr-10 text-sm text-[color:var(--hub-chrome-text)] outline-none placeholder:text-[color:var(--hub-chrome-placeholder)] focus:ring-2 focus:ring-[color:var(--hub-accent)]'
+                        ? 'w-full rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] py-1.5 pl-10 pr-10 text-xs text-[color:var(--hub-chrome-text)] outline-none placeholder:text-[color:var(--hub-chrome-placeholder)] focus:ring-2 focus:ring-[color:var(--hub-accent)]'
                         : 'w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
                     }
                   />
@@ -4048,7 +4048,7 @@ const NetworkMonitoringDashboard = ({
                 </div>
               </div>
             </div>
-            <div className="p-6">
+            <div className="p-4">
               {changes.length === 0 ? (
                 <div className="py-12 text-center">
                   <Activity className={`mx-auto mb-4 h-12 w-12 ${embedded ? 'text-[color:var(--hub-chrome-text-fainter)]' : 'text-gray-400'}`} />
@@ -4064,14 +4064,14 @@ const NetworkMonitoringDashboard = ({
                           className={`${eTh} w-10 py-3 px-2`}
                           title="Tipo dispositivo (solo se riconosciuto)"
                         ></th>
-                        <th className={`${eTh} px-4 py-3`}>Tipo Evento</th>
-                        <th className={`${eTh} px-4 py-3`}>IP</th>
-                        <th className={`${eTh} px-4 py-3`}>MAC</th>
-                        <th className={`${eTh} px-4 py-3`}>Hostname</th>
-                        <th className={`${eTh} px-4 py-3`}>Prod.</th>
-                        <th className={`${eTh} px-4 py-3`}>Titolo</th>
-                        <th className={`${eTh} px-4 py-3`}>Azienda</th>
-                        <th className={`${eTh} px-4 py-3`}>Data</th>
+                        <th className={`${eTh} px-3 py-2 text-xs`}>Tipo Evento</th>
+                        <th className={`${eTh} px-3 py-2 text-xs`}>IP</th>
+                        <th className={`${eTh} px-3 py-2 text-xs`}>MAC</th>
+                        <th className={`${eTh} px-3 py-2 text-xs`}>Hostname</th>
+                        <th className={`${eTh} px-3 py-2 text-xs`}>Prod.</th>
+                        <th className={`${eTh} px-3 py-2 text-xs`}>Titolo</th>
+                        <th className={`${eTh} px-3 py-2 text-xs`}>Azienda</th>
+                        <th className={`${eTh} px-3 py-2 text-xs`}>Data</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -4090,14 +4090,14 @@ const NetworkMonitoringDashboard = ({
                             } ${change.severity === 'critical' ? (embedded ? 'bg-red-500/12' : 'bg-red-50') : ''}`}
                           >
                             {/* Icona tipo dispositivo: solo per eventi dispositivo con device_type riconosciuto */}
-                            <td className="py-3 px-2 w-10 whitespace-nowrap align-middle">
+                            <td className="py-2 px-2 w-10 whitespace-nowrap align-middle">
                               {!isAgent && change.device_type && String(change.device_type).trim() !== '' ? (
                                 <span className="inline-flex items-center justify-center" title={change.device_type}>
-                                  {getDeviceIcon(change.device_type, 18, embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-500')}
+                                  {getDeviceIcon(change.device_type, 16, embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-500')}
                                 </span>
                               ) : null}
                             </td>
-                            <td className="py-3 px-4 whitespace-nowrap">
+                            <td className="py-2 px-3 whitespace-nowrap">
                               {(() => {
                                 const actualEventType = change.event_type || change.change_type;
                                 const actualCategory = change.event_category || 'device';
@@ -4258,14 +4258,14 @@ const NetworkMonitoringDashboard = ({
                                 };
 
                                 return (
-                                  <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${badge.bg} ${badge.text} ${badge.border} whitespace-nowrap`}>
+                                  <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${badge.bg} ${badge.text} ${badge.border} whitespace-nowrap`}>
                                     {badge.label}
                                   </span>
                                 );
                               })()}
                             </td>
-                            <td className="py-3 px-4 whitespace-nowrap">
-                              <div className={`text-sm font-medium ${eTdStrong}`}>
+                            <td className="py-2 px-3 whitespace-nowrap">
+                              <div className={`text-[13px] font-medium ${eTdStrong}`}>
                                 <div className="flex items-center gap-2">
                                   {/* Indicatore disconnessioni frequenti */}
                                   {change.has_ping_failures && (
@@ -4294,7 +4294,7 @@ const NetworkMonitoringDashboard = ({
 
                                   {isStatic && (
                                     <span
-                                      className={`ml-2 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${embedded ? 'border border-[color:var(--hub-accent)]/40 bg-[color:var(--hub-accent)]/20 text-[color:var(--hub-accent)]' : 'bg-blue-200 text-blue-800'}`}
+                                      className={`ml-2 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${embedded ? 'border border-[color:var(--hub-accent)]/40 bg-[color:var(--hub-accent)]/20 text-[color:var(--hub-accent)]' : 'bg-blue-200 text-blue-800'}`}
                                     >
                                       STATICO
                                     </span>
@@ -4302,7 +4302,7 @@ const NetworkMonitoringDashboard = ({
                                 </div>
                               </div>
                             </td>
-                            <td className={`py-3 px-4 text-sm font-mono whitespace-nowrap ${eTdBody}`}>
+                            <td className={`py-2 px-3 text-xs font-mono whitespace-nowrap ${eTdBody}`}>
                               <div className="group relative inline-flex items-center">
                                 <span>
                                   {change.mac_address ? change.mac_address.replace(/-/g, ':') : '-'}
@@ -4316,18 +4316,18 @@ const NetworkMonitoringDashboard = ({
                                 )}
                               </div>
                             </td>
-                            <td className={`py-3 px-4 whitespace-nowrap text-sm ${eTdBody}`}>
+                            <td className={`py-2 px-3 whitespace-nowrap text-xs ${eTdBody}`}>
                               {change.hostname || '-'}
                             </td>
-                            <td className={`py-3 px-4 whitespace-nowrap text-sm ${eTdBody}`}>
+                            <td className={`py-2 px-3 whitespace-nowrap text-xs ${eTdBody}`}>
                               {change.device_type || '-'}
                             </td>
-                            <td className={`py-3 px-4 whitespace-nowrap text-sm ${eTdBody}`}>
+                            <td className={`py-2 px-3 whitespace-nowrap text-xs ${eTdBody}`}>
                               <span title={change.keepass_username ? `Utente: ${change.keepass_username}` : ''}>
                                 {change.hostname || change.keepass_title || change.device_path || change.vendor || '-'}
                               </span>
                             </td>
-                            <td className={`py-3 px-4 whitespace-nowrap text-sm ${eTdBody}`}>
+                            <td className={`py-2 px-3 whitespace-nowrap text-xs ${eTdBody}`}>
                               {change.azienda ? (
                                 <span
                                   onClick={(e) => {
@@ -4354,7 +4354,7 @@ const NetworkMonitoringDashboard = ({
                                 </span>
                               ) : 'N/A'}
                             </td>
-                            <td className={`whitespace-nowrap py-3 px-4 text-sm ${eTdSubtle}`}>
+                            <td className={`whitespace-nowrap py-2 px-3 text-xs ${eTdSubtle}`}>
                               {formatDate(change.detected_at)}
                             </td>
                           </tr>
