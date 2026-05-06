@@ -55,6 +55,7 @@ const TicketItem = ({
   const photos = ticket.photos || [];
   const hasPhotos = photos.length > 0;
   const hubDarkChrome = hubEmbed && !hubEmbedLight;
+  const actionIconSize = hubEmbed ? 16 : 18;
   const ib = {
     mute: `rounded-full p-1 ${hubDarkChrome ? 'text-white/65 hover:bg-white/[0.1]' : 'text-gray-600 hover:bg-gray-100'}`,
     blue: `rounded-full p-1 ${hubDarkChrome ? 'text-sky-400 hover:bg-white/[0.1]' : 'text-blue-500 hover:bg-blue-100'}`,
@@ -232,7 +233,7 @@ const TicketItem = ({
                   title={hasPhotos ? `Visualizza file (${photos.length})` : 'Aggiungi file'}
                   className={`relative ${hasPhotos ? (hubDarkChrome ? 'rounded-full p-1 text-fuchsia-300 hover:bg-white/10' : 'rounded-full p-1 text-purple-600 hover:bg-purple-100') : ib.mute}`}
                 >
-                  <Paperclip size={18} />
+                  <Paperclip size={actionIconSize} />
                   {hasPhotos && (
                     <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                       {photos.length}
@@ -247,7 +248,7 @@ const TicketItem = ({
                 title="Stampa ticket"
                 className={ib.mute}
               >
-                <Printer size={18} />
+                <Printer size={actionIconSize} />
               </button>
               {currentUser.ruolo === 'tecnico' && (
                 <>
@@ -256,7 +257,7 @@ const TicketItem = ({
                     title="Modifica ticket"
                     className={ib.blue}
                   >
-                    <Settings size={18} />
+                    <Settings size={actionIconSize} />
                   </button>
 
                   {/* ❌ RIMOSSO: Pulsante Clock "Modifica interventi" */}
@@ -268,21 +269,21 @@ const TicketItem = ({
                         title="Rinvia email"
                         className={ib.blue}
                       >
-                        <Mail size={18} />
+                        <Mail size={actionIconSize} />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleReopenInLavorazione(ticket.id); }}
                         title="Riapri"
                         className={ib.yellow}
                       >
-                        <CornerDownLeft size={18} />
+                        <CornerDownLeft size={actionIconSize} />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleChangeStatus(ticket.id, 'chiuso'); }}
                         title="Chiudi"
                         className={ib.green}
                       >
-                        <Check size={18} />
+                        <Check size={actionIconSize} />
                       </button>
                     </>
                   )}
@@ -294,14 +295,14 @@ const TicketItem = ({
                         title="Sposta in Risolto"
                         className={ib.yellow}
                       >
-                        <CornerDownLeft size={18} />
+                        <CornerDownLeft size={actionIconSize} />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleSetInviato(ticket.id); }}
                         title="Invia"
                         className={ib.green}
                       >
-                        <Check size={18} />
+                        <Check size={actionIconSize} />
                       </button>
                     </>
                   )}
@@ -313,14 +314,14 @@ const TicketItem = ({
                         title="Archivia"
                         className={ib.yellow}
                       >
-                        <CornerDownLeft size={18} />
+                        <CornerDownLeft size={actionIconSize} />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleInvoiceTicket(ticket.id); }}
                         title="Fattura"
                         className={ib.indigo}
                       >
-                        <Euro size={18} />
+                        <Euro size={actionIconSize} />
                       </button>
                     </>
                   )}
@@ -331,7 +332,7 @@ const TicketItem = ({
                       title="Riporta a Inviato"
                       className={ib.yellow}
                     >
-                      <CornerDownLeft size={18} />
+                      <CornerDownLeft size={actionIconSize} />
                     </button>
                   )}
 
@@ -341,7 +342,7 @@ const TicketItem = ({
                       title="Fattura"
                       className={ib.indigo}
                     >
-                      <Euro size={18} />
+                      <Euro size={actionIconSize} />
                     </button>
                   )}
                 </>
@@ -360,7 +361,7 @@ const TicketItem = ({
                   title={!canDelete && currentUser.ruolo === 'cliente' ? 'Non eliminabile' : 'Elimina'}
                   className={canDelete ? ib.red : ib.dis}
                 >
-                  <Trash2 size={18} />
+                  <Trash2 size={actionIconSize} />
                 </button>
               )}
             </div>
@@ -385,7 +386,7 @@ const TicketItem = ({
               }`}
               title="Forniture Temporanee"
             >
-              <Package size={18} />
+              <Package size={actionIconSize} />
               {ticket.fornitureCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
                   {ticket.fornitureCount}
