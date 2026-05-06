@@ -3908,6 +3908,7 @@ export default function TicketApp() {
       <div
         className={
           'app-zoom-wrapper' +
+          (hubShellBackdrop ? ' app-zoom-wrapper--no-zoom' : '') +
           (showSpeedTest && (currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin')
             ? ' app-zoom-wrapper--speedtest-pass-through'
             : '')

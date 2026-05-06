@@ -52,6 +52,14 @@ input.anti-virus-hub-field:-webkit-autofill:focus {
   min-height: 111.11vh;
 }
 
+/* Hub tecnico: deve essere full-screen, senza scaling del wrapper */
+.app-zoom-wrapper--no-zoom {
+  transform: none !important;
+  transform-origin: initial !important;
+  width: 100% !important;
+  min-height: 100vh !important;
+}
+
 /* Con Speed Test a tutto schermo il <main> è nascosto ma il wrapper resta alto:
    senza questo, il box trasparente intercetta i click prima del layer Speed Test. */
 .app-zoom-wrapper--speedtest-pass-through {
