@@ -971,6 +971,7 @@ export default function HubOverviewSection({
             <HubDispositiviSpaceCard
               accentHex={accentHex}
               hubSurfaceMode={hubSurfaceMode}
+              backgroundColor="var(--hub-chrome-surface)"
               getAuthHeader={getAuthHeader}
               currentUser={currentUser}
               onOpenDispositivi={() => setHubCenterView?.('dispositivi')}

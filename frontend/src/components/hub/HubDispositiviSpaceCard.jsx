@@ -44,6 +44,7 @@ function shortCompanyLabel(name, max = 18) {
 export default function HubDispositiviSpaceCard({
   accentHex,
   hubSurfaceMode = 'dark',
+  backgroundColor = 'var(--hub-chrome-surface)',
   getAuthHeader,
   currentUser,
   onOpenDispositivi
@@ -122,57 +123,55 @@ export default function HubDispositiviSpaceCard({
     return list;
   }, [rows]);
 
-  const top = perCompany.slice(0, 10);
-  const totalCompanies = perCompany.length;
-  const companiesWithIssues = perCompany.filter((x) => x.crit + x.warn > 0).length;
+  const issuesOnly = useMemo(() => perCompany.filter((x) => x.crit + x.warn > 0), [perCompany]);
+  const top = issuesOnly.slice(0, 10);
+  const companiesWithIssues = issuesOnly.length;
 
   const chromeText = hubSurfaceMode === 'light' ? 'var(--hub-chrome-text)' : 'rgba(255,255,255,0.92)';
   const chromeMuted = hubSurfaceMode === 'light' ? 'var(--hub-chrome-text-muted)' : 'rgba(255,255,255,0.55)';
-  const borderSoft = 'var(--hub-chrome-border-soft)';
-  const surface = 'var(--hub-chrome-surface)';
-  const well = 'var(--hub-chrome-well)';
-  const rowFill = 'var(--hub-chrome-row-fill)';
+  const hubLight = hubSurfaceMode === 'light';
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[color:var(--hub-chrome-border-soft)]">
-      <div
-        className="flex shrink-0 items-start justify-between gap-3 border-b border-[color:var(--hub-chrome-border-soft)] px-4 py-3"
-        style={{ backgroundColor: surface }}
-      >
-        <div className="flex min-w-0 items-center gap-3">
-          <span
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
-            style={{ backgroundColor: hexToRgba(accent, 0.16), color: accent }}
-            aria-hidden
-          >
-            <HardDrive size={18} />
-          </span>
-          <div className="min-w-0">
-            <div className="truncate text-[15px] font-bold" style={{ color: chromeText }}>
+    <div
+      className={`rounded-2xl border p-3 ${hubLight ? 'border-[color:var(--hub-chrome-border-soft)]' : 'border-white/[0.08]'}`}
+      style={{ backgroundColor, boxShadow: 'var(--hub-chrome-card-shadow)' }}
+    >
+      <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <HardDrive size={18} style={{ color: accent }} className="shrink-0" aria-hidden />
+            <h2 className={`text-xs font-semibold sm:text-sm ${hubLight ? 'text-[color:var(--hub-chrome-text)]' : 'text-white'}`}>
               Dispositivi aziendali
-            </div>
-            <div className="truncate text-xs" style={{ color: chromeMuted }}>
-              {loading
-                ? 'Caricamento…'
-                : err
-                  ? err
-                  : `${companiesWithIssues}/${totalCompanies} aziende con dischi quasi pieni`}
-            </div>
+            </h2>
           </div>
+          <p
+            className={`mt-0.5 text-[9px] leading-snug ${hubLight ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-white/38'}`}
+          >
+            {loading
+              ? 'Caricamento…'
+              : err
+                ? err
+                : `${companiesWithIssues} aziende con dischi quasi pieni`}
+          </p>
         </div>
-        <button
-          type="button"
-          onClick={() => onOpenDispositivi?.()}
-          className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well)] px-3 py-2 text-[13px] font-semibold text-[color:var(--hub-chrome-text-secondary)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)]"
-          title="Apri Dispositivi aziendali"
-        >
-          <Monitor size={16} aria-hidden />
-          Apri
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onOpenDispositivi?.()}
+            className={`text-[10px] font-semibold transition hover:opacity-90 ${
+              hubLight ? 'text-[color:var(--hub-chrome-link)]' : 'text-white/50 hover:text-[color:var(--hub-accent)]'
+            }`}
+            title="Apri Dispositivi aziendali"
+          >
+            Apri →
+          </button>
+        </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-hidden" style={{ backgroundColor: well }}>
-        <div className="custom-scrollbar min-h-0 h-full overflow-y-auto px-4 py-3">
+      <div
+        className={`rounded-lg border ${hubLight ? 'border-[color:var(--hub-chrome-border-soft)] bg-[rgb(229,231,235)]' : 'border-white/[0.08] bg-black/15'}`}
+      >
+        <div className="custom-scrollbar min-h-0 max-h-[260px] overflow-y-auto px-3 py-2">
           {!isTecnico ? (
             <div className="py-6 text-center text-sm" style={{ color: chromeMuted }}>
               Solo tecnici.
@@ -187,12 +186,11 @@ export default function HubDispositiviSpaceCard({
             </div>
           ) : top.length === 0 ? (
             <div className="py-6 text-center text-sm" style={{ color: chromeMuted }}>
-              Nessun dato disponibile.
+              Nessuna anomalia rilevata.
             </div>
           ) : (
             <div className="space-y-1">
               {top.map((c) => {
-                const hasIssue = c.crit + c.warn > 0;
                 const showCrit = c.crit > 0;
                 const showWarn = c.warn > 0;
                 return (
@@ -200,16 +198,12 @@ export default function HubDispositiviSpaceCard({
                     key={c.name}
                     className="flex items-start gap-3 py-1.5"
                   >
-                    {hasIssue ? (
-                      <AlertTriangle
-                        size={14}
-                        className={c.crit > 0 ? 'text-red-500' : 'text-yellow-500'}
-                        aria-hidden
-                        style={{ marginTop: 2 }}
-                      />
-                    ) : (
-                      <span className="h-[14px] w-[14px]" aria-hidden />
-                    )}
+                    <AlertTriangle
+                      size={14}
+                      className={showCrit ? 'text-red-500' : 'text-yellow-500'}
+                      aria-hidden
+                      style={{ marginTop: 2 }}
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                         <div className="truncate text-[13px] font-semibold" style={{ color: chromeText }}>
@@ -241,9 +235,9 @@ export default function HubDispositiviSpaceCard({
                   </div>
                 );
               })}
-              {perCompany.length > top.length ? (
+              {issuesOnly.length > top.length ? (
                 <div className="pt-1 text-[11px]" style={{ color: chromeMuted }}>
-                  Mostrate {top.length} aziende · altre {perCompany.length - top.length} nella lista completa.
+                  Mostrate {top.length} aziende · altre {issuesOnly.length - top.length} nella lista completa.
                 </div>
               ) : null}
             </div>
