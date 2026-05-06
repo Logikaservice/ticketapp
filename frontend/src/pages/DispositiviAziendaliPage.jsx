@@ -582,7 +582,7 @@ const DispositiviAziendaliPage = ({
                           : highlightedDeviceId === row.agent_id
                             ? 'border-gray-200 bg-yellow-50 ring-4 ring-yellow-400'
                             : 'border-gray-200 bg-white'
-                      }`}
+                      } ${embedded ? 'text-[11px] leading-tight' : ''}`}
                     >
                       {!hasInfo ? (
                         <div className="flex items-center justify-between gap-4">
@@ -603,7 +603,7 @@ const DispositiviAziendaliPage = ({
                           <div className={`mb-2 flex flex-wrap items-center gap-2 font-semibold ${embedded ? 'text-[color:var(--hub-chrome-text)]' : 'text-gray-800'}`}>
                             <Monitor size={16} style={embedded ? { color: accent } : undefined} className={embedded ? '' : 'text-teal-600'} />
                             <span>{row.device_name || row.machine_name || '—'}</span>
-                            <span className={`font-normal text-sm ${embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-500'}`}>
+                            <span className={`font-normal ${embedded ? 'text-[11px] text-[color:var(--hub-chrome-text-muted)]' : 'text-sm text-gray-500'}`}>
                               {row.mac ? `(MAC: ${formatMacWithColons(row.mac)})` : ''}
                             </span>
                             {row.real_status === 'online' && (
@@ -628,11 +628,11 @@ const DispositiviAziendaliPage = ({
                               </button>
                             </div>
                           </div>
-                          <div className={`mb-4 flex items-center gap-1 text-sm ${embedded ? 'text-[color:var(--hub-chrome-text-secondary)]' : ''}`}>
+                          <div className={`mb-3 flex items-center gap-1 ${embedded ? 'text-[11px] text-[color:var(--hub-chrome-text-secondary)]' : 'text-sm'}`}>
                             <User size={14} className={muted} />
                             <span className={lbl}>Utente:</span> {row.current_user || '—'}
                           </div>
-                          <div className={`grid grid-cols-1 gap-6 text-sm md:grid-cols-3 ${embedded ? 'text-[color:var(--hub-chrome-text-secondary)]' : ''}`}>
+                          <div className={`grid grid-cols-1 gap-4 md:grid-cols-3 ${embedded ? 'text-[11px] text-[color:var(--hub-chrome-text-secondary)]' : 'text-sm'}`}>
                             <div className="space-y-1">
                               <div>
                                 <span className={lbl}>IP:</span>{' '}
