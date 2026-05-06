@@ -1595,9 +1595,9 @@ export default function TechnicianWorkbenchPage({
               hubCenterView === 'network-monitoring' ||
               hubCenterView === 'contratti' ||
               hubCenterView === 'avvisi'
-                ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-2 md:px-5 md:pb-5'
+                ? 'flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pb-4 pt-2 md:px-5 md:pb-5'
                 : hubCenterView === 'tickets'
-                  ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-2 md:px-5 md:pb-5'
+                  ? 'flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pb-4 pt-2 md:px-5 md:pb-5'
                   : 'flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-4 md:p-5'
             }
           >
