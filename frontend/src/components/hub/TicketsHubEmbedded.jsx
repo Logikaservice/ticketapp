@@ -71,6 +71,12 @@ export default function TicketsHubEmbedded({
     if (hubRefreshView !== 'tickets') return;
     setAdvancedSearchTerm('');
     setAdvancedSearchResults([]);
+    // Forza refresh ticket lato App (polling) così la lista cambia davvero.
+    try {
+      window.dispatchEvent(new CustomEvent('hub-overview-tickets-refresh'));
+    } catch {
+      // ignore
+    }
     // Se esiste un handler di refresh (dipende da chi monta la lista), chiamalo.
     try {
       handlers?.handleRefreshTickets?.();
