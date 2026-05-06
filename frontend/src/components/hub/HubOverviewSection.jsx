@@ -432,6 +432,7 @@ export default function HubOverviewSection({
   onOpenFornitureResoconto = null,
   /** Conteggio forniture visibili all'utente (dopo filtro ruolo); `undefined` durante caricamento iniziale. */
   hubTemporarySuppliesCount = undefined,
+  onRefreshHubTemporarySupplies = null,
   /** Badge rosso sulla card Email quando ci sono scadenze. */
   hubEmailExpiryCount = 0,
   /** Callback per aprire la lista scadenze Email. */
@@ -439,7 +440,10 @@ export default function HubOverviewSection({
   /** Badge rosso sulla card Office quando ci sono scadenze. */
   hubOfficeExpiryCount = 0,
   /** Callback per aprire la lista scadenze Office. */
-  onOpenOfficeExpiries = null
+  onOpenOfficeExpiries = null,
+  onRefreshHubAlerts = null,
+  hubRefreshTick,
+  hubRefreshView
 }) {
   const hubLight = hubSurfaceMode === 'light';
   const hubKpiActiveColor = useMemo(
@@ -514,6 +518,32 @@ export default function HubOverviewSection({
       timers.forEach((t) => clearInterval(t));
     };
   }, [hubLayout]);
+
+  // Refresh manuale (icona "Aggiorna vista" nella topbar Hub) quando sei in Panoramica.
+  useEffect(() => {
+    if (hubRefreshTick == null) return;
+    if (hubRefreshView !== 'overview') return;
+    try {
+      window.dispatchEvent(new CustomEvent('hub-overview-tickets-refresh'));
+    } catch (_) {
+      /* ignore */
+    }
+    try {
+      window.dispatchEvent(new CustomEvent('hub-overview-contracts-refresh'));
+    } catch (_) {
+      /* ignore */
+    }
+    try {
+      onRefreshHubTemporarySupplies?.();
+    } catch (_) {
+      /* ignore */
+    }
+    try {
+      onRefreshHubAlerts?.();
+    } catch (_) {
+      /* ignore */
+    }
+  }, [hubRefreshTick, hubRefreshView, onRefreshHubTemporarySupplies, onRefreshHubAlerts]);
 
   const hubCanSpeedTest = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
   const hubCanNetworkMonitoring =

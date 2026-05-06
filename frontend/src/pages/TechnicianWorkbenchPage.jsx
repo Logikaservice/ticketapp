@@ -1904,10 +1904,12 @@ export default function TechnicianWorkbenchPage({
                 currentUser={currentUser}
                 onOpenFornitureResoconto={() => setFornitureResocontoOpen(true)}
                 hubTemporarySuppliesCount={hubTemporarySuppliesCount}
+                onRefreshHubTemporarySupplies={onRefreshHubTemporarySupplies ?? undefined}
                 hubEmailExpiryCount={emailExpiryCount}
                 onOpenEmailExpiries={openEmailExpiries}
                 hubOfficeExpiryCount={officeExpiryCount}
                 onOpenOfficeExpiries={openOfficeExpiries}
+                onRefreshHubAlerts={onRefreshHubAlerts ?? undefined}
                 hubRefreshTick={hubRefreshTick}
                 hubRefreshView={hubRefreshViewRef.current}
               />
