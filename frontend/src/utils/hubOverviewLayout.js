@@ -8,7 +8,7 @@ export const HUB_MAX_ROW_SPAN = 4;
 export const STORAGE_HUB_LAYOUT = 'techHubOverviewLayout';
 
 /** Incrementare quando si aggiungono moduli da fondere nei layout salvati (vedi `loadHubLayout`). */
-export const HUB_LAYOUT_STORAGE_VERSION = 5;
+export const HUB_LAYOUT_STORAGE_VERSION = 6;
 
 export const HUB_MODULE_META = {
   'new-ticket': { label: 'Nuovo ticket', category: 'Azioni', defaultPlacement: { col: 1, row: 1, w: 3, h: 1 } },
@@ -59,7 +59,8 @@ export const HUB_MODULE_META = {
     label: 'Dispositivi · Spazio disco',
     category: 'KPI',
     resizeBounds: { minW: 4, maxW: 7, minH: 2, maxH: 4 },
-    defaultPlacement: { col: 1, row: 9, w: 7, h: 3 }
+    // Default “come Contratti attivi”: stessa larghezza iniziale (ridimensionabile).
+    defaultPlacement: { col: 1, row: 9, w: 5, h: 3 }
   },
   'launch-speedtest': {
     label: 'Speed test',
@@ -238,8 +239,7 @@ export function loadHubLayout(userId) {
       if (fileVer < 4 && !items.some((x) => x.id === 'dispositivi-space')) {
         items = sanitizeLayoutItems(insertModuleWithDefaultPlacement(items, 'dispositivi-space'));
       }
-      if (fileVer < 5 && items.some((x) => x.id === 'dispositivi-space')) {
-        // riallinea la card alla posizione/dimensione predefinite aggiornate
+      if (fileVer < 6 && items.some((x) => x.id === 'dispositivi-space')) {
         items = sanitizeLayoutItems(restoreSingleCardDefaults(items, 'dispositivi-space'));
       }
     }
@@ -447,11 +447,16 @@ export function resolveCollisions(layout) {
     let moved = false;
     for (let i = 0; i < next.length; i++) {
       const item = next[i];
-      if (item.hidden) continue;
       for (let j = 0; j < next.length; j++) {
         if (i === j || next[j].id === item.id) continue;
         if (rectsOverlap(item, next[j])) {
-          const fit = findFirstFit(next, item.w, item.h, item.id);
+          // Evita “sconvolgimenti”: prova a spingere sotto l'elemento con cui collide,
+          // mantenendo la colonna; solo se impossibile cerca lo slot più vicino.
+          const targetRow = Math.max(1, next[j].row + next[j].h);
+          const preferCol = item.col;
+          const fit = hasCollision(next, { col: preferCol, row: targetRow, w: item.w, h: item.h }, item.id)
+            ? findNearestFit(next, item.w, item.h, item.id, preferCol, targetRow)
+            : { col: preferCol, row: targetRow };
           item.col = fit.col;
           item.row = fit.row;
           next[i] = { ...item };
