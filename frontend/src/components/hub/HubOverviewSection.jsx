@@ -1081,7 +1081,7 @@ export default function HubOverviewSection({
               key={item.id}
               role="presentation"
               data-hub-slot={item.id}
-              className={`relative min-h-0 min-w-0 outline-none transition-shadow ${
+              className={`relative min-h-0 min-w-0 overflow-hidden outline-none transition-shadow ${
                 hubLayoutEditMode && selectedId === item.id
                   ? hubLight
                     ? 'z-10 rounded-2xl shadow-[0_0_0_2px_var(--hub-accent)] shadow-[0_8px_28px_rgba(15,23,42,0.07)]'
