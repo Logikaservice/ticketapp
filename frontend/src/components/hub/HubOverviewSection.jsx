@@ -26,6 +26,7 @@ import {
   HUB_CARD_INNER_GLOW_CLASS
 } from '../../utils/techHubAccent';
 import HubContractsActiveCard from './HubContractsActiveCard';
+import HubDispositiviSpaceCard from './HubDispositiviSpaceCard';
 import HubAgentEventsInteractiveCard from './HubAgentEventsInteractiveCard';
 import {
   HUB_GRID_COLS,
@@ -78,7 +79,7 @@ const HUB_LIBRARY_GROUP_SPECS = [
   {
     title: 'KPI',
     caption: 'Indicatori e grafici',
-    ids: ['contracts']
+    ids: ['contracts', 'dispositivi-space']
   },
   {
     title: 'Testo',
@@ -514,6 +515,22 @@ export default function HubOverviewSection({
       );
     }
 
+    const dispositiviMs = hubLayout
+      .filter((x) => x.id === 'dispositivi-space' && Number(x.refreshIntervalSec) >= 30)
+      .map((x) => Number(x.refreshIntervalSec) * 1000);
+    if (dispositiviMs.length > 0) {
+      const ms = Math.min(...dispositiviMs);
+      timers.push(
+        setInterval(() => {
+          try {
+            window.dispatchEvent(new CustomEvent('hub-overview-dispositivi-refresh'));
+          } catch (_) {
+            /* ignore */
+          }
+        }, ms)
+      );
+    }
+
     return () => {
       timers.forEach((t) => clearInterval(t));
     };
@@ -537,6 +554,11 @@ export default function HubOverviewSection({
     }
     try {
       window.dispatchEvent(new CustomEvent('hub-overview-contracts-refresh'));
+    } catch (_) {
+      /* ignore */
+    }
+    try {
+      window.dispatchEvent(new CustomEvent('hub-overview-dispositivi-refresh'));
     } catch (_) {
       /* ignore */
     }
@@ -938,6 +960,20 @@ export default function HubOverviewSection({
               getAuthHeader={getAuthHeader}
               currentUser={currentUser}
               onOpenContractsList={() => setHubCenterView?.('contratti')}
+            />
+          </div>
+        );
+      case 'dispositivi-space':
+        return (
+          <div
+            className={`relative h-full min-h-0 flex flex-col ${veil ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
+          >
+            <HubDispositiviSpaceCard
+              accentHex={accentHex}
+              hubSurfaceMode={hubSurfaceMode}
+              getAuthHeader={getAuthHeader}
+              currentUser={currentUser}
+              onOpenDispositivi={() => setHubCenterView?.('dispositivi')}
             />
           </div>
         );
