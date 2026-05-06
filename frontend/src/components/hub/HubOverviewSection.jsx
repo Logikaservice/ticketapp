@@ -520,6 +520,13 @@ export default function HubOverviewSection({
   }, [hubLayout]);
 
   // Refresh manuale (icona "Aggiorna vista" nella topbar Hub) quando sei in Panoramica.
+  const refreshTempSuppliesRef = useRef(onRefreshHubTemporarySupplies);
+  const refreshAlertsRef = useRef(onRefreshHubAlerts);
+  useEffect(() => {
+    refreshTempSuppliesRef.current = onRefreshHubTemporarySupplies;
+    refreshAlertsRef.current = onRefreshHubAlerts;
+  }, [onRefreshHubTemporarySupplies, onRefreshHubAlerts]);
+
   useEffect(() => {
     if (hubRefreshTick == null) return;
     if (hubRefreshView !== 'overview') return;
@@ -534,16 +541,16 @@ export default function HubOverviewSection({
       /* ignore */
     }
     try {
-      onRefreshHubTemporarySupplies?.();
+      refreshTempSuppliesRef.current?.();
     } catch (_) {
       /* ignore */
     }
     try {
-      onRefreshHubAlerts?.();
+      refreshAlertsRef.current?.();
     } catch (_) {
       /* ignore */
     }
-  }, [hubRefreshTick, hubRefreshView, onRefreshHubTemporarySupplies, onRefreshHubAlerts]);
+  }, [hubRefreshTick, hubRefreshView]);
 
   const hubCanSpeedTest = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
   const hubCanNetworkMonitoring =

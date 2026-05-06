@@ -77,15 +77,20 @@ export default function ImportantAlertsHubEmbedded({
   const showManageAlertsBtn =
     currentUser?.ruolo === 'tecnico' && typeof onOpenManageAlerts === 'function';
 
+  const refreshRef = useRef(onRefreshHubAlerts);
+  useEffect(() => {
+    refreshRef.current = onRefreshHubAlerts;
+  }, [onRefreshHubAlerts]);
+
   useEffect(() => {
     if (hubRefreshTick == null) return;
     if (hubRefreshView !== 'avvisi') return;
     try {
-      onRefreshHubAlerts?.();
+      refreshRef.current?.();
     } catch {
       // ignore
     }
-  }, [hubRefreshTick, hubRefreshView, onRefreshHubAlerts]);
+  }, [hubRefreshTick, hubRefreshView]);
 
   const createAlertsBtnStyle = useMemo(
     () => ({
