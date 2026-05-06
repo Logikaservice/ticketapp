@@ -1055,7 +1055,9 @@ export default function HubOverviewSection({
           className="grid gap-3"
           style={{
             gridTemplateColumns: `repeat(${HUB_GRID_COLS}, minmax(0, 1fr))`,
-            gridAutoRows: 'minmax(112px, auto)'
+            // Righe griglia a dimensione fissa: le card devono scrollare internamente,
+            // non “spingere” in alto l’intera panoramica.
+            gridAutoRows: '112px'
           }}
           onDragOver={handleDragOverZone}
           onDrop={handleUnifiedDrop}
