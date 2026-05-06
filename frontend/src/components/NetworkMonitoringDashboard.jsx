@@ -3115,18 +3115,24 @@ const NetworkMonitoringDashboard = ({
 
         {/* Vista Dettaglio Dispositivi Azienda (mostrata solo se un'azienda è selezionata) */}
         {selectedCompanyId && (
-          <div className={eHubPanel}>
-            <div className="mb-4 flex items-center justify-between">
+          <div className={embedded ? `${eHubPanelFlat} mb-4 overflow-hidden` : eHubPanel}>
+            <div
+              className={
+                embedded
+                  ? 'flex flex-wrap items-center justify-between gap-2 border-b border-[color:var(--hub-chrome-border-soft)] px-4 py-3'
+                  : 'mb-4 flex items-center justify-between'
+              }
+            >
               <h2 className={`${eH2} flex items-center gap-2`}>
                 <Building size={24} className={embedded ? 'text-[color:var(--hub-accent)]' : 'text-purple-600'} />
                 {companies.find(c => c.id === selectedCompanyId)?.azienda || 'Dispositivi'}
               </h2>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={handleResetPingFailures}
                   disabled={readOnly}
-                  className={`mr-2 flex items-center gap-2 rounded-lg border px-4 py-2 transition-colors ${readOnly
+                  className={`mr-2 flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs transition-colors ${readOnly
                     ? embedded
                       ? 'cursor-not-allowed border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-row-fill)] text-[color:var(--hub-chrome-text-fainter)]'
                       : 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
@@ -3142,7 +3148,7 @@ const NetworkMonitoringDashboard = ({
                 <button
                   type="button"
                   onClick={() => setShowPingFailuresOnly(!showPingFailuresOnly)}
-                  className={`flex items-center gap-2 rounded-lg border px-4 py-2 transition-colors ${showPingFailuresOnly
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs transition-colors ${showPingFailuresOnly
                     ? embedded
                       ? `${HUB_EMBED_CHIP_CRITICAL} hover:brightness-[1.06]`
                       : 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100'
@@ -3170,7 +3176,7 @@ const NetworkMonitoringDashboard = ({
                 <button
                   type="button"
                   onClick={() => setShowOfflineDevices(!showOfflineDevices)}
-                  className={`flex items-center gap-2 rounded-lg border px-4 py-2 transition-colors ${showOfflineDevices
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs transition-colors ${showOfflineDevices
                     ? embedded
                       ? 'border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-muted-fill)] text-[color:var(--hub-chrome-text-secondary)] hover:bg-[color:var(--hub-chrome-hover)]'
                       : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
@@ -3196,7 +3202,7 @@ const NetworkMonitoringDashboard = ({
                 <button
                   type="button"
                   onClick={generatePrintableReport}
-                  className={`flex items-center gap-2 rounded-lg border px-4 py-2 transition-colors ${embedded ? `${HUB_EMBED_CHIP_LIVE} hover:brightness-[1.06] disabled:opacity-40` : 'bg-green-50 border border-green-300 text-green-700 hover:bg-green-100 disabled:opacity-40'}`}
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs transition-colors ${embedded ? `${HUB_EMBED_CHIP_LIVE} hover:brightness-[1.06] disabled:opacity-40` : 'bg-green-50 border border-green-300 text-green-700 hover:bg-green-100 disabled:opacity-40'}`}
                   title="Genera report stampabile (include tutti i dispositivi)"
                   disabled={companyDevices.length === 0}
                 >
@@ -3207,13 +3213,14 @@ const NetworkMonitoringDashboard = ({
                 <button
                   type="button"
                   onClick={() => setSelectedCompanyId(null)}
-                  className={`ml-2 rounded-lg p-2 transition-colors ${embedded ? 'text-[color:var(--hub-chrome-text-faint)] hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-chrome-text)]' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
+                  className={`ml-1 rounded-lg p-1.5 transition-colors ${embedded ? 'text-[color:var(--hub-chrome-text-faint)] hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-chrome-text)]' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
                   title="Chiudi vista azienda"
                 >
                   <X size={24} />
                 </button>
               </div>
             </div>
+            <div className={embedded ? 'p-4' : ''}>
             {scanLateAgentsForSelectedCompany.length > 0 && (
               <div
                 className={`mb-4 flex flex-wrap items-start gap-2 rounded-lg border p-3 text-sm ${embedded ? HUB_EMBED_BANNER_WARN : 'border-amber-200 bg-amber-50 text-amber-900'}`}
@@ -3813,6 +3820,7 @@ const NetworkMonitoringDashboard = ({
                 </div>
               );
             })()}
+            </div>
           </div>
         )}
 
