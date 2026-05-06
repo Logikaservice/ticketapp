@@ -183,7 +183,9 @@ export default function HubContractsActiveCard({
 
   return (
     <div
-      className={`rounded-2xl border p-3 ${hubLight ? 'border-[color:var(--hub-chrome-border-soft)]' : 'border-white/[0.08]'}`}
+      className={`flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border p-3 ${
+        hubLight ? 'border-[color:var(--hub-chrome-border-soft)]' : 'border-white/[0.08]'
+      }`}
       style={{ backgroundColor, boxShadow: 'var(--hub-chrome-card-shadow)' }}
     >
       <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
@@ -252,16 +254,16 @@ export default function HubContractsActiveCard({
         />
       </div>
 
-      <div ref={chartRef} className="relative min-h-[136px]" onMouseLeave={() => setTip(null)}>
+      <div ref={chartRef} className="relative min-h-0 flex-1" onMouseLeave={() => setTip(null)}>
         {loading ? (
           <div
-            className={`flex h-[126px] items-center justify-center text-[11px] ${hubLight ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-white/35'}`}
+            className={`flex h-full min-h-[126px] items-center justify-center text-[11px] ${hubLight ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-white/35'}`}
           >
             Caricamento…
           </div>
         ) : err ? (
           <div
-            className={`flex h-[126px] items-center justify-center text-[11px] ${hubLight ? 'text-[color:var(--hub-chrome-tone-danger-title)]' : 'text-red-300/90'}`}
+            className={`flex h-full min-h-[126px] items-center justify-center text-[11px] ${hubLight ? 'text-[color:var(--hub-chrome-tone-danger-title)]' : 'text-red-300/90'}`}
           >
             {err}
           </div>

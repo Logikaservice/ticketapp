@@ -314,7 +314,7 @@ function TicketHubStatCard({
   const veil = subdued ? 'opacity-[0.28] saturate-50 blur-[2px]' : '';
   const noPtr = suppressInteraction ? 'pointer-events-none' : '';
   const fullRow =
-    'flex h-full min-h-[6rem] w-full min-w-0 flex-col justify-start rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-left';
+    'flex h-full min-h-[6rem] w-full min-w-0 flex-col justify-center rounded-2xl border border-[color:var(--hub-chrome-border-soft)] p-4 text-left';
 
   if (!active) {
     return (
