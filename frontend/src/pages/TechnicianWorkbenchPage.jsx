@@ -1750,7 +1750,7 @@ export default function TechnicianWorkbenchPage({
                 onNavigateLSight={() => nav?.onOpenLSight?.()}
               />
             ) : hubCenterView === 'network-monitoring' && canNetworkMonitoring ? (
-              <div className="min-h-0 flex-1 overflow-hidden text-[11px] leading-tight">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain text-[11px] leading-tight">
                 <NetworkMonitoringDashboard
                   embedded
                   accentHex={accentHexEffective}

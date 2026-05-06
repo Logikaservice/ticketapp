@@ -1825,26 +1825,26 @@ const NetworkMonitoringDashboard = ({
   );
 
   const kpiBtnOnline = embedded
-    ? 'rounded-xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)] p-4 text-left w-full shadow-none transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)] cursor-pointer'
+    ? 'rounded-xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)] p-3 text-left w-full shadow-none transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)] cursor-pointer'
     : 'bg-white rounded-lg shadow p-4 text-left w-full transition hover:shadow-md hover:ring-2 hover:ring-blue-200/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer';
   const kpiBtnOffline = embedded
-    ? 'rounded-xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)] p-4 text-left w-full shadow-none transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/70 cursor-pointer'
+    ? 'rounded-xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)] p-3 text-left w-full shadow-none transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/70 cursor-pointer'
     : 'bg-white rounded-lg shadow p-4 text-left w-full transition hover:shadow-md hover:ring-2 hover:ring-orange-200/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 cursor-pointer';
   const kpiBtnActivity = embedded
-    ? 'rounded-xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)] p-4 text-left w-full shadow-none transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)] cursor-pointer'
+    ? 'rounded-xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)] p-3 text-left w-full shadow-none transition hover:bg-[color:var(--hub-chrome-hover)] hover:[border-color:var(--hub-accent-border)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)] cursor-pointer'
     : 'bg-white rounded-lg shadow p-4 text-left w-full transition hover:shadow-md hover:ring-2 hover:ring-blue-200/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer';
   const kpiBoxStatic = embedded
-    ? 'rounded-xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)] p-4 shadow-none'
+    ? 'rounded-xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)] p-3 shadow-none'
     : 'bg-white rounded-lg shadow p-4';
   const kpiLabelCls = embedded
-    ? 'text-sm text-[color:var(--hub-chrome-text-muted)] mb-1 flex items-center gap-1'
+    ? 'text-xs text-[color:var(--hub-chrome-text-muted)] mb-1 flex items-center gap-1'
     : 'text-sm text-gray-600 mb-1 flex items-center gap-1';
   const kpiSubCls = embedded
     ? 'text-xs text-[color:var(--hub-chrome-text-faint)] mt-1'
     : 'text-xs text-gray-500 mt-1';
 
   const eHubPanel = embedded
-    ? 'mb-6 rounded-2xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)] p-6'
+    ? 'mb-4 rounded-2xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)] p-4'
     : 'mb-6 rounded-lg bg-white p-6 shadow';
   const eHubPanelFlat = embedded
     ? 'rounded-2xl border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-surface)]'
@@ -2240,9 +2240,9 @@ const NetworkMonitoringDashboard = ({
       )}
 
       <div className={embedded ? 'flex min-h-0 flex-1 flex-col overflow-y-auto bg-[color:var(--hub-chrome-page)]' : ''}>
-        <div className="mx-auto max-w-[95vw] p-6">
+        <div className="mx-auto w-full max-w-[98vw] p-4">
           {showControlsInScroll && (
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <div className="min-w-0 flex-1">
                 {!onClose && !embedded && (
                   <div>
@@ -2954,7 +2954,7 @@ const NetworkMonitoringDashboard = ({
         )}
 
         {/* Statistiche: prima lo stato degli agent (salute del monitoraggio), poi attività, poi dispositivi */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-1 gap-3 mb-4 md:grid-cols-3 lg:grid-cols-5">
           <button
             type="button"
             ref={agentStatOnlineCardRef}
@@ -2969,7 +2969,7 @@ const NetworkMonitoringDashboard = ({
               <ServerIcon size={16} className={embedded ? 'text-[color:var(--hub-accent)]' : 'text-blue-600'} />
               Agent Online
             </div>
-            <div className={`text-3xl font-bold ${embedded ? 'text-[color:var(--hub-accent)]' : 'text-blue-600'}`}>
+            <div className={`text-2xl font-bold ${embedded ? 'text-[color:var(--hub-accent)]' : 'text-blue-600'}`}>
               {stats.agentsOnline}
             </div>
             <div className={kpiSubCls}>di {stats.agentsTotal} totali</div>
@@ -2988,7 +2988,7 @@ const NetworkMonitoringDashboard = ({
               <WifiOff size={16} className={embedded ? 'text-orange-400' : 'text-orange-600'} />
               Agent Offline
             </div>
-            <div className={`text-3xl font-bold ${embedded ? 'text-orange-400' : 'text-orange-600'}`}>
+            <div className={`text-2xl font-bold ${embedded ? 'text-orange-400' : 'text-orange-600'}`}>
               {stats.agentsOffline}
             </div>
             <div className={kpiSubCls}>di {stats.agentsTotal} totali</div>
@@ -3003,7 +3003,7 @@ const NetworkMonitoringDashboard = ({
               <Activity size={16} className={embedded ? 'text-[color:var(--hub-accent)]' : 'text-blue-600'} />
               Cambiamenti (Oggi)
             </div>
-            <div className={`text-3xl font-bold ${embedded ? 'text-[color:var(--hub-accent)]' : 'text-blue-600'}`}>
+            <div className={`text-2xl font-bold ${embedded ? 'text-[color:var(--hub-accent)]' : 'text-blue-600'}`}>
               {stats.recentChanges}
             </div>
           </button>
@@ -3012,14 +3012,14 @@ const NetworkMonitoringDashboard = ({
               <CheckCircle size={16} className={embedded ? 'text-emerald-400' : 'text-green-600'} />
               Dispositivi Online
             </div>
-            <div className={`text-3xl font-bold ${embedded ? 'text-emerald-400' : 'text-green-600'}`}>{stats.online}</div>
+            <div className={`text-2xl font-bold ${embedded ? 'text-emerald-400' : 'text-green-600'}`}>{stats.online}</div>
           </div>
           <div className={kpiBoxStatic} title="Dispositivi di rete non raggiungibili o segnalati offline">
             <div className={kpiLabelCls}>
               <WifiOff size={16} className={embedded ? 'text-red-400' : 'text-red-600'} />
               Dispositivi Offline
             </div>
-            <div className={`text-3xl font-bold ${embedded ? 'text-red-400' : 'text-red-600'}`}>{stats.offline}</div>
+            <div className={`text-2xl font-bold ${embedded ? 'text-red-400' : 'text-red-600'}`}>{stats.offline}</div>
           </div>
         </div>
 
