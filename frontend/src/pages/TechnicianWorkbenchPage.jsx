@@ -49,6 +49,7 @@ import OfficePage from './OfficePage';
 import AntiVirusPage from './AntiVirusPage';
 import DispositiviAziendaliPage from './DispositiviAziendaliPage';
 import SpeedTestPage from './SpeedTestPage';
+import TelegramNotificationsPage from './TelegramNotificationsPage';
 import NetworkMonitoringDashboard from '../components/NetworkMonitoringDashboard';
 import {
   TECH_HUB_ACCENT_PALETTE,
@@ -1063,8 +1064,8 @@ export default function TechnicianWorkbenchPage({
                     type="button"
                     onClick={() => {
                       setUserMenuOpen(false);
-                      setHubNetworkInitialView('telegram');
-                      setHubCenterView('network-monitoring');
+                      setHubNetworkInitialView(null);
+                      setHubCenterView('telegram');
                     }}
                     className="group flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-[color:var(--hub-chrome-text-secondary)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)]"
                   >
@@ -1454,6 +1455,8 @@ export default function TechnicianWorkbenchPage({
                           ? 'Office'
                           : hubCenterView === 'antivirus'
                             ? 'Anti-Virus'
+                            : hubCenterView === 'telegram'
+                              ? 'Notifiche Telegram'
                             : hubCenterView === 'dispositivi'
                               ? 'Dispositivi aziendali'
                               : hubCenterView === 'speedtest'
@@ -1609,6 +1612,7 @@ export default function TechnicianWorkbenchPage({
               hubCenterView === 'email' ||
               hubCenterView === 'office' ||
               hubCenterView === 'antivirus' ||
+              hubCenterView === 'telegram' ||
               hubCenterView === 'dispositivi' ||
               hubCenterView === 'speedtest' ||
               hubCenterView === 'network-monitoring' ||
@@ -1698,6 +1702,14 @@ export default function TechnicianWorkbenchPage({
                 onNavigateSpeedTest={canSpeedTest ? () => setHubCenterView('speedtest') : undefined}
                 onNavigateVpn={() => nav?.onOpenVpn?.()}
                 onNavigateHome={() => setHubCenterView('overview')}
+              />
+            ) : hubCenterView === 'telegram' ? (
+              <TelegramNotificationsPage
+                embedded
+                accentHex={accentHexEffective}
+                closeEmbedded={() => setHubCenterView('overview')}
+                getAuthHeader={getAuthHeader}
+                currentUser={currentUser}
               />
             ) : hubCenterView === 'antivirus' ? (
               <AntiVirusPage
