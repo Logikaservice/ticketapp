@@ -345,12 +345,11 @@ const DispositiviAziendaliPage = ({
               selectedCompanyId={selectedCompanyId}
             />
           )}
-          <div
-            className={embedded ? 'rounded-lg p-2' : 'rounded-lg bg-teal-100 p-2 text-teal-600'}
-            style={embedded ? { backgroundColor: hexToRgba(accent, 0.18) } : undefined}
-          >
-            <Monitor size={24} style={embedded ? { color: accent } : undefined} />
-          </div>
+          {!embedded && (
+            <div className="rounded-lg bg-teal-100 p-2 text-teal-600">
+              <Monitor size={24} />
+            </div>
+          )}
           <div className="min-w-0">
             <h1 className={`font-bold ${embedded ? 'truncate text-lg text-[color:var(--hub-chrome-text)]' : 'text-xl text-gray-800'}`}>
               Dispositivi aziendali
