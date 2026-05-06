@@ -912,7 +912,7 @@ export default function TechnicianWorkbenchPage({
   );
 
   return (
-    <div className="relative z-[70] flex min-h-screen w-full flex-col md:flex-row" style={accentStyle}>
+    <div className="relative z-[70] flex h-[100dvh] w-full flex-col overflow-hidden md:flex-row" style={accentStyle}>
       {/* Colonna sinistra */}
       <aside
         className={`flex w-full shrink-0 flex-col border-[color:var(--hub-chrome-border-soft)] py-5 text-[color:var(--hub-chrome-text-secondary)] transition-[width,padding] duration-200 ease-out max-md:w-full max-md:px-5 md:h-full md:border-r ${
@@ -1360,8 +1360,8 @@ export default function TechnicianWorkbenchPage({
       </aside>
 
       {/* Centro + destra */}
-      <div className="flex min-w-0 flex-1 flex-col lg:flex-row">
-        <section className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:flex-row">
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <header
             className="flex shrink-0 items-center justify-between gap-4 border-b border-[color:var(--hub-chrome-border-soft)] px-5 py-4"
             style={{ backgroundColor: 'var(--hub-chrome-page)' }}
