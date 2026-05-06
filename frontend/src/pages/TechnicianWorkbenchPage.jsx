@@ -1578,7 +1578,14 @@ export default function TechnicianWorkbenchPage({
                 title="Aggiorna vista"
                 onClick={() => {
                   try {
-                    window.dispatchEvent(new CustomEvent('hub:refresh', { detail: { view: hubCenterView } }));
+                    let ev;
+                    if (typeof window.CustomEvent === 'function') {
+                      ev = new CustomEvent('hub:refresh', { detail: { view: hubCenterView } });
+                    } else if (typeof document !== 'undefined' && document.createEvent) {
+                      ev = document.createEvent('CustomEvent');
+                      ev.initCustomEvent('hub:refresh', false, false, { view: hubCenterView });
+                    }
+                    if (ev) window.dispatchEvent(ev);
                   } catch {
                     // ignore
                   }
