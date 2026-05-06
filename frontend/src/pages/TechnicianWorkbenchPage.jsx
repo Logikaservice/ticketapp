@@ -798,6 +798,7 @@ export default function TechnicianWorkbenchPage({
   const minMd = useMinMd();
   const railMode = sidebarCollapsed && minMd;
   const isNetworkMonitoringView = hubCenterView === 'network-monitoring';
+  const hideRightPanel = isNetworkMonitoringView || hubCenterView === 'dispositivi';
 
   // Quando apri Monitoraggio rete, comprimi automaticamente la sidebar sinistra (più spazio ai dati).
   useEffect(() => {
@@ -1852,8 +1853,8 @@ export default function TechnicianWorkbenchPage({
           </div>
         </section>
 
-        {/* Colonna destra (su Monitoraggio rete la nascondiamo per dare spazio al centro) */}
-        {!isNetworkMonitoringView && (
+        {/* Colonna destra (su Monitoraggio rete / Dispositivi aziendali la nascondiamo per dare spazio al centro) */}
+        {!hideRightPanel && (
         <aside
           className={`flex h-full min-h-0 shrink-0 flex-col gap-3 overflow-hidden border-[color:var(--hub-chrome-border-soft)] py-5 lg:w-[300px] lg:border-l xl:w-[320px] ${
             hubCenterView === 'tickets' && ticketHubListProps ? 'px-2' : 'px-4'

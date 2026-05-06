@@ -462,12 +462,12 @@ const DispositiviAziendaliPage = ({
       </div>
 
       <div
-        className={`grid grid-cols-2 gap-3 border-b px-6 py-3 sm:grid-cols-4 ${
+        className={`grid grid-cols-2 gap-2 border-b ${embedded ? 'px-4 py-2' : 'px-6 py-3'} sm:grid-cols-4 ${
           embedded ? 'border-[color:var(--hub-chrome-border-soft)] bg-transparent' : 'bg-white'
         }`}
       >
         <div
-          className={`flex flex-col gap-1 rounded-xl p-4 shadow-sm ${
+          className={`flex flex-col gap-1 rounded-xl ${embedded ? 'p-3' : 'p-4'} shadow-sm ${
             embedded ? 'border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well-mid)]' : 'border border-gray-200 bg-white'
           }`}
         >
@@ -476,11 +476,11 @@ const DispositiviAziendaliPage = ({
           >
             <Wifi size={14} /> Online
           </div>
-          <div className={`text-2xl font-bold ${embedded ? 'text-[color:var(--hub-chrome-palette-emerald-fg)]' : 'text-green-600'}`}>{globalOnline ?? '—'}</div>
+          <div className={`text-xl font-bold ${embedded ? 'text-[color:var(--hub-chrome-palette-emerald-fg)]' : 'text-green-600'}`}>{globalOnline ?? '—'}</div>
           <div className={statHintCls}>agent monitor (tutte le aziende)</div>
         </div>
         <div
-          className={`flex flex-col gap-1 rounded-xl p-4 shadow-sm ${
+          className={`flex flex-col gap-1 rounded-xl ${embedded ? 'p-3' : 'p-4'} shadow-sm ${
             embedded ? 'border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well-mid)]' : 'border border-gray-200 bg-white'
           }`}
         >
@@ -489,11 +489,11 @@ const DispositiviAziendaliPage = ({
           >
             <WifiOff size={14} /> Offline
           </div>
-          <div className={`text-2xl font-bold ${embedded ? 'text-[color:var(--hub-chrome-tone-danger-title)]' : 'text-red-400'}`}>{globalOffline ?? '—'}</div>
+          <div className={`text-xl font-bold ${embedded ? 'text-[color:var(--hub-chrome-tone-danger-title)]' : 'text-red-400'}`}>{globalOffline ?? '—'}</div>
           <div className={statHintCls}>agent monitor (tutte le aziende)</div>
         </div>
         <div
-          className={`flex flex-col gap-1 rounded-xl p-4 shadow-sm ${
+          className={`flex flex-col gap-1 rounded-xl ${embedded ? 'p-3' : 'p-4'} shadow-sm ${
             embedded ? 'border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well-mid)]' : 'border border-gray-200 bg-white'
           }`}
         >
@@ -502,7 +502,7 @@ const DispositiviAziendaliPage = ({
           >
             <Activity size={14} /> Agent Online
           </div>
-          <div className={`text-2xl font-bold ${embedded ? 'text-[color:var(--hub-chrome-palette-sky-fg)]' : 'text-blue-600'}`}>
+          <div className={`text-xl font-bold ${embedded ? 'text-[color:var(--hub-chrome-palette-sky-fg)]' : 'text-blue-600'}`}>
             {selectedCompanyId ? companyAgentsOnline : '—'}
           </div>
           {selectedCompanyId ? (
@@ -512,7 +512,7 @@ const DispositiviAziendaliPage = ({
           )}
         </div>
         <div
-          className={`flex flex-col gap-1 rounded-xl p-4 shadow-sm ${
+          className={`flex flex-col gap-1 rounded-xl ${embedded ? 'p-3' : 'p-4'} shadow-sm ${
             embedded ? 'border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well-mid)]' : 'border border-gray-200 bg-white'
           }`}
         >
@@ -521,7 +521,7 @@ const DispositiviAziendaliPage = ({
           >
             <Activity size={14} /> Agent Offline
           </div>
-          <div className={`text-2xl font-bold ${embedded ? 'text-[color:var(--hub-chrome-tone-warn-title)]' : 'text-orange-400'}`}>
+          <div className={`text-xl font-bold ${embedded ? 'text-[color:var(--hub-chrome-tone-warn-title)]' : 'text-orange-400'}`}>
             {selectedCompanyId ? companyAgentsOffline : '—'}
           </div>
           {selectedCompanyId ? (
@@ -548,7 +548,7 @@ const DispositiviAziendaliPage = ({
           </div>
         ) : (
           <div className="w-full">
-            <h3 className={`mb-4 text-lg font-semibold ${embedded ? 'text-[color:var(--hub-chrome-text)]' : 'text-gray-900'}`}>
+            <h3 className={`mb-3 text-base font-semibold ${embedded ? 'text-[color:var(--hub-chrome-text)]' : 'text-gray-900'}`}>
               Dispositivi (dati dagli agent)
             </h3>
             {devicesLoading ? (
@@ -561,7 +561,7 @@ const DispositiviAziendaliPage = ({
                 Nessun dispositivo con agent registrato per questa azienda, oppure i dati non sono ancora stati inviati.
               </p>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {devices.map((row) => {
                   const hasInfo = row.mac || row.device_name || row.os_name;
                   const lbl = embedded ? 'text-[color:var(--hub-chrome-text-faint)]' : 'text-gray-500';
@@ -574,7 +574,7 @@ const DispositiviAziendaliPage = ({
                     <div
                       key={row.agent_id}
                       ref={highlightedDeviceId === row.agent_id ? highlightRef : null}
-                      className={`rounded-xl border p-4 shadow-sm transition-all duration-700 ${
+                      className={`rounded-xl border ${embedded ? 'p-3' : 'p-4'} shadow-sm transition-all duration-700 ${
                         embedded
                           ? highlightedDeviceId === row.agent_id
                             ? 'border-yellow-400/50 bg-yellow-500/15 ring-4 ring-yellow-400/85'
