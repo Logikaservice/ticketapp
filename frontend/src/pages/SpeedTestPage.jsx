@@ -1691,9 +1691,11 @@ const SpeedTestPage = ({
         <div style={palette.header}>
           <div style={palette.headerLeft}>
             {speedNavOrBack}
-            <div style={headerIconBoxStyle}>
-              <Gauge size={20} color="white" />
-            </div>
+            {embedded ? null : (
+              <div style={headerIconBoxStyle}>
+                <Gauge size={20} color="white" />
+              </div>
+            )}
             <div>
               <h1 style={{ fontSize: 20, fontWeight: 700, color: ect.hi, margin: 0 }}>Speed Test Dashboard</h1>
               <p style={{ fontSize: 12, color: ect.lo, margin: '2px 0 0' }}>Monitoraggio velocità connessione · Solo tecnici</p>
@@ -2253,9 +2255,11 @@ const SpeedTestPage = ({
       <div style={palette.header}>
         <div style={palette.headerLeft}>
           {speedNavOrBack}
-          <div style={headerIconBoxStyle}>
-            <Gauge size={20} color="white" />
-          </div>
+          {embedded ? null : (
+            <div style={headerIconBoxStyle}>
+              <Gauge size={20} color="white" />
+            </div>
+          )}
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 700, color: ect.hi, margin: 0 }}>Speed Test Dashboard</h1>
             <p style={{ fontSize: 12, color: ect.lo, margin: '2px 0 0' }}>Monitoraggio velocità connessione · Solo tecnici</p>

@@ -799,7 +799,7 @@ export default function TechnicianWorkbenchPage({
   const minMd = useMinMd();
   const railMode = sidebarCollapsed && minMd;
   const isNetworkMonitoringView = hubCenterView === 'network-monitoring';
-  const hideRightPanel = isNetworkMonitoringView || hubCenterView === 'dispositivi';
+  const hideRightPanel = isNetworkMonitoringView || hubCenterView === 'dispositivi' || hubCenterView === 'speedtest';
 
   // Refresh "locale" della vista Hub corrente (passato come prop alle pagine)
   const [hubRefreshTick, setHubRefreshTick] = useState(0);
