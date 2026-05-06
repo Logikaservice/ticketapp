@@ -66,14 +66,14 @@ const AntiVirusPage = ({
       [embedded, accent]
     );
     const companySelectCls = embedded
-      ? 'min-w-[200px] rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none [color-scheme:light] focus:ring-2 focus:ring-[color:var(--hub-accent)]'
+      ? 'min-w-[200px] rounded-lg border border-gray-300 bg-gray-50 px-3 py-1 text-xs text-gray-900 outline-none [color-scheme:light] focus:ring-2 focus:ring-[color:var(--hub-accent)]'
       : 'min-w-[200px] rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500';
 
     /** Su sfondo Hub: color-scheme + bg opachi; altrimenti Chrome/OS rendono gli input quasi bianchi. */
     const embedHubFieldCls =
-      'appearance-none rounded border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-input-well)] px-2 py-1 text-sm text-[color:var(--hub-chrome-text)] shadow-none outline-none ring-0 placeholder:text-[color:var(--hub-chrome-placeholder)] focus-visible:border-transparent focus-visible:ring-1 focus-visible:ring-[color:var(--hub-accent)]';
+      'appearance-none rounded border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-input-well)] px-2 py-1 text-xs text-[color:var(--hub-chrome-text)] shadow-none outline-none ring-0 placeholder:text-[color:var(--hub-chrome-placeholder)] focus-visible:border-transparent focus-visible:ring-1 focus-visible:ring-[color:var(--hub-accent)]';
     const embedHubSearchCls =
-      'appearance-none w-full rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-input-well)] py-2 pl-10 pr-4 text-sm text-[color:var(--hub-chrome-text)] outline-none shadow-none ring-0 placeholder:text-[color:var(--hub-chrome-placeholder)] focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)]';
+      'appearance-none w-full rounded-lg border border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-input-well)] py-1.5 pl-9 pr-3 text-xs text-[color:var(--hub-chrome-text)] outline-none shadow-none ring-0 placeholder:text-[color:var(--hub-chrome-placeholder)] focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)]';
 
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId || '');
@@ -85,6 +85,7 @@ const AntiVirusPage = ({
     const [activeDropdown, setActiveDropdown] = useState(null); // ID of the row with open icon dropdown
     const [sidebarWidth, setSidebarWidth] = useState(320); // Default width in px (più compatta)
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [refreshSeq, setRefreshSeq] = useState(0);
 
     // Sincronizza lo stato locale con initialCompanyId se cambia esternamente
     useEffect(() => {
@@ -276,7 +277,8 @@ const AntiVirusPage = ({
             }
         };
 
-        fetchDevices(false);
+        // Se l'utente forza refresh (hub refresh button), usa silent per evitare flicker.
+        fetchDevices(refreshSeq > 0);
 
         // Refresh automatico ogni 5 secondi (sync antivirus da CommAgent si riflette senza azione utente)
         const intervalId = setInterval(() => {
@@ -284,7 +286,19 @@ const AntiVirusPage = ({
         }, 5000);
 
         return () => clearInterval(intervalId);
-    }, [selectedCompanyId, getAuthHeader]);
+    }, [selectedCompanyId, getAuthHeader, refreshSeq]);
+
+    // Refresh "locale" dalla topbar dell'Hub: non ricarica tutta l'app.
+    useEffect(() => {
+        if (!embedded) return;
+        const handler = (e) => {
+            const view = e?.detail?.view;
+            if (view !== 'antivirus') return;
+            setRefreshSeq((s) => s + 1);
+        };
+        window.addEventListener('hub:refresh', handler);
+        return () => window.removeEventListener('hub:refresh', handler);
+    }, [embedded]);
 
     const handleSelectDevice = (device) => {
         if (readOnly) return;
@@ -640,14 +654,14 @@ const AntiVirusPage = ({
                                     }}
                                     className={`relative flex shrink-0 flex-col border-r ${embedded ? 'border-[color:var(--hub-chrome-border-soft)]' : 'bg-white'} ${sidebarCollapsed ? 'overflow-hidden' : ''} min-h-0`}
                                 >
-                                    <div className={`space-y-3 border-b p-4 ${embedded ? 'border-[color:var(--hub-chrome-border-soft)]' : ''}`}>
+                                    <div className={`space-y-2 border-b ${embedded ? 'border-[color:var(--hub-chrome-border-soft)] p-3' : 'p-4'}`}>
                                         <div className="flex items-center gap-2">
                                             <button
                                                 type="button"
                                                 onClick={handleAddManualDevice}
                                                 className={
                                                     embedded
-                                                        ? 'flex w-full items-center justify-center gap-2 rounded-lg py-2 pl-4 pr-4 text-sm font-medium shadow-sm transition hover:brightness-110'
+                                                        ? 'flex w-full items-center justify-center gap-2 rounded-lg py-1.5 pl-3 pr-3 text-xs font-semibold shadow-sm transition hover:brightness-110'
                                                         : 'flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2 pl-4 pr-4 text-sm font-medium text-white transition-colors hover:bg-indigo-700'
                                                 }
                                                 style={embedded ? primaryBtnStyle : undefined}
@@ -671,7 +685,7 @@ const AntiVirusPage = ({
                                         <div className="relative">
                                             <Search
                                                 className={`absolute left-3 top-1/2 -translate-y-1/2 ${embedded ? 'text-[color:var(--hub-chrome-text-fainter)]' : 'text-gray-400'}`}
-                                                size={18}
+                                                size={16}
                                             />
                                             <input
                                                 type="text"
@@ -757,7 +771,7 @@ const AntiVirusPage = ({
 
                         {/* Pannello destro: tabella compilata dal tecnico (le aziende vedono solo questa, in sola lettura) */}
                         <div
-                            className={`relative flex-1 min-h-0 overflow-hidden p-6 md:p-8 ${embedded ? '' : 'bg-gray-50'}`}
+                            className={`relative flex-1 min-h-0 overflow-hidden ${embedded ? 'p-4 md:p-5' : 'p-6 md:p-8 bg-gray-50'}`}
                             style={embedded ? { backgroundColor: 'var(--hub-chrome-page)' } : undefined}
                         >
                             <div className="h-full min-h-0 overflow-y-auto">
@@ -782,52 +796,52 @@ const AntiVirusPage = ({
                                 <div
                                     className={`relative overflow-visible rounded-xl border shadow-sm ${embedded ? 'border-[color:var(--hub-chrome-border)] bg-[color:var(--hub-chrome-well-mid)]' : 'border bg-white'}`}
                                 >
-                                    <table className="w-full text-left text-sm">
+                                    <table className={`w-full text-left ${embedded ? 'text-xs' : 'text-sm'}`}>
                                         <thead
                                             className={
                                                 embedded ? 'border-b border-[color:var(--hub-chrome-border-soft)] bg-[color:var(--hub-chrome-row-fill)]' : 'border-b bg-gray-50'
                                             }
                                         >
                                             <tr>
-                                                <th className="w-8 px-2 py-3"></th>
+                                                <th className="w-8 px-2 py-2"></th>
                                                 <th
-                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
+                                                    className={`px-3 py-2 font-medium ${embedded ? 'text-[10px] uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
                                                 >
                                                     Attivo
                                                 </th>
                                                 <th
-                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
+                                                    className={`px-3 py-2 font-medium ${embedded ? 'text-[10px] uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
                                                 >
                                                     Tipo
                                                 </th>
                                                 <th
-                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
+                                                    className={`px-3 py-2 font-medium ${embedded ? 'text-[10px] uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
                                                 >
                                                     Dispositivo
                                                 </th>
                                                 <th
-                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
+                                                    className={`px-3 py-2 font-medium ${embedded ? 'text-[10px] uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
                                                 >
                                                     Utente
                                                 </th>
                                                 <th
-                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
+                                                    className={`px-3 py-2 font-medium ${embedded ? 'text-[10px] uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
                                                 >
                                                     Prodotto
                                                 </th>
                                                 <th
-                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
+                                                    className={`px-3 py-2 font-medium ${embedded ? 'text-[10px] uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
                                                 >
                                                     Scadenza
                                                 </th>
                                                 {showAssistenzaButton && (
                                                     <th
-                                                        className={`w-32 px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
+                                                        className={`w-32 px-3 py-2 font-medium ${embedded ? 'text-[10px] uppercase tracking-wide text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}
                                                     >
                                                         Assistenza
                                                     </th>
                                                 )}
-                                                <th className={`px-4 py-3 text-right font-medium ${embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}></th>
+                                                <th className={`px-3 py-2 text-right font-medium ${embedded ? 'text-[color:var(--hub-chrome-text-muted)]' : 'text-gray-600'}`}></th>
                                             </tr>
                                         </thead>
                                         <tbody className={embedded ? 'divide-y divide-[color:var(--hub-chrome-border-soft)]' : 'divide-y'}>
@@ -855,10 +869,10 @@ const AntiVirusPage = ({
                                                         onDragOver={(e) => !readOnly && handleDragOver(e, index)}
                                                         onDrop={(e) => handleDrop(e, index)}
                                                     >
-                                                        <td className={`w-8 px-2 py-3 ${embedded ? 'text-[color:var(--hub-chrome-text-fainter)]' : 'text-gray-400'}`}>
+                                                        <td className={`w-8 px-2 py-2 ${embedded ? 'text-[color:var(--hub-chrome-text-fainter)]' : 'text-gray-400'}`}>
                                                             {readOnly ? <span className="block w-4" /> : <GripVertical size={16} className="cursor-grab active:cursor-grabbing" />}
                                                         </td>
-                                                        <td className="px-4 py-3">
+                                                        <td className="px-3 py-2">
                                                             <input
                                                                 type="checkbox"
                                                                 className={`h-4 w-4 rounded border-gray-300 ${embedded ? 'text-[color:var(--hub-accent)] focus:ring-[color:var(--hub-accent)]' : 'text-indigo-600 focus:ring-indigo-500'}`}
@@ -872,7 +886,7 @@ const AntiVirusPage = ({
                                                                 }}
                                                             />
                                                         </td>
-                                                        <td className="px-4 py-3 relative">
+                                                        <td className="px-3 py-2 relative">
                                                             {readOnly ? (
                                                                 <div
                                                                     className={`flex items-center gap-1 rounded p-1.5 ${embedded ? 'bg-[color:var(--hub-chrome-well)] text-[color:var(--hub-chrome-text-secondary)]' : 'bg-gray-50 text-gray-600'}`}
@@ -962,7 +976,7 @@ const AntiVirusPage = ({
                                                                 </>
                                                             )}
                                                         </td>
-                                                        <td className="px-4 py-3">
+                                                        <td className="px-3 py-2">
                                                             {id < 0 ? (
                                                                 <div className="space-y-1">
                                                                     <input
@@ -997,7 +1011,7 @@ const AntiVirusPage = ({
                                                                 </>
                                                             )}
                                                         </td>
-                                                        <td className="px-4 py-3">
+                                                        <td className="px-3 py-2">
                                                             {device.hostname && device.hostname !== '-' && device.hostname !== '' ? (
                                                                 <div className={`text-sm font-medium ${embedded ? 'text-[color:var(--hub-chrome-text-secondary)]' : 'text-gray-800'}`}>{device.hostname}</div>
                                                             ) : null}
@@ -1009,7 +1023,7 @@ const AntiVirusPage = ({
                                                                 ) : null
                                                             )}
                                                         </td>
-                                                        <td className="px-4 py-3">
+                                                        <td className="px-3 py-2">
                                                             {readOnly ? (
                                                                 <span className={embedded ? 'text-[color:var(--hub-chrome-text)]' : 'text-gray-900'}>{draft.product_name || '-'}</span>
                                                             ) : (
@@ -1026,7 +1040,7 @@ const AntiVirusPage = ({
                                                                 />
                                                             )}
                                                         </td>
-                                                        <td className="px-4 py-3">
+                                                        <td className="px-3 py-2">
                                                             {readOnly ? (
                                                                 <span className={embedded ? 'text-[color:var(--hub-chrome-text)]' : 'text-gray-900'}>
                                                                     {draft.expiration_date ? new Date(draft.expiration_date).toLocaleDateString('it-IT') : '-'}
@@ -1035,7 +1049,7 @@ const AntiVirusPage = ({
                                                                 <input
                                                                     type="date"
                                                                     className={
-                                                                        embedded ? `${embedHubFieldCls} w-full min-h-[2.25rem]` : 'w-full rounded border px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-indigo-500'
+                                                                        embedded ? `${embedHubFieldCls} w-full` : 'w-full rounded border px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-indigo-500'
                                                                     }
                                                                     value={draft.expiration_date || ''}
                                                                     onChange={(e) => updateDraft(id, 'expiration_date', e.target.value)}
@@ -1044,7 +1058,7 @@ const AntiVirusPage = ({
                                                             )}
                                                         </td>
                                                         {showAssistenzaButton && (
-                                                            <td className="px-4 py-3">
+                                                            <td className="px-3 py-2">
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => onOpenTicket({
@@ -1063,7 +1077,7 @@ const AntiVirusPage = ({
                                                                 </button>
                                                             </td>
                                                         )}
-                                                        <td className="px-4 py-3 text-right">
+                                                        <td className="px-3 py-2 text-right">
                                                             {!readOnly && (
                                                                 <button
                                                                     type="button"
