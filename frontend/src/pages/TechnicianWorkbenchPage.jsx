@@ -103,8 +103,20 @@ function loadSidebarCollapsed() {
   }
 }
 
-function NavGroup({ title, open, onToggle, children, railMode }) {
+function NavGroup({ title, open, onToggle, children, railMode, railIcon: RailIcon = null, hideChildrenInRail = false }) {
   if (railMode) {
+    if (hideChildrenInRail) {
+      return (
+        <button
+          type="button"
+          title={title}
+          aria-label={title}
+          className="mx-auto mt-2 flex w-full max-w-[3rem] items-center justify-center rounded-xl border border-transparent py-2.5 text-[color:var(--hub-chrome-text-muted)] transition hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-accent)] hover:[border-color:var(--hub-accent-border)]"
+        >
+          {RailIcon ? <RailIcon size={20} aria-hidden /> : <span className="text-xs font-semibold">{title}</span>}
+        </button>
+      );
+    }
     return <div className="mt-1 space-y-1 border-t border-[color:var(--hub-chrome-border-soft)] pt-2">{children}</div>;
   }
   return (
@@ -1227,7 +1239,14 @@ export default function TechnicianWorkbenchPage({
           />
 
           <div className={railMode ? 'w-full pt-2' : 'pt-2'}>
-            <NavGroup railMode={railMode} title="Altri progetti" open={navProjectsOpen} onToggle={() => setNavProjectsOpen((o) => !o)}>
+            <NavGroup
+              railMode={railMode}
+              title="Altri progetti"
+              railIcon={Package}
+              hideChildrenInRail
+              open={navProjectsOpen}
+              onToggle={() => setNavProjectsOpen((o) => !o)}
+            >
               <SidebarLink
                 railMode={railMode}
                 hubSurfaceMode={hubSurfaceMode}
@@ -1273,7 +1292,14 @@ export default function TechnicianWorkbenchPage({
         >
           {isTechnician && (
             <div className={railMode ? 'w-full' : 'w-full'}>
-              <NavGroup railMode={railMode} title="Gestione" open={navManagementOpen} onToggle={() => setNavManagementOpen((o) => !o)}>
+              <NavGroup
+                railMode={railMode}
+                title="Gestione"
+                railIcon={Layers}
+                hideChildrenInRail
+                open={navManagementOpen}
+                onToggle={() => setNavManagementOpen((o) => !o)}
+              >
                 <NavGroup
                   railMode={railMode}
                   title="Clienti"
