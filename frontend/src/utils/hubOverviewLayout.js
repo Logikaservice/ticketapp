@@ -8,7 +8,7 @@ export const HUB_MAX_ROW_SPAN = 4;
 export const STORAGE_HUB_LAYOUT = 'techHubOverviewLayout';
 
 /** Incrementare quando si aggiungono moduli da fondere nei layout salvati (vedi `loadHubLayout`). */
-export const HUB_LAYOUT_STORAGE_VERSION = 6;
+export const HUB_LAYOUT_STORAGE_VERSION = 7;
 
 export const HUB_MODULE_META = {
   'new-ticket': { label: 'Nuovo ticket', category: 'Azioni', defaultPlacement: { col: 1, row: 1, w: 3, h: 1 } },
@@ -58,9 +58,9 @@ export const HUB_MODULE_META = {
   'dispositivi-space': {
     label: 'Dispositivi · Spazio disco',
     category: 'KPI',
-    resizeBounds: { minW: 4, maxW: 7, minH: 2, maxH: 4 },
-    // Default “come Contratti attivi”: stessa larghezza iniziale (ridimensionabile).
-    defaultPlacement: { col: 1, row: 9, w: 5, h: 3 }
+    resizeBounds: { minW: 3, maxW: 7, minH: 2, maxH: 4 },
+    // Default: può stare anche “stretta” (w=3), ma resta ampliabile.
+    defaultPlacement: { col: 1, row: 9, w: 3, h: 3 }
   },
   'launch-speedtest': {
     label: 'Speed test',
@@ -240,6 +240,9 @@ export function loadHubLayout(userId) {
         items = sanitizeLayoutItems(insertModuleWithDefaultPlacement(items, 'dispositivi-space'));
       }
       if (fileVer < 6 && items.some((x) => x.id === 'dispositivi-space')) {
+        items = sanitizeLayoutItems(restoreSingleCardDefaults(items, 'dispositivi-space'));
+      }
+      if (fileVer < 7 && items.some((x) => x.id === 'dispositivi-space')) {
         items = sanitizeLayoutItems(restoreSingleCardDefaults(items, 'dispositivi-space'));
       }
     }
