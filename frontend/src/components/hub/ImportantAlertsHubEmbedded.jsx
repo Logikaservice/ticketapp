@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   AlertCircle,
   AlertTriangle,
@@ -63,7 +63,9 @@ export default function ImportantAlertsHubEmbedded({
   onBack,
   onCreateTicketFromAlert,
   onRefreshHubAlerts,
-  onOpenManageAlerts = null
+  onOpenManageAlerts = null,
+  hubRefreshTick,
+  hubRefreshView
 }) {
   const rootStyle = useMemo(() => hubEmbeddedRootInlineStyle(accentHex), [accentHex]);
 
@@ -74,6 +76,16 @@ export default function ImportantAlertsHubEmbedded({
 
   const showManageAlertsBtn =
     currentUser?.ruolo === 'tecnico' && typeof onOpenManageAlerts === 'function';
+
+  useEffect(() => {
+    if (hubRefreshTick == null) return;
+    if (hubRefreshView !== 'avvisi') return;
+    try {
+      onRefreshHubAlerts?.();
+    } catch {
+      // ignore
+    }
+  }, [hubRefreshTick, hubRefreshView, onRefreshHubAlerts]);
 
   const createAlertsBtnStyle = useMemo(
     () => ({

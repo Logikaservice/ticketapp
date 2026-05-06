@@ -38,7 +38,9 @@ const CommAgentManager = ({
     onNavigateVpn,
     /** Incorporato nell’Hub tecnico (area centrale), stessi colori di Comunicazioni. */
     embedded = false,
-    accentHex: accentHexProp
+    accentHex: accentHexProp,
+    hubRefreshTick,
+    hubRefreshView
 }) => {
     const [activeTab, setActiveTab] = useState('agents');
     const [agents, setAgents] = useState([]);
@@ -81,6 +83,15 @@ const CommAgentManager = ({
         setLoading(true);
         Promise.all([fetchAgents(), fetchClients()]).finally(() => setLoading(false));
     }, [fetchAgents, fetchClients]);
+
+    useEffect(() => {
+        if (!embedded) return;
+        if (hubRefreshTick == null) return;
+        if (hubRefreshView !== 'comm-agent-manager') return;
+        setLoading(true);
+        Promise.all([fetchAgents(), fetchClients()]).finally(() => setLoading(false));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hubRefreshTick, hubRefreshView, embedded]);
 
     const handleDelete = async (agentId, machineName) => {
         if (!window.confirm(`Eliminare l'agent su "${machineName}"? L'agent smetterà di funzionare.`)) return;

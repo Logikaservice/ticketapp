@@ -19,7 +19,9 @@ const ContractsListModal = ({
     accentHex: accentHexProp,
     closeEmbedded,
     /** Apre il flusso di creazione contratto (es. ManageContractsModal dall’App). */
-    onOpenCreateContract = null
+    onOpenCreateContract = null,
+    hubRefreshTick,
+    hubRefreshView
 }) => {
     const dashboardAccentHex = useMemo(
         () => normalizeHex(accentHexProp) || getStoredTechHubAccent(),
@@ -79,6 +81,14 @@ const ContractsListModal = ({
     useEffect(() => {
         fetchContracts();
     }, [fetchContracts]);
+
+    useEffect(() => {
+        if (!embedded) return;
+        if (hubRefreshTick == null) return;
+        if (hubRefreshView !== 'contratti') return;
+        fetchContracts();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hubRefreshTick, hubRefreshView, embedded]);
 
     // Listener per refresh automatico quando viene creato un nuovo contratto
     useEffect(() => {

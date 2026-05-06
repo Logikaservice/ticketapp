@@ -37,7 +37,9 @@ const CommAgentDashboard = ({
     /** Se true: niente overlay full-screen; pensato per l’Hub tecnico (area centrale). */
     embedded = false,
     /** Accento tema (coerente con Hub); default da localStorage come l’Hub. */
-    accentHex: accentHexProp
+    accentHex: accentHexProp,
+    hubRefreshTick,
+    hubRefreshView
 }) => {
     const th = useMemo(
         () =>
@@ -103,6 +105,15 @@ const CommAgentDashboard = ({
         Promise.all([fetchAgents(), fetchCompanies(), fetchMessages()])
             .finally(() => setLoading(false));
     }, [fetchAgents, fetchCompanies, fetchMessages]);
+
+    useEffect(() => {
+        if (!embedded) return;
+        if (hubRefreshTick == null) return;
+        if (hubRefreshView !== 'comunicazioni') return;
+        setLoading(true);
+        Promise.all([fetchAgents(), fetchCompanies(), fetchMessages()]).finally(() => setLoading(false));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hubRefreshTick, hubRefreshView, embedded]);
 
     // Send message
     const handleSend = async () => {

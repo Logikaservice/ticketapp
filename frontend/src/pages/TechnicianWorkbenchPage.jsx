@@ -1640,6 +1640,8 @@ export default function TechnicianWorkbenchPage({
                 onCreateTicketFromAlert={onCreateTicketFromAlert ?? undefined}
                 onRefreshHubAlerts={onRefreshHubAlerts ?? undefined}
                 onOpenManageAlerts={onOpenManageAlerts ?? undefined}
+                hubRefreshTick={hubRefreshTick}
+                hubRefreshView={hubRefreshViewRef.current}
               />
             ) : hubCenterView === 'contratti' ? (
               <ContractsListModal
@@ -1649,6 +1651,8 @@ export default function TechnicianWorkbenchPage({
                 getAuthHeader={getAuthHeader}
                 notify={notify}
                 onOpenCreateContract={onOpenCreateContract ?? undefined}
+                hubRefreshTick={hubRefreshTick}
+                hubRefreshView={hubRefreshViewRef.current}
               />
             ) : hubCenterView === 'tickets' && ticketHubListProps ? (
               <TicketsHubEmbedded
@@ -1667,6 +1671,8 @@ export default function TechnicianWorkbenchPage({
                 onNavigateTicketTabState={ticketHubListProps.onNavigateTicketTabState}
                 onOpenUnreadModal={ticketHubExtras?.onOpenUnreadMessages}
                 hubUnreadMessagesTotal={ticketHubExtras?.unreadMessagesTotal ?? 0}
+                hubRefreshTick={hubRefreshTick}
+                hubRefreshView={hubRefreshViewRef.current}
               />
             ) : hubCenterView === 'email' ? (
               <EmailPage
@@ -1687,6 +1693,8 @@ export default function TechnicianWorkbenchPage({
                 onNavigateSpeedTest={canSpeedTest ? () => setHubCenterView('speedtest') : undefined}
                 onNavigateVpn={() => nav?.onOpenVpn?.()}
                 onNavigateHome={() => setHubCenterView('overview')}
+                hubRefreshTick={hubRefreshTick}
+                hubRefreshView={hubRefreshViewRef.current}
               />
             ) : hubCenterView === 'office' ? (
               <OfficePage
@@ -1852,6 +1860,8 @@ export default function TechnicianWorkbenchPage({
                 onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
                 onNavigateCommAgentManager={() => setHubCenterView('comm-agent-manager')}
                 onNavigateVpn={commAgentNavMerged.onNavigateVpn}
+                hubRefreshTick={hubRefreshTick}
+                hubRefreshView={hubRefreshViewRef.current}
               />
             ) : hubCenterView === 'comm-agent-manager' ? (
               <CommAgentManager
@@ -1872,6 +1882,8 @@ export default function TechnicianWorkbenchPage({
                 }
                 onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
                 onNavigateVpn={commAgentNavMerged.onNavigateVpn}
+                hubRefreshTick={hubRefreshTick}
+                hubRefreshView={hubRefreshViewRef.current}
               />
             ) : (
               <HubOverviewSection
@@ -1896,6 +1908,8 @@ export default function TechnicianWorkbenchPage({
                 onOpenEmailExpiries={openEmailExpiries}
                 hubOfficeExpiryCount={officeExpiryCount}
                 onOpenOfficeExpiries={openOfficeExpiries}
+                hubRefreshTick={hubRefreshTick}
+                hubRefreshView={hubRefreshViewRef.current}
               />
             )}
           </div>

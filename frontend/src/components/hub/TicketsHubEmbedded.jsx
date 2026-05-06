@@ -56,13 +56,31 @@ export default function TicketsHubEmbedded({
   onOpenNewTicket,
   onNavigateTicketTabState,
   onOpenUnreadModal,
-  hubUnreadMessagesTotal = 0
+  hubUnreadMessagesTotal = 0,
+  hubRefreshTick,
+  hubRefreshView
 }) {
   const [selectedCompany, setSelectedCompany] = useState('');
   const visibleTickets = useVisibleTicketsForHub({ currentUser, users, tickets, selectedCompany });
 
   const [advancedSearchTerm, setAdvancedSearchTerm] = useState('');
   const [advancedSearchResults, setAdvancedSearchResults] = useState([]);
+
+  useEffect(() => {
+    if (hubRefreshTick == null) return;
+    if (hubRefreshView !== 'tickets') return;
+    setAdvancedSearchTerm('');
+    setAdvancedSearchResults([]);
+    // Se esiste un handler di refresh (dipende da chi monta la lista), chiamalo.
+    try {
+      handlers?.handleRefreshTickets?.();
+      handlers?.refreshTickets?.();
+      handlers?.fetchTickets?.();
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hubRefreshTick, hubRefreshView]);
 
   useEffect(() => {
     const q = advancedSearchTerm.trim();

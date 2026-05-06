@@ -46,7 +46,9 @@ const EmailPage = ({
   embedded = false,
   /** Accordo col CommAgentDashboard: pulsante «Panoramica Hub». */
   closeEmbedded,
-  accentHex: accentHexProp
+  accentHex: accentHexProp,
+  hubRefreshTick,
+  hubRefreshView
 }) => {
   const accent = useMemo(() => normalizeHex(accentHexProp) || getStoredTechHubAccent(), [accentHexProp]);
   const isCliente = currentUser?.ruolo === 'cliente';
@@ -65,6 +67,7 @@ const EmailPage = ({
   const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId);
   const [companies, setCompanies] = useState([]);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
+  const [refreshSeq, setRefreshSeq] = useState(0);
 
   // Sincronizza lo stato locale con initialCompanyId se cambia esternamente
   useEffect(() => {
@@ -249,7 +252,7 @@ const EmailPage = ({
       }
     };
     fetchCompanies();
-  }, [getAuthHeader]);
+  }, [getAuthHeader, refreshSeq]);
 
   useEffect(() => {
     if (selectedCompanyValid) {
@@ -264,7 +267,15 @@ const EmailPage = ({
     }
     setVisiblePasswords({});
     setLoadingPasswords({});
-  }, [selectedCompanyId, companies, loadingCompanies, selectedCompanyValid]);
+  }, [selectedCompanyId, companies, loadingCompanies, selectedCompanyValid, refreshSeq]);
+
+  // Refresh "locale" da Hub (pulsante "Aggiorna vista" nella topbar Hub)
+  useEffect(() => {
+    if (!embedded) return;
+    if (hubRefreshTick == null) return;
+    if (hubRefreshView !== 'email') return;
+    setRefreshSeq((s) => s + 1);
+  }, [hubRefreshTick, hubRefreshView, embedded]);
 
   // Fetch quota data when companyName changes
   useEffect(() => {
