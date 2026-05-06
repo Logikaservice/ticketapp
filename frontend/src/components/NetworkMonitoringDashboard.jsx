@@ -3124,7 +3124,7 @@ const NetworkMonitoringDashboard = ({
               }
             >
               <h2 className={`${eH2} flex items-center gap-2`}>
-                <Building size={24} className={embedded ? 'text-[color:var(--hub-accent)]' : 'text-purple-600'} />
+                <Building size={embedded ? 20 : 24} className={embedded ? 'text-[color:var(--hub-accent)]' : 'text-purple-600'} />
                 {companies.find(c => c.id === selectedCompanyId)?.azienda || 'Dispositivi'}
               </h2>
               <div className="flex flex-wrap items-center gap-2">
@@ -3142,7 +3142,7 @@ const NetworkMonitoringDashboard = ({
                     }`}
                   title={readOnly ? 'Non disponibile in modalità visualizzazione' : "Resetta l'avviso di 'Disconnessioni rilevate' per tutti i dispositivi di questa azienda"}
                 >
-                  <Activity size={18} />
+                  <Activity size={embedded ? 16 : 18} />
                   <span className="text-xs font-medium">Reset Errori</span>
                 </button>
                 <button
@@ -3159,7 +3159,7 @@ const NetworkMonitoringDashboard = ({
                   title={showPingFailuresOnly ? 'Mostra tutti' : 'Mostra solo con disconnessioni'}
                 >
                   <AlertTriangle
-                    size={18}
+                    size={embedded ? 16 : 18}
                     className={
                       showPingFailuresOnly
                         ? embedded
@@ -3188,12 +3188,12 @@ const NetworkMonitoringDashboard = ({
                 >
                   {showOfflineDevices ? (
                     <>
-                      <EyeOff size={18} />
+                      <EyeOff size={embedded ? 16 : 18} />
                       <span className="text-xs font-medium">Nascondi Offline</span>
                     </>
                   ) : (
                     <>
-                      <Eye size={18} />
+                      <Eye size={embedded ? 16 : 18} />
                       <span className="text-xs font-medium">Mostra Offline</span>
                     </>
                   )}
@@ -3206,7 +3206,7 @@ const NetworkMonitoringDashboard = ({
                   title="Genera report stampabile (include tutti i dispositivi)"
                   disabled={companyDevices.length === 0}
                 >
-                  <FileText size={18} />
+                  <FileText size={embedded ? 16 : 18} />
                   <span className="text-xs font-medium">Report Stampabile</span>
                 </button>
 
@@ -3216,7 +3216,7 @@ const NetworkMonitoringDashboard = ({
                   className={`ml-1 rounded-lg p-1.5 transition-colors ${embedded ? 'text-[color:var(--hub-chrome-text-faint)] hover:bg-[color:var(--hub-chrome-hover)] hover:text-[color:var(--hub-chrome-text)]' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
                   title="Chiudi vista azienda"
                 >
-                  <X size={24} />
+                  <X size={embedded ? 20 : 24} />
                 </button>
               </div>
             </div>
