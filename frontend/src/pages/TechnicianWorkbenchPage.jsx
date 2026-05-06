@@ -801,6 +801,10 @@ export default function TechnicianWorkbenchPage({
   const isNetworkMonitoringView = hubCenterView === 'network-monitoring';
   const hideRightPanel = isNetworkMonitoringView || hubCenterView === 'dispositivi';
 
+  // Refresh "locale" della vista Hub corrente (passato come prop alle pagine)
+  const [hubRefreshTick, setHubRefreshTick] = useState(0);
+  const hubRefreshViewRef = useRef('overview');
+
   // Quando apri Monitoraggio rete, comprimi automaticamente la sidebar sinistra (più spazio ai dati).
   useEffect(() => {
     if (!minMd) return;
@@ -1581,6 +1585,8 @@ export default function TechnicianWorkbenchPage({
                 title="Aggiorna vista"
                 onClick={() => {
                   try {
+                    hubRefreshViewRef.current = hubCenterView;
+                    setHubRefreshTick((t) => t + 1);
                     let ev;
                     if (typeof window.CustomEvent === 'function') {
                       ev = new CustomEvent('hub:refresh', { detail: { view: hubCenterView } });
@@ -1702,6 +1708,8 @@ export default function TechnicianWorkbenchPage({
                 onNavigateSpeedTest={canSpeedTest ? () => setHubCenterView('speedtest') : undefined}
                 onNavigateVpn={() => nav?.onOpenVpn?.()}
                 onNavigateHome={() => setHubCenterView('overview')}
+                hubRefreshTick={hubRefreshTick}
+                hubRefreshView={hubRefreshViewRef.current}
               />
             ) : hubCenterView === 'telegram' ? (
               <TelegramNotificationsPage
@@ -1710,6 +1718,8 @@ export default function TechnicianWorkbenchPage({
                 closeEmbedded={() => setHubCenterView('overview')}
                 getAuthHeader={getAuthHeader}
                 currentUser={currentUser}
+                hubRefreshTick={hubRefreshTick}
+                hubRefreshView={hubRefreshViewRef.current}
               />
             ) : hubCenterView === 'antivirus' ? (
               <AntiVirusPage
@@ -1735,6 +1745,8 @@ export default function TechnicianWorkbenchPage({
                 onNavigateVpn={() => nav?.onOpenVpn?.()}
                 onNavigateLSight={() => nav?.onOpenLSight?.()}
                 onNavigateHome={() => setHubCenterView('overview')}
+                hubRefreshTick={hubRefreshTick}
+                hubRefreshView={hubRefreshViewRef.current}
               />
             ) : hubCenterView === 'dispositivi' ? (
               <DispositiviAziendaliPage
@@ -1761,6 +1773,8 @@ export default function TechnicianWorkbenchPage({
                 onNavigateHome={() => setHubCenterView('overview')}
                 onNavigateCommAgent={() => setHubCenterView('comunicazioni')}
                 onNavigateCommAgentManager={() => setHubCenterView('comm-agent-manager')}
+                hubRefreshTick={hubRefreshTick}
+                hubRefreshView={hubRefreshViewRef.current}
               />
             ) : hubCenterView === 'speedtest' && canSpeedTest ? (
               <SpeedTestPage
@@ -1812,6 +1826,8 @@ export default function TechnicianWorkbenchPage({
                     onGloballyCompanyChange?.(companyId ?? null);
                     nav?.onOpenMappatura?.();
                   }}
+                  hubRefreshTick={hubRefreshTick}
+                  hubRefreshView={hubRefreshViewRef.current}
                 />
               </div>
             ) : hubCenterView === 'comunicazioni' ? (

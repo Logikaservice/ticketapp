@@ -33,7 +33,9 @@ const OfficePage = ({
   embedded = false,
   closeEmbedded,
   accentHex: accentHexProp,
-  hubSurfaceMode: hubSurfaceModeProp = 'dark'
+  hubSurfaceMode: hubSurfaceModeProp = 'dark',
+  hubRefreshTick = 0,
+  hubRefreshView = ''
 }) => {
   const accent = useMemo(() => normalizeHex(accentHexProp) || getStoredTechHubAccent(), [accentHexProp]);
   const isCliente = currentUser?.ruolo === 'cliente';
@@ -281,6 +283,14 @@ const OfficePage = ({
     window.addEventListener('hub:refresh', handler);
     return () => window.removeEventListener('hub:refresh', handler);
   }, [embedded, refreshOfficeData]);
+
+  // Fallback robusto: refresh via prop (non dipende da CustomEvent)
+  useEffect(() => {
+    if (!embedded) return;
+    if (hubRefreshView !== 'office') return;
+    if (!hubRefreshTick) return;
+    refreshOfficeData();
+  }, [embedded, hubRefreshTick, hubRefreshView, refreshOfficeData]);
 
   const loadDownloadLinks = useCallback(async (azienda) => {
     if (!azienda || !getAuthHeader) return;

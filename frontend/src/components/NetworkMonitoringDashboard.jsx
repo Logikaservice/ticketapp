@@ -83,7 +83,9 @@ const NetworkMonitoringDashboard = ({
   onOpenTicket = null,
   embedded = false,
   closeEmbedded = null,
-  accentHex: accentHexProp = null
+  accentHex: accentHexProp = null,
+  hubRefreshTick = 0,
+  hubRefreshView = ''
 }) => {
   const updateTimeoutRef = useRef(null);
   const [devices, setDevices] = useState([]);
@@ -1257,6 +1259,17 @@ const NetworkMonitoringDashboard = ({
     window.addEventListener('hub:refresh', handler);
     return () => window.removeEventListener('hub:refresh', handler);
   }, [embedded, loadDevices, loadChanges, loadCompanyDevices, selectedCompanyId]);
+
+  // Fallback robusto: refresh via prop (non dipende da CustomEvent)
+  useEffect(() => {
+    if (!embedded) return;
+    if (hubRefreshView !== 'network-monitoring') return;
+    if (!hubRefreshTick) return;
+    if (document.visibilityState !== 'visible') return;
+    loadDevices(true);
+    loadChanges(true);
+    if (selectedCompanyId) loadCompanyDevices(selectedCompanyId, true);
+  }, [embedded, hubRefreshTick, hubRefreshView, loadDevices, loadChanges, loadCompanyDevices, selectedCompanyId]);
 
   // Auto-refresh ogni 30 secondi - DISABILITATO se il modal di creazione è aperto
   useEffect(() => {

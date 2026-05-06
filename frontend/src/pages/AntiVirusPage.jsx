@@ -48,7 +48,9 @@ const AntiVirusPage = ({
   embedded = false,
   closeEmbedded,
   accentHex: accentHexProp,
-  hubSurfaceMode: hubSurfaceModeProp = 'dark'
+  hubSurfaceMode: hubSurfaceModeProp = 'dark',
+  hubRefreshTick = 0,
+  hubRefreshView = ''
 }) => {
     const showAssistenzaButton = readOnly && typeof onOpenTicket === 'function';
     const accent = useMemo(() => normalizeHex(accentHexProp) || getStoredTechHubAccent(), [accentHexProp]);
@@ -299,6 +301,14 @@ const AntiVirusPage = ({
         window.addEventListener('hub:refresh', handler);
         return () => window.removeEventListener('hub:refresh', handler);
     }, [embedded]);
+
+    // Fallback robusto: refresh via prop (non dipende da CustomEvent)
+    useEffect(() => {
+        if (!embedded) return;
+        if (hubRefreshView !== 'antivirus') return;
+        if (!hubRefreshTick) return;
+        setRefreshSeq((s) => s + 1);
+    }, [embedded, hubRefreshTick, hubRefreshView]);
 
     const handleSelectDevice = (device) => {
         if (readOnly) return;

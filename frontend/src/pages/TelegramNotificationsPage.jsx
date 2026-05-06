@@ -15,7 +15,9 @@ const TelegramNotificationsPage = ({
   onClose,
   getAuthHeader,
   currentUser,
-  accentHex: accentHexProp
+  accentHex: accentHexProp,
+  hubRefreshTick = 0,
+  hubRefreshView = ''
 }) => {
   const accent = useMemo(() => normalizeHex(accentHexProp) || getStoredTechHubAccent(), [accentHexProp]);
   const embeddedBackBtnStyle = useMemo(() => hubEmbeddedBackBtnInlineStyle(), []);
@@ -108,6 +110,14 @@ const TelegramNotificationsPage = ({
     window.addEventListener('hub:refresh', handler);
     return () => window.removeEventListener('hub:refresh', handler);
   }, [embedded, loadTelegramConfigs]);
+
+  // Fallback robusto: refresh via prop (non dipende da CustomEvent)
+  useEffect(() => {
+    if (!embedded) return;
+    if (hubRefreshView !== 'telegram') return;
+    if (!hubRefreshTick) return;
+    loadTelegramConfigs();
+  }, [embedded, hubRefreshTick, hubRefreshView, loadTelegramConfigs]);
 
   return (
     <div className={rootClassName} style={rootEmbeddedStyle}>

@@ -90,7 +90,9 @@ const DispositiviAziendaliPage = ({
   embedded = false,
   closeEmbedded,
   accentHex: accentHexProp,
-  highlightMac = null
+  highlightMac = null,
+  hubRefreshTick = 0,
+  hubRefreshView = ''
 }) => {
   const accent = useMemo(() => normalizeHex(accentHexProp) || getStoredTechHubAccent(), [accentHexProp]);
   const primaryBtnStyle = useMemo(
@@ -275,6 +277,16 @@ const DispositiviAziendaliPage = ({
     window.addEventListener('hub:refresh', handler);
     return () => window.removeEventListener('hub:refresh', handler);
   }, [embedded, loadCompanyDevices, loadMonitoringIps]);
+
+  // Fallback robusto: refresh via prop (non dipende da CustomEvent)
+  useEffect(() => {
+    if (!embedded) return;
+    if (hubRefreshView !== 'dispositivi') return;
+    if (!hubRefreshTick) return;
+    if (document.visibilityState !== 'visible') return;
+    loadCompanyDevices({ silent: true });
+    loadMonitoringIps();
+  }, [embedded, hubRefreshTick, hubRefreshView, loadCompanyDevices, loadMonitoringIps]);
 
   useEffect(() => {
     loadCompanyDevices();
