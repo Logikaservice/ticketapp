@@ -797,6 +797,13 @@ export default function TechnicianWorkbenchPage({
   const accentPickerRef = useRef(null);
   const minMd = useMinMd();
   const railMode = sidebarCollapsed && minMd;
+  const isNetworkMonitoringView = hubCenterView === 'network-monitoring';
+
+  // Quando apri Monitoraggio rete, comprimi automaticamente la sidebar sinistra (più spazio ai dati).
+  useEffect(() => {
+    if (!minMd) return;
+    if (isNetworkMonitoringView) setSidebarCollapsed(true);
+  }, [isNetworkMonitoringView, minMd]);
 
   // Evita scrollbar del documento quando l'Hub è aperto (Hub è fixed full-screen).
   useEffect(() => {
@@ -1745,37 +1752,39 @@ export default function TechnicianWorkbenchPage({
                 onNavigateLSight={() => nav?.onOpenLSight?.()}
               />
             ) : hubCenterView === 'network-monitoring' && canNetworkMonitoring ? (
-              <NetworkMonitoringDashboard
-                embedded
-                accentHex={accentHexEffective}
-                closeEmbedded={() => setHubCenterView('overview')}
-                getAuthHeader={getAuthHeader}
-                socket={socket}
-                initialView={hubNetworkInitialView}
-                onViewReset={() => setHubNetworkInitialView(null)}
-                initialCompanyId={selectedCompanyId}
-                onCompanyChange={onGloballyCompanyChange ?? undefined}
-                readOnly={
-                  currentUser?.ruolo === 'cliente' &&
-                  !!(currentUser?.admin_companies && currentUser.admin_companies.length > 0)
-                }
-                currentUser={currentUser}
-                onOpenTicket={onOpenTicketWithPrefill ?? undefined}
-                onNavigateOffice={() => setHubCenterView('office')}
-                onNavigateEmail={() => setHubCenterView('email')}
-                onNavigateAntiVirus={() => setHubCenterView('antivirus')}
-                onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
-                onNavigateNetworkMonitoring={null}
-                onNavigateMappatura={() => nav?.onOpenMappatura?.()}
-                onNavigateSpeedTest={canSpeedTest ? () => setHubCenterView('speedtest') : undefined}
-                onNavigateVpn={() => nav?.onOpenVpn?.()}
-                onNavigateLSight={() => nav?.onOpenLSight?.()}
-                onNavigateHome={() => setHubCenterView('overview')}
-                onNavigateToMappatura={(companyId) => {
-                  onGloballyCompanyChange?.(companyId ?? null);
-                  nav?.onOpenMappatura?.();
-                }}
-              />
+              <div className="min-h-0 flex-1 overflow-hidden text-[13px] leading-snug">
+                <NetworkMonitoringDashboard
+                  embedded
+                  accentHex={accentHexEffective}
+                  closeEmbedded={() => setHubCenterView('overview')}
+                  getAuthHeader={getAuthHeader}
+                  socket={socket}
+                  initialView={hubNetworkInitialView}
+                  onViewReset={() => setHubNetworkInitialView(null)}
+                  initialCompanyId={selectedCompanyId}
+                  onCompanyChange={onGloballyCompanyChange ?? undefined}
+                  readOnly={
+                    currentUser?.ruolo === 'cliente' &&
+                    !!(currentUser?.admin_companies && currentUser.admin_companies.length > 0)
+                  }
+                  currentUser={currentUser}
+                  onOpenTicket={onOpenTicketWithPrefill ?? undefined}
+                  onNavigateOffice={() => setHubCenterView('office')}
+                  onNavigateEmail={() => setHubCenterView('email')}
+                  onNavigateAntiVirus={() => setHubCenterView('antivirus')}
+                  onNavigateDispositiviAziendali={() => setHubCenterView('dispositivi')}
+                  onNavigateNetworkMonitoring={null}
+                  onNavigateMappatura={() => nav?.onOpenMappatura?.()}
+                  onNavigateSpeedTest={canSpeedTest ? () => setHubCenterView('speedtest') : undefined}
+                  onNavigateVpn={() => nav?.onOpenVpn?.()}
+                  onNavigateLSight={() => nav?.onOpenLSight?.()}
+                  onNavigateHome={() => setHubCenterView('overview')}
+                  onNavigateToMappatura={(companyId) => {
+                    onGloballyCompanyChange?.(companyId ?? null);
+                    nav?.onOpenMappatura?.();
+                  }}
+                />
+              </div>
             ) : hubCenterView === 'comunicazioni' ? (
               <CommAgentDashboard
                 embedded
@@ -1847,9 +1856,9 @@ export default function TechnicianWorkbenchPage({
 
         {/* Colonna destra */}
         <aside
-          className={`flex h-full min-h-0 shrink-0 flex-col gap-3 overflow-hidden border-[color:var(--hub-chrome-border-soft)] py-5 lg:w-[300px] lg:border-l xl:w-[320px] ${
-            hubCenterView === 'tickets' && ticketHubListProps ? 'px-2' : 'px-4'
-          }`}
+          className={`flex h-full min-h-0 shrink-0 flex-col gap-3 overflow-hidden border-[color:var(--hub-chrome-border-soft)] py-5 lg:border-l ${
+            isNetworkMonitoringView ? 'lg:w-[260px] xl:w-[280px]' : 'lg:w-[300px] xl:w-[320px]'
+          } ${hubCenterView === 'tickets' && ticketHubListProps ? 'px-2' : isNetworkMonitoringView ? 'px-3' : 'px-4'}`}
           style={{ backgroundColor: 'var(--hub-chrome-page)' }}
         >
           <HubTimeCard accentHex={accentHexEffective} />
