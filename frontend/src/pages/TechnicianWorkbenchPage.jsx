@@ -798,14 +798,12 @@ export default function TechnicianWorkbenchPage({
   const minMd = useMinMd();
   const railMode = sidebarCollapsed && minMd;
   const isNetworkMonitoringView = hubCenterView === 'network-monitoring';
-  const [hideLeftSidebarInNetwork, setHideLeftSidebarInNetwork] = useState(true);
 
   // Quando apri Monitoraggio rete, comprimi automaticamente la sidebar sinistra (più spazio ai dati).
   useEffect(() => {
     if (!minMd) return;
     if (isNetworkMonitoringView) {
       setSidebarCollapsed(true);
-      setHideLeftSidebarInNetwork(true);
     }
   }, [isNetworkMonitoringView, minMd]);
 
@@ -970,15 +968,14 @@ export default function TechnicianWorkbenchPage({
   return (
     <div className="fixed inset-0 z-[70] flex h-[100dvh] w-full flex-col overflow-hidden md:flex-row" style={accentStyle}>
       {/* Colonna sinistra */}
-      {!(isNetworkMonitoringView && minMd && hideLeftSidebarInNetwork) && (
-        <aside
-          className={`flex h-full w-full shrink-0 flex-col border-[color:var(--hub-chrome-border-soft)] py-5 text-[color:var(--hub-chrome-text-secondary)] transition-[width,padding] duration-200 ease-out max-md:w-full max-md:px-5 md:border-r ${
-            railMode
-              ? 'md:w-[76px] md:items-center md:px-2 md:overflow-visible'
-              : 'md:w-[280px] md:px-5 lg:w-[292px]'
-          }`}
-          style={{ backgroundColor: 'var(--hub-chrome-sidebar)', color: 'var(--hub-chrome-text-secondary)' }}
-        >
+      <aside
+        className={`flex h-full w-full shrink-0 flex-col border-[color:var(--hub-chrome-border-soft)] py-5 text-[color:var(--hub-chrome-text-secondary)] transition-[width,padding] duration-200 ease-out max-md:w-full max-md:px-5 md:border-r ${
+          railMode
+            ? 'md:w-[76px] md:items-center md:px-2 md:overflow-visible'
+            : 'md:w-[280px] md:px-5 lg:w-[292px]'
+        }`}
+        style={{ backgroundColor: 'var(--hub-chrome-sidebar)', color: 'var(--hub-chrome-text-secondary)' }}
+      >
         <div ref={userMenuRef} className={`relative ${railMode ? 'flex w-full justify-center md:overflow-visible' : ''}`}>
           <button
             type="button"
@@ -1428,8 +1425,7 @@ export default function TechnicianWorkbenchPage({
             <HubLogikubeMark railMode={railMode} />
           </div>
         </div>
-        </aside>
-      )}
+      </aside>
 
       {/* Centro + destra */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:flex-row">
@@ -1439,17 +1435,7 @@ export default function TechnicianWorkbenchPage({
             style={{ backgroundColor: 'var(--hub-chrome-page)' }}
           >
             <div className="flex min-w-0 items-center gap-3 text-sm text-[color:var(--hub-chrome-text-faint)]">
-              <button
-                type="button"
-                className={`rounded-lg p-2 ${hubHoverIconBtn}`}
-                aria-label={isNetworkMonitoringView ? 'Mostra/Nascondi menu' : 'Navigazione'}
-                title={isNetworkMonitoringView ? (hideLeftSidebarInNetwork ? 'Mostra menu' : 'Nascondi menu') : 'Navigazione'}
-                onClick={
-                  isNetworkMonitoringView && minMd
-                    ? () => setHideLeftSidebarInNetwork((v) => !v)
-                    : undefined
-                }
-              >
+              <button type="button" className={`rounded-lg p-2 ${hubHoverIconBtn}`} aria-label="Navigazione">
                 <Layers size={20} />
               </button>
               <span className="hidden sm:inline text-[color:var(--hub-chrome-text-fainter)]">/</span>
@@ -1764,7 +1750,7 @@ export default function TechnicianWorkbenchPage({
                 onNavigateLSight={() => nav?.onOpenLSight?.()}
               />
             ) : hubCenterView === 'network-monitoring' && canNetworkMonitoring ? (
-              <div className="min-h-0 flex-1 overflow-hidden text-[12px] leading-snug">
+              <div className="min-h-0 flex-1 overflow-hidden text-[11px] leading-tight">
                 <NetworkMonitoringDashboard
                   embedded
                   accentHex={accentHexEffective}
@@ -1866,11 +1852,12 @@ export default function TechnicianWorkbenchPage({
           </div>
         </section>
 
-        {/* Colonna destra */}
+        {/* Colonna destra (su Monitoraggio rete la nascondiamo per dare spazio al centro) */}
+        {!isNetworkMonitoringView && (
         <aside
-          className={`flex h-full min-h-0 shrink-0 flex-col gap-3 overflow-hidden border-[color:var(--hub-chrome-border-soft)] py-5 lg:border-l ${
-            isNetworkMonitoringView ? 'lg:w-[260px] xl:w-[280px]' : 'lg:w-[300px] xl:w-[320px]'
-          } ${hubCenterView === 'tickets' && ticketHubListProps ? 'px-2' : isNetworkMonitoringView ? 'px-3' : 'px-4'}`}
+          className={`flex h-full min-h-0 shrink-0 flex-col gap-3 overflow-hidden border-[color:var(--hub-chrome-border-soft)] py-5 lg:w-[300px] lg:border-l xl:w-[320px] ${
+            hubCenterView === 'tickets' && ticketHubListProps ? 'px-2' : 'px-4'
+          }`}
           style={{ backgroundColor: 'var(--hub-chrome-page)' }}
         >
           <HubTimeCard accentHex={accentHexEffective} />
@@ -1980,6 +1967,7 @@ export default function TechnicianWorkbenchPage({
             </>
           )}
         </aside>
+        )}
       </div>
       <TemporarySuppliesSummaryHubModal
         open={fornitureResocontoOpen}
