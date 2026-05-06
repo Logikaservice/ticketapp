@@ -262,6 +262,20 @@ const DispositiviAziendaliPage = ({
     }
   }, [selectedCompanyId, onCompanyChange]);
 
+  // Refresh "locale" dalla topbar dell'Hub: non ricarica tutta l'app.
+  useEffect(() => {
+    if (!embedded) return;
+    const handler = (e) => {
+      const view = e?.detail?.view;
+      if (view !== 'dispositivi') return;
+      if (document.visibilityState !== 'visible') return;
+      loadCompanyDevices({ silent: true });
+      loadMonitoringIps();
+    };
+    window.addEventListener('hub:refresh', handler);
+    return () => window.removeEventListener('hub:refresh', handler);
+  }, [embedded, loadCompanyDevices, loadMonitoringIps]);
+
   useEffect(() => {
     loadCompanyDevices();
   }, [loadCompanyDevices]);

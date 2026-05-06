@@ -1243,6 +1243,21 @@ const NetworkMonitoringDashboard = ({
     loadDispositiviAziendaliByMac();
   }, [loadDevices, loadChanges, loadAgents, loadCompanies, loadDispositiviAziendaliByMac]);
 
+  // Refresh "locale" dalla topbar dell'Hub: non ricarica tutta l'app.
+  useEffect(() => {
+    if (!embedded) return;
+    const handler = (e) => {
+      const view = e?.detail?.view;
+      if (view !== 'network-monitoring') return;
+      if (document.visibilityState !== 'visible') return;
+      loadDevices(true);
+      loadChanges(true);
+      if (selectedCompanyId) loadCompanyDevices(selectedCompanyId, true);
+    };
+    window.addEventListener('hub:refresh', handler);
+    return () => window.removeEventListener('hub:refresh', handler);
+  }, [embedded, loadDevices, loadChanges, loadCompanyDevices, selectedCompanyId]);
+
   // Auto-refresh ogni 30 secondi - DISABILITATO se il modal di creazione è aperto
   useEffect(() => {
     if (!autoRefresh || showCreateAgentModal) return; // Non aggiornare se il modal è aperto

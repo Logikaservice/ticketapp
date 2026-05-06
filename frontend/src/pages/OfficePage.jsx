@@ -255,12 +255,24 @@ const OfficePage = ({
     setVisiblePasswords(v => { const n = { ...v }; delete n[key]; return n; });
   };
 
-  const refreshOfficeData = async () => {
+  const refreshOfficeData = useCallback(async () => {
     if (!selectedCompanyValid) return;
     setVisiblePasswords({});
     setLoadingPasswords({});
     await loadOfficeData(selectedCompanyId);
-  };
+  }, [loadOfficeData, selectedCompanyId, selectedCompanyValid]);
+
+  // Refresh "locale" dalla topbar dell'Hub: non ricarica tutta l'app.
+  useEffect(() => {
+    if (!embedded) return;
+    const handler = (e) => {
+      const view = e?.detail?.view;
+      if (view !== 'office') return;
+      refreshOfficeData();
+    };
+    window.addEventListener('hub:refresh', handler);
+    return () => window.removeEventListener('hub:refresh', handler);
+  }, [embedded, refreshOfficeData]);
 
   const loadDownloadLinks = useCallback(async (azienda) => {
     if (!azienda || !getAuthHeader) return;

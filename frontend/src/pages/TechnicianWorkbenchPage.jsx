@@ -1572,7 +1572,18 @@ export default function TechnicianWorkbenchPage({
                   <LayoutTemplate size={20} aria-hidden />
                 </button>
               )}
-              <button type="button" className={`p-2.5 ${hubHoverIconBtn}`} title="Aggiorna (decorativo)">
+              <button
+                type="button"
+                className={`p-2.5 ${hubHoverIconBtn}`}
+                title="Aggiorna vista"
+                onClick={() => {
+                  try {
+                    window.dispatchEvent(new CustomEvent('hub:refresh', { detail: { view: hubCenterView } }));
+                  } catch {
+                    // ignore
+                  }
+                }}
+              >
                 <RefreshCw size={20} />
               </button>
               <button type="button" className={`p-2.5 ${hubHoverIconBtn}`} title="Notifiche (decorativo)">
