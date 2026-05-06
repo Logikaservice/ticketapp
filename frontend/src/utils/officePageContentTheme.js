@@ -164,7 +164,7 @@ export function getOfficeContentTheme(embedded) {
     valXs: 'text-xs text-[color:var(--hub-chrome-text-secondary)]',
     hAttivo: 'mb-1 text-xs font-semibold text-[color:var(--hub-chrome-text-muted)]',
     pMutedItalicXs: 'text-xs italic text-[color:var(--hub-chrome-text-faint)]',
-    pBodySm: 'text-sm text-[color:var(--hub-chrome-text-secondary)]',
+    pBodySm: 'text-xs text-[color:var(--hub-chrome-text-secondary)]',
     pMutedSmItalic: 'text-sm italic text-[color:var(--hub-chrome-text-fainter)]',
     rowBorderT: (exp) =>
       exp ? 'border-t border-[color:var(--hub-chrome-msg-error-border)] pt-2' : 'border-t border-[color:var(--hub-chrome-border-soft)] pt-2',

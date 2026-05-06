@@ -1356,7 +1356,7 @@ const OfficePage = ({
                         .filter((x) => x.k && String(x.v ?? '').trim() !== '');
 
                       if (entries.length === 0) {
-                        return <p className={ox.pMutedItalicXs}>Nessun campo personalizzato trovato</p>;
+                        return null;
                       }
 
                       const numeric = [];
@@ -1399,7 +1399,7 @@ const OfficePage = ({
                         </div>
                       );
                     })() : (
-                      <p className={ox.pMutedItalicXs}>Nessun campo personalizzato trovato</p>
+                      null
                     )}
                   </div>
 
