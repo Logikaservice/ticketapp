@@ -724,6 +724,26 @@ export default function TechnicianWorkbenchPage({
     if (hubCenterView !== 'overview') setHubLayoutEditMode(false);
   }, [hubCenterView]);
 
+  // Repair automatico layout Hub: se un layout salvato (anche da backend) contiene collisioni/posizioni corrotte,
+  // lo normalizziamo una volta e lo persistiamo (evita sovrapposizioni e “effetto domino”).
+  useEffect(() => {
+    if (hubCenterView !== 'overview') return;
+    if (!hubLayout || !Array.isArray(hubLayout) || hubLayout.length === 0) return;
+    const repaired = sanitizeLayoutItems(hubLayout);
+    try {
+      if (JSON.stringify(repaired) !== JSON.stringify(hubLayout)) {
+        setHubLayout(repaired);
+        saveHubLayout(hubLayoutUserKey, repaired);
+        if (hubPrefsLoadedRef.current) {
+          persistTechHubPrefs({ layout: repaired });
+        }
+      }
+    } catch (_) {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hubCenterView, hubLayoutUserKey, persistTechHubPrefs]);
+
   useEffect(() => {
     if (hubEmbedEmailKick > 0) setHubCenterView('email');
   }, [hubEmbedEmailKick]);

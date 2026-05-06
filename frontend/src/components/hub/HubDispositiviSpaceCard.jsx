@@ -170,7 +170,7 @@ export default function HubDispositiviSpaceCard({
 
       <div
         className={`rounded-lg border ${
-          hubLight ? 'border-[color:var(--hub-chrome-border-soft)] bg-white' : 'border-white/[0.08] bg-black/15'
+          hubLight ? 'border-[color:var(--hub-chrome-border-soft)] bg-white' : 'border-white/[0.08] bg-white'
         }`}
       >
         <div className="custom-scrollbar min-h-0 max-h-[260px] overflow-y-auto px-3 py-2">
