@@ -55,7 +55,7 @@ const TicketItem = ({
   const photos = ticket.photos || [];
   const hasPhotos = photos.length > 0;
   const hubDarkChrome = hubEmbed && !hubEmbedLight;
-  const actionIconSize = hubEmbed ? 16 : 18;
+  const actionIconSize = hubEmbed ? 14 : 18;
   const ib = {
     mute: `rounded-full p-1 ${hubDarkChrome ? 'text-white/65 hover:bg-white/[0.1]' : 'text-gray-600 hover:bg-gray-100'}`,
     blue: `rounded-full p-1 ${hubDarkChrome ? 'text-sky-400 hover:bg-white/[0.1]' : 'text-blue-500 hover:bg-blue-100'}`,
@@ -421,7 +421,7 @@ const TicketItem = ({
             }
           >
             <Eye
-              size={18}
+              size={actionIconSize}
               className={
                 hubDarkChrome ? 'text-white opacity-95' : hubEmbedLight ? 'text-[color:var(--hub-accent)]' : undefined
               }
@@ -445,7 +445,7 @@ const TicketItem = ({
                 : 'flex w-full items-center justify-center gap-2 border-t border-green-200 bg-gradient-to-r from-green-100 via-green-50 to-green-100 px-4 py-3 text-sm font-semibold text-green-800 transition duration-200 hover:bg-gradient-to-r hover:from-green-200 hover:via-green-100 hover:to-green-200 hover:shadow-md'
             }
           >
-            <Check size={18} />
+            <Check size={actionIconSize} />
             Segna come risolto
           </button>
         )}
